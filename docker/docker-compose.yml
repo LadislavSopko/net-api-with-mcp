@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mcppoc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mcppoc_db}
+      POSTGRES_USER: ${POSTGRES_USER:-mcppoc_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - mcppoc_postgres_data:/var/lib/postgresql/data
+      - ./postgres:/docker-entrypoint-initdb.d:ro
+    networks:
+      - mcppoc_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mcppoc_user} -d ${POSTGRES_DB:-mcppoc_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres-init:
+    image: postgres:16-alpine
+    container_name: mcppoc_postgres_init
+    restart: "no"
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-mcppoc_user}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - mcppoc_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./postgres/init-db.sh:/init-db.sh:ro
+    command: /init-db.sh
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0.2
+    container_name: mcppoc_keycloak
+    restart: unless-stopped
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB:-keycloak}
+      KC_DB_USERNAME: ${POSTGRES_USER:-mcppoc_user}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    command: start-dev --import-realm
+    ports:
+      - "${KEYCLOAK_PORT:-8080}:8080"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+    networks:
+      - mcppoc_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # API service commented out for local development
+  # Run API locally with: dotnet run --project src/McpPoc.Api
+  # Connection string: Host=localhost;Port=5432;Database=mcppoc_db;Username=mcppoc_user;Password=<password>
+  # Keycloak Authority: http://localhost:8080/realms/mcppoc-realm
+
+  # api:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/Dockerfile
+  #   container_name: mcppoc_api
+  #   restart: unless-stopped
+  #   environment:
+  #     ASPNETCORE_ENVIRONMENT: Development
+  #     ASPNETCORE_URLS: http://+:8080
+  #     ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-mcppoc_db};Username=${POSTGRES_USER:-mcppoc_user};Password=${POSTGRES_PASSWORD}"
+  #     Keycloak__Authority: "http://keycloak:8080/realms/${KEYCLOAK_REALM:-mcppoc-realm}"
+  #     Keycloak__Audience: "${KEYCLOAK_CLIENT_ID:-mcppoc-api}"
+  #   ports:
+  #     - "${API_PORT:-5001}:8080"
+  #   networks:
+  #     - mcppoc_network
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     keycloak:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 30s
+
+volumes:
+  mcppoc_postgres_data:
+    name: mcppoc_postgres_data
+
+networks:
+  mcppoc_network:
+    name: mcppoc_network
+    driver: bridge

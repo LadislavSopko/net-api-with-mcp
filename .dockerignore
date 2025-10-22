@@ -1,0 +1,62 @@
+# Ignore build outputs
+**/bin/
+**/obj/
+**/out/
+
+# Ignore test results
+**/TestResults/
+**/*.trx
+**/*.coverage
+
+# Ignore IDE files
+**/.vs/
+**/.vscode/
+**/.idea/
+**/*.user
+**/*.suo
+**/*.userosscache
+**/*.sln.docstates
+
+# Ignore logs
+**/logs/
+**/*.log
+
+# Ignore Docker files
+**/.dockerignore
+**/docker-compose*
+**/Dockerfile*
+
+# Ignore Git
+**/.git/
+**/.gitignore
+**/.gitattributes
+
+# Ignore documentation
+**/docs/
+**/documentation/
+**/*.md
+!**/README.md
+
+# Ignore Mac files
+**/.DS_Store
+
+# Ignore node modules (if any)
+**/node_modules/
+
+# Ignore memory bank (not needed in container)
+**/mem-bank-mbel5/
+
+# Ignore task files
+**/tasks/
+
+# Ignore Claude config
+**/.claude/
+**/CLAUDE.md
+
+# Ignore temporary files
+**/tmp/
+**/temp/
+**/*.tmp
+**/*.temp
+**/*.swp
+**/*.swo
