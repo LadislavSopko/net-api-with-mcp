@@ -78,10 +78,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
         options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
         {
-            ValidateAudience = builder.Configuration.GetValue<bool>("Keycloak:ValidateAudience"),
-            ValidateIssuer = builder.Configuration.GetValue<bool>("Keycloak:ValidateIssuer"),
+            ValidateAudience = false,  // TODO: Configure Keycloak to add audience claim
+            ValidateIssuer = true,
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(5)
+            ValidateIssuerSigningKey = true
         };
 
         options.Events = new JwtBearerEvents
@@ -138,9 +138,9 @@ app.UseAuthorization();
 app.MapControllers();
 
 // ============================================
-// TEST: Map MCP endpoint
+// TEST: Map MCP endpoint with authentication
 // ============================================
-app.MapMcp("/mcp");  // Expose MCP at /mcp
+app.MapMcp("/mcp").RequireAuthorization();  // Expose MCP at /mcp with auth required
 
 app.Logger.LogInformation("===========================================");
 app.Logger.LogInformation("TEST: MCP + Controller Integration");

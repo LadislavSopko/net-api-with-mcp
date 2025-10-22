@@ -17,10 +17,11 @@ public class AuthenticationTests
     [Fact]
     public async Task Should_Return401_WhenAccessingUsersWithoutAuthentication()
     {
-        // Arrange - No authentication token
+        // Arrange - Create unauthenticated client
+        var unauthClient = _fixture.CreateClient();
 
         // Act
-        var response = await _fixture.HttpClient.GetAsync("/api/users");
+        var response = await unauthClient.GetAsync("/api/users");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
@@ -30,10 +31,11 @@ public class AuthenticationTests
     [Fact]
     public async Task Should_Return401_WhenAccessingUserByIdWithoutAuthentication()
     {
-        // Arrange - No authentication token
+        // Arrange - Create unauthenticated client
+        var unauthClient = _fixture.CreateClient();
 
         // Act
-        var response = await _fixture.HttpClient.GetAsync("/api/users/1");
+        var response = await unauthClient.GetAsync("/api/users/1");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
@@ -43,14 +45,15 @@ public class AuthenticationTests
     [Fact]
     public async Task Should_Return401_WhenCreatingUserWithoutAuthentication()
     {
-        // Arrange - No authentication token
+        // Arrange - Create unauthenticated client
+        var unauthClient = _fixture.CreateClient();
         var content = new StringContent(
             """{"name":"Test User","email":"test@example.com"}""",
             System.Text.Encoding.UTF8,
             "application/json");
 
         // Act
-        var response = await _fixture.HttpClient.PostAsync("/api/users", content);
+        var response = await unauthClient.PostAsync("/api/users", content);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
@@ -60,10 +63,11 @@ public class AuthenticationTests
     [Fact]
     public async Task Should_Return401_WhenDeletingUserWithoutAuthentication()
     {
-        // Arrange - No authentication token
+        // Arrange - Create unauthenticated client
+        var unauthClient = _fixture.CreateClient();
 
         // Act
-        var response = await _fixture.HttpClient.DeleteAsync("/api/users/1");
+        var response = await unauthClient.DeleteAsync("/api/users/1");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
