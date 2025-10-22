@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -78,7 +79,13 @@ public static class McpServerBuilderExtensions
                                 MarshalResult = UnwrapActionResult,
                                 SerializerOptions = serializerOptions
                             });
-                        return McpServerTool.Create(aiFunction, new McpServerToolCreateOptions { Services = services });
+
+                        // SDK automatically collects metadata including [Authorize] attributes
+                        // See: AIFunctionMcpServerTool.CreateMetadata in SDK
+                        return McpServerTool.Create(aiFunction, new McpServerToolCreateOptions
+                        {
+                            Services = services
+                        });
                     });
                 }
             }
