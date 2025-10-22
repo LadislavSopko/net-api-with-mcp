@@ -1,0 +1,10 @@
+---
+allowed-tools: Task, Bash, Glob, Grep, LS, ExitPlanMode, Read, Edit, MultiEdit, Write, NotebookRead, NotebookEdit, WebFetch, TodoWrite, WebSearch, mcp__zen__chat, mcp__zen__thinkdeep, mcp__zen__planner, mcp__zen__consensus, mcp__zen__codereview, mcp__zen__precommit, mcp__zen__debug, mcp__zen__secaudit, mcp__zen__docgen, mcp__zen__analyze, mcp__zen__refactor, mcp__zen__tracer, mcp__zen__testgen, mcp__zen__challenge, mcp__zen__listmodels, mcp__zen__version, mcp__brave-search__brave_web_search, mcp__brave-search__brave_local_search, mcp__sequential-thinking__sequentialthinking, mcp__context7__resolve-library-id, mcp__context7__get-library-docs, ListMcpResourcesTool, ReadMcpResourceTool, mcp__vs-mcp__GetDocumentOutline, mcp__vs-mcp__FindSymbols, mcp__vs-mcp__GetSymbolAtLocation, mcp__vs-mcp__FindSymbolDefinition, mcp__vs-mcp__ExecuteCommand, mcp__vs-mcp__GetProjectReferences, mcp__vs-mcp__GetMethodCalls, mcp__vs-mcp__CheckSelection, mcp__vs-mcp__FindSymbolUsages, mcp__vs-mcp__GetActiveFile, mcp__vs-mcp__ExecuteAsyncTest, mcp__vs-mcp__GetSelection, mcp__vs-mcp__GetSolutionTree, mcp__vs-mcp__GetInheritance, mcp__vs-mcp__TranslatePath, mcp__vs-mcp__GetMethodCallers, mcp__lmt__validateMermaidDiagram, mcp__cvm__load, mcp__cvm__loadFile, mcp__cvm__start, mcp__cvm__getTask, mcp__cvm__submitTask, mcp__cvm__status, mcp__cvm__list_executions, mcp__cvm__get_execution, mcp__cvm__set_current, mcp__cvm__delete_execution, mcp__cvm__list_programs, mcp__cvm__delete_program, mcp__cvm__restart
+description: Setup CSHARP .NET mindset (list of rules)
+---
+
+## Your task
+
+- Read (if not already done) MB skip progerss and docs subdir
+- Read (if not already done) .claude/commands/mind-sets/csharp-senior.md also eventual other mentioned files.
+- Read .claude/commands/mind-sets/tddab-planner.md also eventual other mentioned files.

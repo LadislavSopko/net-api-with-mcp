@@ -1,0 +1,51 @@
+# Planning Mode Config
+
+## Flag-Based Planning Control
+```yaml
+Planning_Flags:
+  --plan: "Force planning mode for any command"
+  --skip-plan: "Skip planning mode (execute immediately)"
+  default: "Execute immediately unless --plan flag is present"
+  
+Risk_Assessment:
+  description: "Users control planning through explicit flags"
+  recommendation: "Use --plan for risky ops that modify system state"
+```
+
+## Risk Assessment Patterns
+```yaml
+Risk Triggers:
+  Prod: deploy --env prod | migrate --rollback false
+  Data Loss: cleanup --all | migrate w/o --dry-run
+  System Wide: spawn --task | improve --iterate
+  Arch: design --api | troubleshoot --prod
+  
+Checkpoint Required:
+  - Before: deploy, migrate, cleanup --all
+  - During: Long-running improve --iterate
+  - After: Any operation with warnings
+
+Safety Overrides:
+  --no-plan: Skip planning only for SKIP_PLANNING commands
+  --plan: Force planning for any command
+  --dry-run: Safe preview mode, skip planning
+```
+
+## Planning Workflow
+```yaml
+Pre-Execution Check:
+  1. Parse command name and flags
+  2. Check REQUIRED_PLANNING list
+  3. Check special conditions (build --init)
+  4. If planning required → exit_plan_mode → await approval
+  5. Create checkpoint if risky
+  6. Proceed with execution
+
+Planning Content:
+  Required: Command intent, affected resources, risks, rollback plan
+  Optional: Time estimate, dependencies, validation steps
+  Format: Structured plan using exit_plan_mode tool
+```
+
+---
+*Planning mode configuration for systematic risk management*

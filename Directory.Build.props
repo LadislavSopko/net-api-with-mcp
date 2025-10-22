@@ -1,0 +1,22 @@
+﻿<Project>
+  <Import Project="Version.props" />
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <PropertyGroup>
+			<PackageProjectUrl>...</PackageProjectUrl>
+			<Authors>Ladislav Sopko</Authors>
+			<Company>0ics srl</Company>
+			<AssemblyVersion>$(MainVersion).$([System.DateTime]::Now.ToString("yy"))$([System.DateTime]::Now.DayOfYear.ToString("000"))</AssemblyVersion>
+			<FileVersion>$(MainVersion).$([System.DateTime]::Now.ToString("yy"))$([System.DateTime]::Now.DayOfYear.ToString("000"))</FileVersion>
+			<Version>$(MainVersion)</Version>
+			<PackageVersion>$(MainVersion)</PackageVersion>
+			<Copyright>Copyright © 0ics srl 2025</Copyright>
+			<LangVersion>latest</LangVersion>
+	</PropertyGroup>
+  
+  
+
+</Project>
