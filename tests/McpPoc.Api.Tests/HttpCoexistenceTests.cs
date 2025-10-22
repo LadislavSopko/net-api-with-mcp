@@ -13,8 +13,11 @@ public class HttpCoexistenceTests
     [Fact]
     public async Task Should_AccessUsersViaHttpApi_WhenMcpIsAlsoEnabled()
     {
+        // Arrange
+        var client = await _fixture.GetAuthenticatedClientAsync();
+
         // Act
-        var response = await _fixture.HttpClient.GetAsync("/api/users");
+        var response = await client.GetAsync("/api/users");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK, "HTTP API should still work");
@@ -26,8 +29,11 @@ public class HttpCoexistenceTests
     [Fact]
     public async Task Should_GetUserByIdViaHttp_WhenMcpIsAlsoEnabled()
     {
+        // Arrange
+        var client = await _fixture.GetAuthenticatedClientAsync();
+
         // Act
-        var response = await _fixture.HttpClient.GetAsync("/api/users/1");
+        var response = await client.GetAsync("/api/users/1");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -39,8 +45,11 @@ public class HttpCoexistenceTests
     [Fact]
     public async Task Should_DeleteViaHttp_EvenThoughNotExposedAsMcpTool()
     {
+        // Arrange
+        var client = await _fixture.GetAuthenticatedClientAsync();
+
         // Act
-        var response = await _fixture.HttpClient.DeleteAsync("/api/users/1");
+        var response = await client.DeleteAsync("/api/users/1");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NoContent, "Delete HTTP endpoint should work");

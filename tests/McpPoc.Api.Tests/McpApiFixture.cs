@@ -9,39 +9,28 @@ namespace McpPoc.Api.Tests;
 public class McpApiFixture : WebApplicationFactory<Program>
 {
     private readonly KeycloakTokenHelper _tokenHelper;
-    private string? _cachedToken;
-
-    public HttpClient HttpClient { get; }
+    private readonly Dictionary<string, string> _tokenCache;
 
     public McpApiFixture()
     {
         _tokenHelper = new KeycloakTokenHelper();
-
-        HttpClient = CreateClient(new WebApplicationFactoryClientOptions
-        {
-            BaseAddress = new Uri("http://localhost")
-        });
-
-        // Try to get token and set it on HttpClient
-        // If Keycloak is not available, tests will fail with 401
-        try
-        {
-            _cachedToken = _tokenHelper.GetClientCredentialsTokenAsync().GetAwaiter().GetResult();
-            HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _cachedToken);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Warning: Could not get Keycloak token: {ex.Message}");
-            Console.WriteLine("Tests requiring authentication will fail with 401");
-        }
+        _tokenCache = new Dictionary<string, string>();
     }
 
     /// <summary>
-    /// Get authenticated HttpClient with fresh token
+    /// Get HttpClient with authentication using client credentials flow.
+    /// Tokens are cached for performance.
     /// </summary>
     public async Task<HttpClient> GetAuthenticatedClientAsync()
     {
-        var token = await _tokenHelper.GetClientCredentialsTokenAsync();
+        const string cacheKey = "client_credentials";
+
+        if (!_tokenCache.TryGetValue(cacheKey, out var token))
+        {
+            token = await _tokenHelper.GetClientCredentialsTokenAsync();
+            _tokenCache[cacheKey] = token;
+        }
+
         var client = CreateClient(new WebApplicationFactoryClientOptions
         {
             BaseAddress = new Uri("http://localhost")
@@ -51,11 +40,19 @@ public class McpApiFixture : WebApplicationFactory<Program>
     }
 
     /// <summary>
-    /// Get authenticated HttpClient for specific user
+    /// Get HttpClient authenticated as specific user (for role-based testing).
+    /// Tokens are cached per user for performance.
     /// </summary>
     public async Task<HttpClient> GetAuthenticatedClientAsync(string username, string password)
     {
-        var token = await _tokenHelper.GetPasswordTokenAsync(username, password);
+        string cacheKey = $"user:{username}";
+
+        if (!_tokenCache.TryGetValue(cacheKey, out var token))
+        {
+            token = await _tokenHelper.GetPasswordTokenAsync(username, password);
+            _tokenCache[cacheKey] = token;
+        }
+
         var client = CreateClient(new WebApplicationFactoryClientOptions
         {
             BaseAddress = new Uri("http://localhost")
@@ -64,13 +61,15 @@ public class McpApiFixture : WebApplicationFactory<Program>
         return client;
     }
 
-    protected override void Dispose(bool disposing)
+    /// <summary>
+    /// Get unauthenticated HttpClient (for testing 401 responses)
+    /// </summary>
+    public HttpClient GetUnauthenticatedClient()
     {
-        if (disposing)
+        return CreateClient(new WebApplicationFactoryClientOptions
         {
-            HttpClient.Dispose();
-        }
-        base.Dispose(disposing);
+            BaseAddress = new Uri("http://localhost")
+        });
     }
 }
 

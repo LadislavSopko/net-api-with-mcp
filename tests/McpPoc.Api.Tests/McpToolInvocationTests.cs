@@ -6,15 +6,18 @@ namespace McpPoc.Api.Tests;
 public class McpToolInvocationTests : IAsyncLifetime
 {
     private readonly McpApiFixture _fixture;
-    private readonly McpClientHelper _mcpClient;
+    private McpClientHelper _mcpClient = null!;
 
     public McpToolInvocationTests(McpApiFixture fixture)
     {
         _fixture = fixture;
-        _mcpClient = new McpClientHelper(fixture.HttpClient);
     }
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public async Task InitializeAsync()
+    {
+        var httpClient = await _fixture.GetAuthenticatedClientAsync();
+        _mcpClient = new McpClientHelper(httpClient);
+    }
 
     public async Task DisposeAsync()
     {

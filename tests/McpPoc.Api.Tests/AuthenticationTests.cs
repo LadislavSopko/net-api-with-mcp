@@ -17,8 +17,8 @@ public class AuthenticationTests
     [Fact]
     public async Task Should_Return401_WhenAccessingUsersWithoutAuthentication()
     {
-        // Arrange - Create unauthenticated client
-        var unauthClient = _fixture.CreateClient();
+        // Arrange - Get unauthenticated client
+        var unauthClient = _fixture.GetUnauthenticatedClient();
 
         // Act
         var response = await unauthClient.GetAsync("/api/users");
@@ -31,8 +31,8 @@ public class AuthenticationTests
     [Fact]
     public async Task Should_Return401_WhenAccessingUserByIdWithoutAuthentication()
     {
-        // Arrange - Create unauthenticated client
-        var unauthClient = _fixture.CreateClient();
+        // Arrange - Get unauthenticated client
+        var unauthClient = _fixture.GetUnauthenticatedClient();
 
         // Act
         var response = await unauthClient.GetAsync("/api/users/1");
@@ -45,8 +45,8 @@ public class AuthenticationTests
     [Fact]
     public async Task Should_Return401_WhenCreatingUserWithoutAuthentication()
     {
-        // Arrange - Create unauthenticated client
-        var unauthClient = _fixture.CreateClient();
+        // Arrange - Get unauthenticated client
+        var unauthClient = _fixture.GetUnauthenticatedClient();
         var content = new StringContent(
             """{"name":"Test User","email":"test@example.com"}""",
             System.Text.Encoding.UTF8,
@@ -63,8 +63,8 @@ public class AuthenticationTests
     [Fact]
     public async Task Should_Return401_WhenDeletingUserWithoutAuthentication()
     {
-        // Arrange - Create unauthenticated client
-        var unauthClient = _fixture.CreateClient();
+        // Arrange - Get unauthenticated client
+        var unauthClient = _fixture.GetUnauthenticatedClient();
 
         // Act
         var response = await unauthClient.DeleteAsync("/api/users/1");
