@@ -1,5 +1,7 @@
 using McpPoc.Api.Extensions;
 using McpPoc.Api.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.OpenApi.Models;
 using Serilog;
 
 // Configure Serilog for file logging
@@ -16,7 +18,93 @@ builder.Host.UseSerilog();
 // Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// Configure Swagger with OAuth2
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "MCP POC API",
+        Version = "v1",
+        Description = "API with MCP tools and Keycloak authentication"
+    });
+
+    // Add OAuth2 security definition
+    var keycloakAuthority = builder.Configuration["Keycloak:Authority"];
+    options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.OAuth2,
+        Flows = new OpenApiOAuthFlows
+        {
+            Implicit = new OpenApiOAuthFlow
+            {
+                AuthorizationUrl = new Uri($"{keycloakAuthority}/protocol/openid-connect/auth"),
+                TokenUrl = new Uri($"{keycloakAuthority}/protocol/openid-connect/token"),
+                Scopes = new Dictionary<string, string>
+                {
+                    { "openid", "OpenID Connect" },
+                    { "profile", "User profile" },
+                    { "email", "User email" }
+                }
+            }
+        }
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "oauth2"
+                }
+            },
+            new[] { "openid", "profile", "email" }
+        }
+    });
+});
+
+// Configure JWT Bearer authentication with Keycloak
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        var keycloakAuthority = builder.Configuration["Keycloak:Authority"];
+
+        options.Authority = keycloakAuthority;
+        options.Audience = builder.Configuration["Keycloak:Audience"];
+        options.RequireHttpsMetadata = builder.Configuration.GetValue<bool>("Keycloak:RequireHttpsMetadata");
+
+        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        {
+            ValidateAudience = builder.Configuration.GetValue<bool>("Keycloak:ValidateAudience"),
+            ValidateIssuer = builder.Configuration.GetValue<bool>("Keycloak:ValidateIssuer"),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(5)
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                context.HttpContext.RequestServices
+                    .GetRequiredService<ILogger<Program>>()
+                    .LogError(context.Exception, "Authentication failed");
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                context.HttpContext.RequestServices
+                    .GetRequiredService<ILogger<Program>>()
+                    .LogInformation("Token validated for user: {User}",
+                        context.Principal?.Identity?.Name ?? "Unknown");
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 // Register user service
 builder.Services.AddSingleton<IUserService, UserService>();
@@ -35,10 +123,17 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "MCP POC API v1");
+        options.OAuthClientId("mcppoc-api");
+        options.OAuthAppName("MCP POC API");
+        options.OAuthUsePkce();
+    });
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 

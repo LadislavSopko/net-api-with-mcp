@@ -24,6 +24,7 @@
     <Project Path="3rdp/csharp-sdk/src/ModelContextProtocol.Core/ModelContextProtocol.Core.csproj" />
     <Project Path="3rdp/csharp-sdk/src/ModelContextProtocol/ModelContextProtocol.csproj" />
     <Project Path="3rdp/csharp-sdk/tests/ModelContextProtocol.AspNetCore.Tests/ModelContextProtocol.AspNetCore.Tests.csproj" />
+    <Project Path="3rdp/csharp-sdk/tests/ModelContextProtocol.TestOAuthServer/ModelContextProtocol.TestOAuthServer.csproj" />
     <Project Path="3rdp/csharp-sdk/tests/ModelContextProtocol.Tests/ModelContextProtocol.Tests.csproj" />
   </Folder>
 </Solution>

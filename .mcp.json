@@ -34,7 +34,8 @@
     },
     "poc": {
       "type": "http",
-      "url": "http://localhost:5001/mcp/"
+      "url": "http://localhost:5001/mcp/",
+      
     }
   }
 }

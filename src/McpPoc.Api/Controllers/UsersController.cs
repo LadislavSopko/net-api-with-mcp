@@ -1,5 +1,6 @@
 using McpPoc.Api.Models;
 using McpPoc.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
@@ -7,10 +8,11 @@ using System.ComponentModel;
 namespace McpPoc.Api.Controllers;
 
 /// <summary>
-/// TEST: Adding [McpServerToolType] directly to controller
+/// TEST: Adding [McpServerToolType] directly to controller with Keycloak authentication
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]  // ← Authentication required
 [McpServerToolType]  // ← TESTING THIS!
 public class UsersController : ControllerBase
 {
