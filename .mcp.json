@@ -31,6 +31,10 @@
     "vs-mcp": {
       "type": "http",
       "url": "http://localhost:3001/sdk/"
+    },
+    "poc": {
+      "type": "http",
+      "url": "http://localhost:5001/mcp"
     }
   }
 }

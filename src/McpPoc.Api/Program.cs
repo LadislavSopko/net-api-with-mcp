@@ -1,7 +1,17 @@
+using McpPoc.Api.Extensions;
 using McpPoc.Api.Services;
-using ModelContextProtocol.Server;
+using Serilog;
+
+// Configure Serilog for file logging
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.File("logs/mcppoc-.log", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Use Serilog
+builder.Host.UseSerilog();
 
 // Add services
 builder.Services.AddControllers();
@@ -11,16 +21,13 @@ builder.Services.AddSwaggerGen();
 // Register user service
 builder.Services.AddSingleton<IUserService, UserService>();
 
-// Add HTTP context accessor (might be needed)
-builder.Services.AddHttpContextAccessor();
-
 // ============================================
 // TEST: Add MCP Server with HTTP transport
 // ============================================
 builder.Services
     .AddMcpServer()
     .WithHttpTransport()  // HTTP transport for full pipeline
-    .WithToolsFromAssembly();   // Should discover controller with [McpServerToolType]
+    .WithToolsFromAssemblyUnwrappingActionResult();  // Custom extension that unwraps ActionResult<T>
 
 var app = builder.Build();
 

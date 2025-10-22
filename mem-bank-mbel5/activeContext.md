@@ -2,41 +2,57 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [FOCUS]
-@task::InitializePOCProject!
-@phase::Setup{infrastructure→implementation→testing}
-⚡priority::MemoryBank→Solution→Project→Test
+@task::POCComplete!
+@phase::Finalized{implementation✓→testing✓→solution✓}
+⚡achievement::ActionResultUnwrapping{custom-marshaller}
 
 [RECENT]
->created::MemoryBank{5cores}@now
->analyzed::TaskFile{mcp-controller-test-prompt.md}
->decided::ProjectName{McpPoc.Api}
->decided::SolutionFormat{slnx:modern}
->decided::MCPPackage{nuget:0.4.0-preview.3}
+>debugged::MarshallerPipeline{ReflectionAIFunction→ReturnParameterMarshaller}
+>discovered::RootCause{ValueTask<object?>:loses-value}
+>created::CustomExtension{WithToolsFromAssemblyUnwrappingActionResult}
+>implemented::ActionResultUnwrapper{MarshalResult:before-serialization}
+>achieved::AllTestsPass{15/15:100%}✓
 
 [NEXT]
-?create::SolutionFile{net-api-with-mcp.slnx}
-?update::Directory.Packages.props{add:3packages}
-?create::ProjectStructure{src/McpPoc.Api}
-?implement::Models+Services+Controllers
-?test::MCPIntegration{tools/list+tools/call}
-?document::TestResults{TEST-RESULTS.md}
+?cleanup::ObsoleteFilter{Filters/ActionResultUnwrapperFilter.cs}
+?document::Solution{MB+commit}
+?optional::PullRequest{if-desired}
 
 [DECISIONS]
-@naming::McpPoc.Api{clear:POC-purpose}
-@solution::net-api-with-mcp.slnx{matches:repo-name}
-@mcpSource::NuGet{¬localReference:initially}
-@port::5001{http:simpler-for-POC}
-@structure::src/{projects-subfolder:organized}
+@approach::CustomMarshalResult{¬filter:too-late}
+@interceptPoint::AIFunctionFactory{MarshalResult:before-serialize}
+@naming::snake_case{explicit:ConvertToSnakeCase}
+@pattern::ManualToolRegistration{¬WithToolsFromAssembly}
 
 [LEARNINGS]
-@mbel::FollowREADME{AI-readable¬human-readable}
-@format::SLNX{modern:json→simpler}
-@pattern::MemoryBank{read-all→update-some}
+@critical::MarshallerProblem{ValueTask-construction:loses-value}!
+@critical::ValueTaskFromResult{proper-construction:preserves-value}!
+@critical::FiltersUseless{post-marshalling→too-late}!
+@sdk::AIFunctionFactoryOptions{MarshalResult:custom-delegate}
+@sdk::ValueTaskConstruction{FromResult:¬new-ValueTask}!
+@pattern::ExtensionMethod{replicates:WithToolsFromAssembly}
+@naming::ToolNames{Name:property¬SerializerOptions}
+@combo::MarshallerFix+Unwrapping{two-problems:one-solution}
+
+[SOLUTION_ARCHITECTURE]
+WithToolsFromAssemblyUnwrappingActionResult::
+  scan::Assembly{[McpServerToolType]}
+  → foreach::Method{[McpServerTool]}
+    → create::AIFunction{AIFunctionFactoryOptions}
+      → MarshalResult::UnwrapActionResult{fix-marshaller+unwrap}
+      → Name::ConvertToSnakeCase
+      → SerializerOptions::SnakeCaseLower
+    → register::McpServerTool
+
+UnwrapActionResult{two-fixes-in-one}::
+  1.fix::ValueTask{FromResult:¬new-ValueTask}→preserves-value
+  2.unwrap::ActionResult<T>→Result→IActionResult→Value
+  return::ValueTask.FromResult(unwrapped-value)
 
 [BLOCKERS]
-¬blocked::AllClear
+¬none::AllClear
 
 [CONFIDENCE]
-@setup::90%
-@implementation::85%{follow-task-file}
-@integration::60%{unknown:SDK-behavior}
+@solution::100%{proven:15/15-tests}
+@approach::100%{correct-intercept-point}
+@poc::100%{hypothesis-fully-proven}

@@ -57,7 +57,28 @@ public class McpClientHelper : IAsyncDisposable
     public async Task<CallToolResult> CallToolAsync(string toolName, IReadOnlyDictionary<string, object?>? arguments = null)
     {
         var client = await GetConnectedClientAsync();
-        return await client.CallToolAsync(toolName, arguments);
+        var result = await client.CallToolAsync(toolName, arguments);
+
+        // DEBUG: Log what we received from MCP server
+        Console.WriteLine($"[McpClientHelper] Tool: {toolName}");
+        Console.WriteLine($"[McpClientHelper] IsError: {result.IsError}");
+        Console.WriteLine($"[McpClientHelper] Content count: {result.Content.Count}");
+
+        if (result.Content.Count > 0)
+        {
+            for (int i = 0; i < result.Content.Count; i++)
+            {
+                var content = result.Content[i];
+                Console.WriteLine($"[McpClientHelper] Content[{i}] type: {content.GetType().Name}");
+
+                if (content is TextContentBlock textBlock)
+                {
+                    Console.WriteLine($"[McpClientHelper] Content[{i}] text: {textBlock.Text}");
+                }
+            }
+        }
+
+        return result;
     }
 
     public async ValueTask DisposeAsync()
