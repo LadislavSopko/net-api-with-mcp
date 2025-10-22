@@ -6,7 +6,7 @@ using Serilog;
 
 // Configure Serilog for file logging
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Information()
+    .MinimumLevel.Verbose()
     .WriteTo.File("logs/mcppoc-.log", rollingInterval: RollingInterval.Day)
     .CreateLogger();
 
@@ -144,9 +144,9 @@ app.MapMcp("/mcp").RequireAuthorization();  // Expose MCP at /mcp with auth requ
 
 app.Logger.LogInformation("===========================================");
 app.Logger.LogInformation("TEST: MCP + Controller Integration");
-app.Logger.LogInformation("HTTP API: http://localhost:5001/api/users");
-app.Logger.LogInformation("MCP Endpoint: http://localhost:5001/mcp");
-app.Logger.LogInformation("Swagger: http://localhost:5001/swagger");
+app.Logger.LogInformation("HTTP API: http://127.0.0.1:5001/api/users");
+app.Logger.LogInformation("MCP Endpoint: http://127.0.0.1:5001/mcp");
+app.Logger.LogInformation("Swagger: http://127.0.0.1:5001/swagger");
 app.Logger.LogInformation("===========================================");
 
 app.Run();

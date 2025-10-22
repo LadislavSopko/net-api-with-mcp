@@ -33,7 +33,7 @@ public class McpApiFixture : WebApplicationFactory<Program>
 
         var client = CreateClient(new WebApplicationFactoryClientOptions
         {
-            BaseAddress = new Uri("http://localhost")
+            BaseAddress = new Uri("http://127.0.0.1")
         });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
@@ -55,7 +55,7 @@ public class McpApiFixture : WebApplicationFactory<Program>
 
         var client = CreateClient(new WebApplicationFactoryClientOptions
         {
-            BaseAddress = new Uri("http://localhost")
+            BaseAddress = new Uri("http://127.0.0.1")
         });
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
@@ -68,7 +68,7 @@ public class McpApiFixture : WebApplicationFactory<Program>
     {
         return CreateClient(new WebApplicationFactoryClientOptions
         {
-            BaseAddress = new Uri("http://localhost")
+            BaseAddress = new Uri("http://127.0.0.1")
         });
     }
 }

@@ -14,7 +14,7 @@ public class KeycloakTokenHelper
     private readonly string _clientSecret;
 
     public KeycloakTokenHelper(
-        string keycloakUrl = "http://localhost:8080",
+        string keycloakUrl = "http://127.0.0.1:8080",
         string realm = "mcppoc-realm",
         string clientId = "mcppoc-api",
         string clientSecret = "mcppoc-api-secret")

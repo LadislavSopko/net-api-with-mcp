@@ -42,9 +42,9 @@
       "clientId": "mcppoc-api",
       "name": "MCP POC API",
       "description": "MCP POC Backend API",
-      "rootUrl": "http://localhost:5001",
-      "adminUrl": "http://localhost:5001",
-      "baseUrl": "http://localhost:5001",
+      "rootUrl": "http://127.0.0.1:5001",
+      "adminUrl": "http://127.0.0.1:5001",
+      "baseUrl": "http://127.0.0.1:5001",
       "surrogateAuthRequired": false,
       "enabled": true,
       "alwaysDisplayInConsole": false,
@@ -61,7 +61,7 @@
       "frontchannelLogout": false,
       "protocol": "openid-connect",
       "attributes": {
-        "post.logout.redirect.uris": "http://localhost:5001/*",
+        "post.logout.redirect.uris": "http://127.0.0.1:5001/*##http://localhost:5001/*",
         "access.token.lifespan": "3600"
       },
       "authenticationFlowBindingOverrides": {},
@@ -80,9 +80,11 @@
         "microprofile-jwt"
       ],
       "redirectUris": [
+        "http://127.0.0.1:5001/*",
         "http://localhost:5001/*"
       ],
       "webOrigins": [
+        "http://127.0.0.1:5001",
         "http://localhost:5001",
         "+"
       ],
