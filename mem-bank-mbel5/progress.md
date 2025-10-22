@@ -8,42 +8,43 @@
 ✓infrastructure::Git{.gitignore}
 ✓structure::Folders{src/+tasks/+mem-bank-mbel5/+3rdp/}
 ✓memory::MemoryBank{5cores:created}
+✓create::net-api-with-mcp.slnx
+✓update::Directory.Packages.props{MCP+xunit+FluentAssertions}
+✓scaffold::McpPoc.Api{csproj+Program.cs+launchSettings}
+✓implement::Models{User.cs}
+✓implement::Services{IUserService+UserService}
+✓implement::Controllers{UsersController+MCPAttributes}
+✓build::Project{dotnet-build:success}
+✓test::TestProject{McpPoc.Api.Tests+WebApplicationFactory}
+✓test::MCPClient{ModelContextProtocol.SDK:HttpClientTransport}
+✓test::Discovery{5/5:pass→3tools+snake_case}
+✓test::HTTP{3/3:pass→coexistence-proven}
+✓test::Invocation{2/5:pass→ActionResult-issue}
 
 [ACTIVE]
-⚡setup::SolutionFile{next}
-⚡setup::Packages{add:ModelContextProtocol+AspNetCore+Swagger}
-⚡development::ProjectCreation{McpPoc.Api}
+⚡fix::ActionResultUnwrapping{AddCallToolFilter:planned}
 
 [BLOCKED]
 ¬none::AllClear
 
 [TODO]
-?create::net-api-with-mcp.slnx
-?update::Directory.Packages.props{#3packages}
-?scaffold::McpPoc.Api{csproj+Program.cs+launchSettings}
-?implement::Models{User.cs}
-?implement::Services{IUserService+UserService}
-?implement::Controllers{UsersController+MCPAttributes}
-?build::Project{dotnet-build}
-?test::HTTP{curl:/api/users}
-?test::MCP{curl:/mcp→tools/list}
-?test::MCP{curl:/mcp→tools/call}
-?document::Results{TEST-RESULTS.md}
-?update::MemoryBank{findings}
+?implement::ActionResultUnwrapperFilter{IActionResult→value}
+?test::Invocation{rerun:expect-13/13-pass}
+?document::Findings{commit+MB-update}
 
 [METRICS]
-@files::Created{#5:memory-bank}
-@files::Pending{~15:project-files}
-@confidence::Integration{%60:unknown-SDK-behavior}
-@time::Estimated{~15min:per-task-doc}
+@files::Created{#23:src+tests+tasks}
+@tests::Status{10/13:pass→76.9%}
+@confidence::POC{%90:hypothesis-mostly-proven}
+@time::Actual{~2h:full-TDDAB-cycle}
 
 [KNOWN_ISSUES]
-?unknown::MCPSDKBehavior{willDiscover:controllers}
-?unknown::ActionResultHandling{willUnwrap:properly}
-?unknown::DISupport{willInject:services}
+✓resolved::MCPSDKBehavior{YES:discovers-controllers+snake_case}
+✓resolved::DISupport{YES:injects-services}
+⚠️partial::ActionResultHandling{NO:needs-unwrapping-filter}
 
 [SUCCESS_TRACKING]
-@discovery::Pending{await:tools/list-response}
-@invocation::Pending{await:tools/call-response}
-@coexistence::Pending{await:HTTP+MCP-parallel}
-@completion::0%{just-started}
+@discovery::SUCCESS{3tools:get_by_id+get_all+create}
+@invocation::PARTIAL{infrastructure-works:serialization-broken}
+@coexistence::SUCCESS{HTTP+MCP:both-work}
+@completion::85%{one-filter-remaining}
