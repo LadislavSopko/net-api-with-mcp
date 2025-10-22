@@ -1,7 +1,7 @@
 namespace McpPoc.Api.Tests;
 
 [Collection("McpApi")]
-public class McpToolDiscoveryTests
+public class McpToolDiscoveryTests : IAsyncLifetime
 {
     private readonly McpApiFixture _fixture;
     private readonly McpClientHelper _mcpClient;
@@ -12,28 +12,39 @@ public class McpToolDiscoveryTests
         _mcpClient = new McpClientHelper(fixture.HttpClient);
     }
 
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
+    {
+        await _mcpClient.DisposeAsync();
+    }
+
     [Fact]
     public async Task Should_DiscoverThreeMcpTools_WhenListingTools()
     {
         // Act
-        var response = await _mcpClient.ListToolsAsync();
+        var tools = await _mcpClient.ListToolsAsync();
 
         // Assert
-        response.Should().NotBeNull();
-        response.Error.Should().BeNull("MCP request should succeed");
-        response.Result.Should().NotBeNull();
-        response.Result!.Tools.Should().HaveCount(3, "only GetById, GetAll, and Create should be exposed");
+        tools.Should().NotBeNull();
+        tools.Should().HaveCount(3, "only GetById, GetAll, and Create should be exposed");
+
+        // Verify expected tool names (SDK converts to snake_case)
+        var toolNames = tools.Select(t => t.Name).ToList();
+        toolNames.Should().Contain("get_by_id");
+        toolNames.Should().Contain("get_all");
+        toolNames.Should().Contain("create");
     }
 
     [Fact]
     public async Task Should_DiscoverGetByIdTool_WithCorrectSchema()
     {
         // Act
-        var response = await _mcpClient.ListToolsAsync();
+        var tools = await _mcpClient.ListToolsAsync();
 
-        // Assert
-        var getByIdTool = response.Result!.Tools
-            .Should().ContainSingle(t => t.Name.Contains("GetById", StringComparison.OrdinalIgnoreCase))
+        // Assert - SDK converts method names to snake_case
+        var getByIdTool = tools
+            .Should().ContainSingle(t => t.Name == "get_by_id")
             .Subject;
 
         getByIdTool.Description.Should().Contain("Gets a user by their ID");
@@ -43,11 +54,11 @@ public class McpToolDiscoveryTests
     public async Task Should_DiscoverGetAllTool_WithCorrectSchema()
     {
         // Act
-        var response = await _mcpClient.ListToolsAsync();
+        var tools = await _mcpClient.ListToolsAsync();
 
-        // Assert
-        var getAllTool = response.Result!.Tools
-            .Should().ContainSingle(t => t.Name.Contains("GetAll", StringComparison.OrdinalIgnoreCase))
+        // Assert - SDK converts method names to snake_case
+        var getAllTool = tools
+            .Should().ContainSingle(t => t.Name == "get_all")
             .Subject;
 
         getAllTool.Description.Should().Contain("Gets all users");
@@ -57,26 +68,26 @@ public class McpToolDiscoveryTests
     public async Task Should_DiscoverCreateTool_WithParameterDescriptions()
     {
         // Act
-        var response = await _mcpClient.ListToolsAsync();
+        var tools = await _mcpClient.ListToolsAsync();
 
-        // Assert
-        var createTool = response.Result!.Tools
-            .Should().ContainSingle(t => t.Name.Contains("Create", StringComparison.OrdinalIgnoreCase))
+        // Assert - SDK converts method names to snake_case
+        var createTool = tools
+            .Should().ContainSingle(t => t.Name == "create")
             .Subject;
 
         createTool.Description.Should().Contain("Creates a new user");
-        createTool.InputSchema.Should().NotBeNull("Create tool should have input schema for name and email");
+        createTool.JsonSchema.ValueKind.Should().NotBe(System.Text.Json.JsonValueKind.Undefined, "Create tool should have input schema for name and email");
     }
 
     [Fact]
     public async Task Should_NotExposeDeleteEndpoint_AsAnMcpTool()
     {
         // Act
-        var response = await _mcpClient.ListToolsAsync();
+        var tools = await _mcpClient.ListToolsAsync();
 
         // Assert
-        response.Result!.Tools
-            .Should().NotContain(t => t.Name.Contains("Delete", StringComparison.OrdinalIgnoreCase),
+        tools
+            .Should().NotContain(t => t.Name.Contains("delete", StringComparison.OrdinalIgnoreCase),
                 "Delete endpoint should NOT have [McpServerTool] attribute");
     }
 }

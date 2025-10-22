@@ -38,7 +38,7 @@ app.MapControllers();
 // ============================================
 // TEST: Map MCP endpoint
 // ============================================
-app.MapMcp();  // This should expose MCP at /mcp
+app.MapMcp("/mcp");  // Expose MCP at /mcp
 
 app.Logger.LogInformation("===========================================");
 app.Logger.LogInformation("TEST: MCP + Controller Integration");

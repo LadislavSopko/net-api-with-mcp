@@ -15,4 +15,15 @@
   <Folder Name="/2 - tests/">
     <Project Path="tests\McpPoc.Api.Tests\McpPoc.Api.Tests.csproj" />
   </Folder>
+  <Folder Name="/3 - rdp/" />
+  <Folder Name="/3 - rdp/mcp-sdk/">
+    <File Path="3rdp/csharp-sdk/Directory.Build.props" />
+    <File Path="3rdp/csharp-sdk/Directory.Packages.props" />
+    <File Path="3rdp/csharp-sdk/global.json" />
+    <Project Path="3rdp/csharp-sdk/src/ModelContextProtocol.AspNetCore/ModelContextProtocol.AspNetCore.csproj" />
+    <Project Path="3rdp/csharp-sdk/src/ModelContextProtocol.Core/ModelContextProtocol.Core.csproj" />
+    <Project Path="3rdp/csharp-sdk/src/ModelContextProtocol/ModelContextProtocol.csproj" />
+    <Project Path="3rdp/csharp-sdk/tests/ModelContextProtocol.AspNetCore.Tests/ModelContextProtocol.AspNetCore.Tests.csproj" />
+    <Project Path="3rdp/csharp-sdk/tests/ModelContextProtocol.Tests/ModelContextProtocol.Tests.csproj" />
+  </Folder>
 </Solution>

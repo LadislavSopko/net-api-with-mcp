@@ -1,20 +1,15 @@
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 
 namespace McpPoc.Api.Tests;
 
 /// <summary>
-/// Helper for making MCP protocol requests
+/// Helper for making MCP protocol requests using the official SDK
 /// </summary>
-public class McpClientHelper
+public class McpClientHelper : IAsyncDisposable
 {
     private readonly HttpClient _httpClient;
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
+    private McpClient? _client;
 
     public McpClientHelper(HttpClient httpClient)
     {
@@ -22,107 +17,54 @@ public class McpClientHelper
     }
 
     /// <summary>
+    /// Connect to the MCP server
+    /// </summary>
+    private async Task<McpClient> GetConnectedClientAsync()
+    {
+        if (_client != null)
+        {
+            return _client;
+        }
+
+        // Create HTTP transport pointing to /mcp endpoint
+        var transport = new HttpClientTransport(
+            new HttpClientTransportOptions
+            {
+                Endpoint = new Uri(_httpClient.BaseAddress!, "mcp"),
+                TransportMode = HttpTransportMode.AutoDetect
+            },
+            _httpClient,
+            ownsHttpClient: false
+        );
+
+        // Connect to the server
+        _client = await McpClient.CreateAsync(transport);
+        return _client;
+    }
+
+    /// <summary>
     /// List all available MCP tools
     /// </summary>
-    public async Task<McpResponse<ToolsListResponse>> ListToolsAsync()
+    public async Task<IList<McpClientTool>> ListToolsAsync()
     {
-        var request = new McpRequest
-        {
-            Jsonrpc = "2.0",
-            Id = Guid.NewGuid().ToString(),
-            Method = "tools/list"
-        };
-
-        var response = await SendMcpRequestAsync<ToolsListResponse>(request);
-        return response;
+        var client = await GetConnectedClientAsync();
+        return await client.ListToolsAsync();
     }
 
     /// <summary>
     /// Call an MCP tool
     /// </summary>
-    public async Task<McpResponse<ToolCallResponse>> CallToolAsync(string toolName, Dictionary<string, object>? arguments = null)
+    public async Task<CallToolResult> CallToolAsync(string toolName, IReadOnlyDictionary<string, object?>? arguments = null)
     {
-        var request = new McpRequest
+        var client = await GetConnectedClientAsync();
+        return await client.CallToolAsync(toolName, arguments);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_client != null)
         {
-            Jsonrpc = "2.0",
-            Id = Guid.NewGuid().ToString(),
-            Method = "tools/call",
-            Params = new ToolCallParams
-            {
-                Name = toolName,
-                Arguments = arguments ?? new Dictionary<string, object>()
-            }
-        };
-
-        var response = await SendMcpRequestAsync<ToolCallResponse>(request);
-        return response;
+            await _client.DisposeAsync();
+        }
     }
-
-    private async Task<McpResponse<T>> SendMcpRequestAsync<T>(McpRequest request)
-    {
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        var httpResponse = await _httpClient.PostAsync("/mcp", content);
-        httpResponse.EnsureSuccessStatusCode();
-
-        var responseJson = await httpResponse.Content.ReadAsStringAsync();
-        var mcpResponse = JsonSerializer.Deserialize<McpResponse<T>>(responseJson, JsonOptions);
-
-        return mcpResponse ?? throw new InvalidOperationException("Failed to deserialize MCP response");
-    }
-}
-
-// MCP Protocol DTOs
-public record McpRequest
-{
-    public string Jsonrpc { get; init; } = string.Empty;
-    public string Id { get; init; } = string.Empty;
-    public string Method { get; init; } = string.Empty;
-    public object? Params { get; init; }
-}
-
-public record McpResponse<T>
-{
-    public string Jsonrpc { get; init; } = string.Empty;
-    public string Id { get; init; } = string.Empty;
-    public T? Result { get; init; }
-    public McpError? Error { get; init; }
-}
-
-public record McpError
-{
-    public int Code { get; init; }
-    public string Message { get; init; } = string.Empty;
-    public object? Data { get; init; }
-}
-
-public record ToolsListResponse
-{
-    public List<ToolInfo> Tools { get; init; } = new();
-}
-
-public record ToolInfo
-{
-    public string Name { get; init; } = string.Empty;
-    public string? Description { get; init; }
-    public JsonElement? InputSchema { get; init; }
-}
-
-public record ToolCallParams
-{
-    public string Name { get; init; } = string.Empty;
-    public Dictionary<string, object> Arguments { get; init; } = new();
-}
-
-public record ToolCallResponse
-{
-    public List<ToolContent> Content { get; init; } = new();
-    public bool? IsError { get; init; }
-}
-
-public record ToolContent
-{
-    public string Type { get; init; } = string.Empty;
-    public string? Text { get; init; }
 }
