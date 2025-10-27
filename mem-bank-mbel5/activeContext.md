@@ -2,73 +2,156 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [FOCUS]
-⚡filterPipeline::DesignMCPToolFilterChain{auth+validation+logging}
-@pattern::PreFilters→AIFunction→PostFilters
-@challenge::MaintainProperDIScoping{like-normal-API}
+⚡policyAuth::ImplementFilterPipeline+PolicyBasedAuthorization!
+@plan::tasks/tddab-policy-based-authorization-implementation.md
+@approach::PreFilter+MinimumRoleRequirement+IAuthorizationHandler
+@pattern::User's-existing-authorization-code
 
 [RECENT]
->fixed::DNSIssue{API:localhost+Keycloak:127.0.0.1→401}✓
->updated::launchSettings{should-use:127.0.0.1:5001}?
->analyzed::ScopingMechanism{HttpContext.RequestServices}
->discovered::SDKScopingBehavior{stateless:ScopeRequests:false}
-©User>requested::FilterPipelineDesign{pre+post+auth}
+✓scoping::VERIFIED{3-tests:ALL-PASS}!
+✓scopingProof::EachCall→NewScope{different:RequestId}
+✓infrastructure::IHttpContextAccessor{registered}✓
+✓keycloak::Running{docker-compose:up}✓
+✓tests::22/22{100%}✓
+©User>requested::PolicyBased+RoleHierarchy{like-existing-projects}
+>created::TDDAB-Plan{tasks/tddab-policy-based-authorization-implementation.md}
 
-[CURRENT_PROBLEM]
-!design::FilterPipeline{
-  goal:pre-filter+auth-check+post-filter
-  challenge:hide-inside-AIFunction
-  avoid:overcomplicated-wrappers
+[CURRENT_TASK]
+@phase::ImplementPolicyBasedAuthorization
+@plan::6-TDDABBlocks{infrastructure→preFilter→keycloak→tools→tests→verify}
+@goal::29/29-tests{22-existing+7-new}
+@pattern::FollowUser's-MinimumRoleRequirement+Handler
+
+[PLAN_OVERVIEW]
+@block1::AuthInfrastructure{
+  PolicyNames+MinimumRoleRequirement+Handler+Extensions
+  files:5-new{Authorization/*.cs}
+}
+@block2::PreFilterImplementation{
+  CreateControllerWithPreFilter{check:[Authorize]-BEFORE-execution}
+  location:McpServerBuilderExtensions.cs{enhance-TargetFactory}
+}
+@block3::KeycloakUsers{
+  member@test.com:member123{role:Member}
+  manager@test.com:manager123{role:Manager}
+  admin@test.com:admin123{role:Admin}
+}
+@block4::PolicyProtectedTools{
+  create:[Authorize(Policy=RequireMember)]
+  update:[Authorize(Policy=RequireManager)]
+  promote_to_manager:[Authorize(Policy=RequireAdmin)]
+}
+@block5::PolicyAuthorizationTests{
+  7-tests{1-member-allow+2-manager+4-denials}
+}
+@block6::VerifyAllPass{
+  expected:29/29{22-existing+7-new}
 }
 
-[SCOPING_ANALYSIS]
-@flow::HTTPRequest→AspNetCore→CreateScope→HttpContext.RequestServices
-@mcpFlow::context.RequestServices→McpServer→RequestServiceProvider→args.Services
-@concern::StatelessMode{ScopeRequests:false}!
-@location::StreamableHttpHandler.cs:228{ScopeRequests=false:stateless}
-@location::McpServerImpl.cs:667{conditional-scoping}
-@currentBehavior::{
-  stateful:ScopeRequests:true→CreateAsyncScope{line:677}
-  stateless:ScopeRequests:false→UseServicesDirectly{line:669}
-}
-@question::DoesCurrentScopingWorkForEFCore?{needs-verification}!
+[PREREQUISITES_COMPLETE]
+✓diScoping::Verified{HttpContext.RequestServices:works}
+✓httpContextAccessor::Registered{Program.cs:110}
+✓endpointAuth::Working{MapMcp().RequireAuthorization()}
+✓keycloak::Running{127.0.0.1:8080}
+✓tests::22/22{baseline:established}
 
-[FILTER_PIPELINE_DISCUSSION]
-@interceptionPoints::{
-  1.TargetFactory{line:75:args→CreateControllerInstance}→PRE-FILTER
-  2.MarshalResult{line:109:UnwrapActionResult}→POST-FILTER
+[AUTHORIZATION_PATTERN]
+@user'sPattern::{
+  MinimumRoleRequirement:IAuthorizationRequirement
+  MinimumRoleRequirementHandler:AuthorizationHandler<T>
+  PolicyNames:constants{RequireMember+RequireManager+RequireAdmin}
+  AuthorizationServiceExtensions:registration
 }
-@rejected::ComplexWrappers{proxy+dynamic-methods+expression-trees}
-@preferred::SimpleEnhancement{existing-interception-points}
+@poc::ExactCopy{follow-existing-pattern:¬creative}
 
-[AUTHENTICATION_WORKING]
-@provider::Keycloak§8080{OAuth2+OIDC}✓
-@endpoint::/mcp{RequireAuthorization}✓
-@token::JWT{Bearer:Authorization-header}✓
-@validation::JWTBearer{ValidateAudience:false:azp¬aud}✓
-@config::ALL{127.0.0.1:not-localhost}!
+[PRE_FILTER_ARCHITECTURE]
+```
+MCP-Request
+→TargetFactory{line:75}
+  →CreateControllerWithPreFilter
+    →Get:HttpContext{via:IHttpContextAccessor}
+    →Check:[Authorize]{method||class}
+    →If-Policy:IAuthorizationService.AuthorizeAsync()
+      →MinimumRoleRequirementHandler
+        →Get:User{email-claim}
+        →Check:user.Role>=requirement.MinimumRole
+        →Success:context.Succeed()||Failure:return
+    →If-Success:CreateController||Throw:UnauthorizedAccessException
+→Controller-Method
+```
 
-[DNS_PERFORMANCE_FIX]
-!problem::DNSLookup{NSPLookupServiceBegin:slow}✓
-!problem2::MixedHosts{API:localhost+Keycloak:127.0.0.1→401}✓
-@fix::Consistent127.0.0.1{everywhere}✓
-@files::{
-  KeycloakTokenHelper:http://127.0.0.1:8080✓
-  mcppoc-realm.json:urls→127.0.0.1✓
-  appsettings.json:Authority→127.0.0.1✓
-  launchSettings.json:applicationUrl→localhost{should-fix}?
+[ROLE_HIERARCHY]
+@enum::UserRole{Member:1+Manager:2+Admin:3}
+@hierarchy::Admin>Manager>Member
+@tools::{
+  get_by_id:no-policy{endpoint-auth-only}
+  get_all:no-policy{endpoint-auth-only}
+  get_scope_id:no-policy{endpoint-auth-only}
+  create:RequireMember{Member+}
+  update:RequireManager{Manager+}
+  promote_to_manager:RequireAdmin{Admin-only}
 }
 
-[NEXT_SESSION_TASKS]
-!verify::DIScopingWorks{test:EFCore+scoped-services}!
-!implement::FilterPipeline{
-  pre:authorization-check
-  post:result-transformation+logging
+[TEST_STRATEGY]
+@newTests::PolicyAuthorizationTests{7-tests}
+@scenarios::{
+  ✓member→create:ALLOW{RequireMember}
+  ✓manager→update:ALLOW{RequireManager}
+  ✗member→update:DENY{RequireManager}
+  ✓admin→promote:ALLOW{RequireAdmin}
+  ✗manager→promote:DENY{RequireAdmin}
+  ✗member→promote:DENY{RequireAdmin}
 }
-!check::launchSettings{use:127.0.0.1:5001}
-!design::AuthorizationFilter{
-  check:[Authorize]-attribute
-  verify:User.Identity.IsAuthenticated
-  validate:Roles{if-specified}
-  access:HttpContext{via:IHttpContextAccessor}
-}
-!consider::ScopeRequests{stateful-vs-stateless:implications}
+@verification::RoleHierarchy{Manager-can-create:inherits-Member}
+
+[FILES_TO_CREATE]
+1.src/McpPoc.Api/Authorization/PolicyNames.cs
+2.src/McpPoc.Api/Authorization/MinimumRoleRequirement.cs
+3.src/McpPoc.Api/Authorization/MinimumRoleRequirementHandler.cs
+4.src/McpPoc.Api/Authorization/AuthorizationServiceExtensions.cs
+5.tests/McpPoc.Api.Tests/PolicyAuthorizationTests.cs
+
+[FILES_TO_MODIFY]
+1.src/McpPoc.Api/Models/User.cs{+UserRole-enum+Role-property}
+2.src/McpPoc.Api/Services/UserService.cs{update:users-with-roles}
+3.src/McpPoc.Api/Program.cs{+AddMcpPocAuthorization()}
+4.src/McpPoc.Api/Extensions/McpServerBuilderExtensions.cs{+CreateControllerWithPreFilter}
+5.src/McpPoc.Api/Controllers/UsersController.cs{+policy-attributes+new-tools}
+6.docker/keycloak/mcppoc-realm.json{+test-users:member+manager+admin}
+7.tests/McpPoc.Api.Tests/McpToolDiscoveryTests.cs{expect:6-tools}
+
+[EXPECTED_RESULTS]
+@before::Tests{22/22:100%}
+@after::Tests{29/29:100%}
+@new::PolicyAuthorizationTests{7/7:100%}
+@tools::Count{4→6:+create+update+promote_to_manager}
+
+[CRITICAL_IMPLEMENTATION_NOTES]
+!syncAuth::TargetFactory{synchronous:use-GetAwaiter().GetResult()}
+!userLookup::EmailClaim{Keycloak→email→UserService}
+!errorPropagation::UnauthorizedAccessException{SDK→MCP-error-response}
+!logging::Comprehensive{Trace+Information+Warning}
+!policyEval::IAuthorizationService{standard-AspNetCore}
+
+[NEXT_STEPS]
+1.await::User-says-ACT
+2.implement::TDDAB-Block-1{AuthInfrastructure}
+3.verify::build-agent{CLEAN}
+4.implement::TDDAB-Block-2{PreFilter}
+5.verify::build-agent{CLEAN}
+6.implement::TDDAB-Block-3{Keycloak-users}
+7.implement::TDDAB-Block-4{Policy-tools}
+8.verify::build-agent{CLEAN}
+9.implement::TDDAB-Block-5{Tests}
+10.verify::test-agent{7/7-PASS}
+11.implement::TDDAB-Block-6{Verify-all}
+12.verify::test-agent{29/29-PASS}
+13.update::MemoryBank{completion}
+
+[SCOPING_LEARNINGS]
+✓mechanism::HttpContext.RequestServices{already-scoped:by-AspNetCore}
+✓evidence::DIScopingTests{3/3-PASS:different-RequestIds}
+✓conclusion::EFCore{WILL-WORK:scoped-per-request}
+!aiFunction::[FromServices]¬Supported{use:constructor-injection}
+!serialization::SnakeCaseLower{MCP:snake_case¬camelCase}
+!dtoRequired::ProperRecord{¬anonymous-objects}

@@ -106,8 +106,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// Add HttpContextAccessor for accessing HttpContext in filter pipeline
+builder.Services.AddHttpContextAccessor();
+
 // Register user service
 builder.Services.AddSingleton<IUserService, UserService>();
+
+// Register scoped request tracker for DI scoping tests
+builder.Services.AddScoped<IScopedRequestTracker, ScopedRequestTracker>();
 
 // ============================================
 // TEST: Add MCP Server with HTTP transport

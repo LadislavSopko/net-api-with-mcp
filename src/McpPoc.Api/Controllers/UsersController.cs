@@ -18,11 +18,13 @@ public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
     private readonly ILogger<UsersController> _logger;
+    private readonly IScopedRequestTracker _scopedTracker;
 
-    public UsersController(IUserService userService, ILogger<UsersController> logger)
+    public UsersController(IUserService userService, ILogger<UsersController> logger, IScopedRequestTracker scopedTracker)
     {
         _userService = userService;
         _logger = logger;
+        _scopedTracker = scopedTracker;
     }
 
     /// <summary>
@@ -73,6 +75,25 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
+    /// TEST: DI Scoping verification - returns unique scope ID
+    /// Each call should return a DIFFERENT ID if scoping works correctly
+    /// </summary>
+    [HttpGet("scope-test")]
+    [McpServerTool, Description("Returns the current request scope ID for DI testing")]
+    public ActionResult<ScopeIdResponse> GetScopeId()
+    {
+        _logger.LogInformation("GetScopeId called - RequestId: {RequestId}", _scopedTracker.RequestId);
+
+        var response = new ScopeIdResponse(
+            _scopedTracker.RequestId,
+            _scopedTracker.CreatedAt,
+            "Each call should return a different ID if scoping works correctly"
+        );
+
+        return Ok(response);
+    }
+
+    /// <summary>
     /// Regular HTTP endpoint WITHOUT MCP tool
     /// </summary>
     [HttpDelete("{id}")]
@@ -82,3 +103,8 @@ public class UsersController : ControllerBase
         return Task.FromResult((IActionResult)NoContent());
     }
 }
+
+/// <summary>
+/// Response for GetScopeId tool - used to verify DI scoping works correctly
+/// </summary>
+public record ScopeIdResponse(Guid RequestId, DateTime CreatedAt, string Message);
