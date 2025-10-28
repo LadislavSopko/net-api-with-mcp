@@ -14,13 +14,14 @@
 6. [MCP Integration Steps](#mcp-integration-steps)
 7. [Controller Integration Patterns](#controller-integration-patterns)
 8. [Authentication & Authorization](#authentication--authorization)
-9. [Testing Infrastructure](#testing-infrastructure)
-10. [Request Flow & Execution](#request-flow--execution)
-11. [Dependency Injection & Scoping](#dependency-injection--scoping)
-12. [Complete Code Reference](#complete-code-reference)
-13. [Common Patterns & Examples](#common-patterns--examples)
-14. [Troubleshooting](#troubleshooting)
-15. [Critical Discoveries](#critical-discoveries)
+9. [Personal Access Token (PAT) Authentication](#personal-access-token-pat-authentication)
+10. [Testing Infrastructure](#testing-infrastructure)
+11. [Request Flow & Execution](#request-flow--execution)
+12. [Dependency Injection & Scoping](#dependency-injection--scoping)
+13. [Complete Code Reference](#complete-code-reference)
+14. [Common Patterns & Examples](#common-patterns--examples)
+15. [Troubleshooting](#troubleshooting)
+16. [Critical Discoveries](#critical-discoveries)
 
 ---
 
@@ -33,6 +34,7 @@ This guide provides **complete, production-ready documentation** for integrating
 - ✅ **Complete MCP integration** from scratch
 - ✅ **Dual protocol support** - HTTP REST API and MCP tools simultaneously
 - ✅ **Full authentication** with JWT Bearer (Keycloak)
+- ✅ **Personal Access Token (PAT)** system for AI agents
 - ✅ **Policy-based authorization** with role hierarchy
 - ✅ **Testing infrastructure** for both protocols
 - ✅ **DI scoping** verification for EF Core compatibility
@@ -1287,6 +1289,236 @@ if (user.Role >= requirement.MinimumRole)
 
 ---
 
+## Personal Access Token (PAT) Authentication
+
+### When to Use PAT vs JWT
+
+The project supports **two authentication methods**:
+
+| Method | Use Case | Flow Type | Lifetime |
+|--------|----------|-----------|----------|
+| **JWT Bearer** | Interactive users, web applications | OAuth2 authorization_code or password grant | Short (minutes to hours) |
+| **Personal Access Token (PAT)** | AI agents, CLI tools, automation | Long-lived token with exchange | Long (30-90 days) |
+
+### Why PAT for AI Agents?
+
+**Problem:**
+- AI agents cannot perform interactive OAuth flows (login forms, browser redirects)
+- Current workaround (password grant) requires storing user credentials
+- Need secure, long-lived, revocable authentication
+
+**Solution:**
+- User generates PAT via web UI (authenticated with JWT)
+- PAT is used by AI agent as `Bearer` token
+- PAT exchanges for fresh JWT with CURRENT user permissions
+- No credential storage, immediate role updates
+
+### User Onboarding & PAT Generation
+
+```mermaid
+sequenceDiagram
+    participant User as New User
+    participant KC as Keycloak
+    participant WebUI as App Web UI
+    participant API as MCP API
+    participant AppDB as App Database
+    participant Admin as App Admin
+
+    Note over User,KC: 1. First Login (Company Keycloak)
+    User->>KC: Login (company credentials)
+    KC->>User: JWT (identity only)
+
+    Note over User,WebUI: 2. Unknown User → Pending Status
+    User->>WebUI: Access app with JWT
+    WebUI->>API: Request with JWT
+    API->>AppDB: Query user by email
+    AppDB->>API: NOT FOUND
+    API->>AppDB: Create(email, status='pending')
+    API->>WebUI: Access pending - contact admin
+    WebUI->>User: "Your access is pending approval"
+
+    Note over Admin,AppDB: 3. Admin Assigns Role
+    Admin->>WebUI: View pending users
+    WebUI->>Admin: Show: alice@company.com (pending)
+    Admin->>WebUI: Assign role: Member
+    WebUI->>API: Update user role
+    API->>AppDB: UPDATE role='Member'
+
+    Note over User,WebUI: 4. User Generates PAT
+    User->>WebUI: Login again, go to Profile
+    User->>WebUI: Click "Generate PAT"
+    WebUI->>API: POST /api/tokens (with JWT)
+    API->>AppDB: Check user has role
+    API->>API: Generate mcppat_xxx, SHA-256 hash
+    API->>AppDB: Store hash
+    API->>WebUI: Return PAT (ONCE!)
+    WebUI->>User: Display: "Copy now!"
+```
+
+### Architecture Overview (PAT Usage)
+
+```mermaid
+sequenceDiagram
+    participant Agent as AI Agent
+    participant API as MCP API
+    participant AppDB as App Database
+    participant KC as Keycloak
+    participant SecSvc as SecurityService
+
+    Note over Agent,API: 1. PAT Validation (App DB)
+    Agent->>API: POST /mcp<br/>Bearer: mcppat_xxx
+    API->>API: Hash incoming PAT
+    API->>AppDB: Lookup by hash
+    AppDB->>API: PAT valid, userId=123
+
+    Note over API,KC: 2. Identity Validation (Keycloak)
+    API->>KC: Token Exchange<br/>validate userId exists
+    KC->>KC: Check: user exists?<br/>account enabled?
+    KC->>API: JWT with identity<br/>(email, username)
+
+    Note over API,AppDB: 3. CRITICAL: Get Roles from App DB
+    API->>SecSvc: GetUserRoles(email)
+    SecSvc->>AppDB: Query CURRENT role
+    AppDB->>SecSvc: User(role=Manager)
+    SecSvc->>API: Current role: Manager
+
+    Note over API: 4. Authorization with Current Roles
+    API->>API: Execute policies<br/>with role from App DB
+    API->>Agent: MCP Response
+```
+
+### Critical Security Requirement
+
+**⚠️ PAT MUST NOT bypass user validation or authorization.**
+
+This system uses **hybrid architecture**:
+- **Keycloak**: Validates user identity and account status
+- **App Database**: Stores and manages application-specific roles
+
+**Why Hybrid?**
+- Company has many applications
+- Users authenticate once via Keycloak (company-wide)
+- Each app has its own admin who assigns roles
+- Same user can have different roles in different apps
+
+**Authentication Flow with Token Exchange (RFC 8693):**
+
+1. **PAT Validation**: API validates token exists in app database
+2. **Identity Validation**: API exchanges PAT for JWT from Keycloak (confirms user exists, account enabled)
+3. **Role Extraction**: SecurityService queries CURRENT user role from app database
+4. **Authorization**: Standard policies execute with current role from app DB
+5. **Dual Validation**: Both Keycloak (identity) and app DB (roles) checked
+
+### Token Format
+
+```
+mcppat_k8x2n9p4q6r7s5t1u3v8w2x9y4z6a1b3c5d7
+       └─────────────────┬──────────────────┘
+                         │
+                    40 random characters
+                    (240 bits entropy)
+                    [a-z0-9 lowercase]
+```
+
+**Properties:**
+- **Prefix**: `mcppat_` for easy identification
+- **Length**: 47 characters total (prefix + 40 random)
+- **Storage**: SHA-256 hash stored in DB (not plaintext)
+- **One-Time Display**: Shown only once after generation
+- **Expiration**: Default 90 days (configurable)
+
+### How AI Agents Use PAT
+
+```bash
+# 1. User generates PAT via web UI
+curl -X POST http://127.0.0.1:5001/api/tokens \
+  -H "Authorization: Bearer <keycloak-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Claude Agent", "expiresInDays": 90}'
+
+# Response (SHOWN ONCE):
+{
+  "token": "mcppat_k8x2n9p4q6r7s5t1u3v8w2x9y4z6a1b3c5d7",
+  "name": "Claude Agent",
+  "expiresAt": "2026-01-26T10:30:00Z"
+}
+
+# 2. AI Agent stores PAT in environment variable
+export MCP_API_TOKEN="mcppat_k8x2n9p4q6r7s5t1u3v8w2x9y4z6a1b3c5d7"
+
+# 3. AI Agent calls MCP tools
+curl -X POST http://127.0.0.1:5001/mcp \
+  -H "Authorization: Bearer $MCP_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "create",
+      "arguments": {
+        "request": {
+          "name": "New User",
+          "email": "user@example.com"
+        }
+      }
+    },
+    "id": 1
+  }'
+
+# 4. Behind the scenes:
+# - API validates PAT against DB
+# - API exchanges PAT for Keycloak JWT (with CURRENT user roles)
+# - API executes authorization policies
+# - API returns MCP response
+```
+
+### PAT vs JWT Token Exchange Flow
+
+**JWT Flow (Interactive User):**
+```
+User → Keycloak Auth → JWT (identity) → MCP API → Query App DB for roles → Authorization → Response
+```
+
+**PAT Flow (AI Agent with Hybrid Validation):**
+```
+Agent → PAT → App DB Validation → Keycloak Token Exchange (identity) → Query App DB for roles → Authorization → Response
+              └──────┬──────┘      └────────────┬────────────┘          └──────────┬──────────┘
+                     │                          │                                   │
+              Token exists?          User exists & enabled?              CURRENT role from app
+              Not expired?           Account not locked?                 (Member/Manager/Admin)
+```
+
+**Key Points:**
+- **Keycloak**: Authentication only (user identity, account status)
+- **App Database**: Authorization only (application-specific roles)
+- **SecurityService**: Queries CURRENT role from app DB every request
+- **No Role Sync Needed**: Roles only exist in app DB
+
+### Benefits
+
+✅ **No Credential Storage** - AI agents don't store passwords
+✅ **Long-Lived** - Tokens last 30-90 days (configurable)
+✅ **Revocable** - User/Admin can revoke PAT at any time
+✅ **Auditable** - Every PAT use logged with token name
+✅ **Secure** - SHA-256 hashed in database
+✅ **Role Updates Immediate** - Queries current role from app DB
+✅ **Account Disabled = PAT Stops** - Keycloak blocks disabled accounts
+✅ **No Keycloak Bypass** - User identity validated every request
+✅ **Independent App Authorization** - Each app manages its own roles
+✅ **Standard Protocol** - Uses RFC 8693 token exchange
+
+### Implementation Status
+
+**Current:** Phase 4 complete with JWT authentication
+**Next:** PAT system design documented (see PAT-AUTHENTICATION-DESIGN.md)
+
+**For full implementation details, see:**
+- [PAT-AUTHENTICATION-DESIGN.md](PAT-AUTHENTICATION-DESIGN.md) - Complete architecture, database schema, code samples
+- Two approaches: Token Exchange (recommended) and Direct Query (alternative)
+- Migration plan and Keycloak configuration
+
+---
+
 ## Testing Infrastructure
 
 ### Test Fixture
@@ -2510,9 +2742,10 @@ This guide provides **complete, production-ready documentation** for integrating
 
 ### Next Steps
 
-- **Phase 5**: Add EF Core with real database (scoping proven ready)
-- **Phase 6**: Advanced authorization (claims, custom requirements)
-- **Production**: Deploy with verified security and scoping
+- **Phase 5**: Implement Personal Access Token (PAT) system (design complete)
+- **Phase 6**: Add EF Core with real database (scoping proven ready)
+- **Phase 7**: Advanced authorization (claims, custom requirements)
+- **Production**: Deploy with verified security, PAT support, and scoping
 
 ---
 
