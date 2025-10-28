@@ -15,7 +15,8 @@ public class McpToolInvocationTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        var httpClient = await _fixture.GetAuthenticatedClientAsync();
+        // Use alice@example.com (Member role) for tests that require authorization
+        var httpClient = await _fixture.GetAuthenticatedClientAsync("alice@example.com", "alice123");
         _mcpClient = new McpClientHelper(httpClient);
     }
 
@@ -68,10 +69,14 @@ public class McpToolInvocationTests : IAsyncLifetime
     public async Task Should_CreateUser_WhenCallingCreateTool()
     {
         // Arrange
+        // MCP SDK expects nested structure: { "request": { "name": "...", "email": "..." } }
         var arguments = new Dictionary<string, object?>
         {
-            ["name"] = "Test User",
-            ["email"] = "test@example.com"
+            ["request"] = new Dictionary<string, object?>
+            {
+                ["name"] = "Test User",
+                ["email"] = "test@example.com"
+            }
         };
 
         // Act

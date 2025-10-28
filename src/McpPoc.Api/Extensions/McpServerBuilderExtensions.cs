@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -67,21 +68,21 @@ public static class McpServerBuilderExtensions
                 }
                 else
                 {
-                    // Instance method with custom marshaller
+                    // Instance method - capture MethodInfo for pre-filter authorization
+                    var methodCopy = method; // Capture in closure
+
                     builder.Services.AddSingleton<McpServerTool>(services =>
                     {
                         var aiFunction = AIFunctionFactory.Create(
-                            method,
-                            args => CreateControllerInstance(args.Services!, toolType),
+                            methodCopy,
+                            args => CreateControllerWithPreFilter(args.Services!, toolType, methodCopy),
                             new AIFunctionFactoryOptions
                             {
-                                Name = ConvertToSnakeCase(method.Name),
+                                Name = ConvertToSnakeCase(methodCopy.Name),
                                 MarshalResult = UnwrapActionResult,
                                 SerializerOptions = serializerOptions
                             });
 
-                        // SDK automatically collects metadata including [Authorize] attributes
-                        // See: AIFunctionMcpServerTool.CreateMetadata in SDK
                         return McpServerTool.Create(aiFunction, new McpServerToolCreateOptions
                         {
                             Services = services
@@ -92,6 +93,96 @@ public static class McpServerBuilderExtensions
         }
 
         return builder;
+    }
+
+    /// <summary>
+    /// Creates a controller instance with pre-filter authorization check.
+    /// Checks [Authorize] attribute BEFORE creating controller.
+    /// </summary>
+    private static object CreateControllerWithPreFilter(
+        IServiceProvider services,
+        Type controllerType,
+        MethodInfo method)
+    {
+        var loggerFactory = services.GetService<ILoggerFactory>();
+        var logger = loggerFactory?.CreateLogger("McpPoc.Api.Extensions.McpServerBuilderExtensions");
+
+        // Get HttpContext via IHttpContextAccessor
+        var httpContextAccessor = services.GetService<IHttpContextAccessor>();
+        var httpContext = httpContextAccessor?.HttpContext;
+
+        if (httpContext == null)
+        {
+            logger?.LogError("HttpContext is null - cannot perform authorization check");
+            throw new InvalidOperationException("HttpContext not available for authorization");
+        }
+
+        // Check for [Authorize] attribute on method or class
+        var methodAuthorize = method.GetCustomAttribute<AuthorizeAttribute>();
+        var classAuthorize = controllerType.GetCustomAttribute<AuthorizeAttribute>();
+        var authorizeAttr = methodAuthorize ?? classAuthorize;
+
+        if (authorizeAttr != null)
+        {
+            // 1. Check authentication
+            if (httpContext.User?.Identity?.IsAuthenticated != true)
+            {
+                logger?.LogWarning("Authorization failed: User not authenticated for {Method}", method.Name);
+                throw new UnauthorizedAccessException("Authentication required");
+            }
+
+            logger?.LogTrace("User authenticated: {User}", httpContext.User.Identity?.Name ?? "Unknown");
+
+            // 2. Check policy if specified
+            if (!string.IsNullOrEmpty(authorizeAttr.Policy))
+            {
+                var authService = services.GetRequiredService<IAuthorizationService>();
+
+                // Synchronous auth check (IAuthorizationService.AuthorizeAsync is async)
+                // We need to block here because TargetFactory is synchronous
+                var authResult = authService.AuthorizeAsync(
+                    httpContext.User,
+                    httpContext,
+                    authorizeAttr.Policy).GetAwaiter().GetResult();
+
+                if (!authResult.Succeeded)
+                {
+                    var reasons = string.Join(", ", authResult.Failure?.FailureReasons.Select(r => r.Message) ?? Array.Empty<string>());
+                    logger?.LogWarning(
+                        "Authorization failed: Policy {Policy} denied for {Method}. Reasons: {Reasons}",
+                        authorizeAttr.Policy, method.Name, reasons);
+                    throw new UnauthorizedAccessException(
+                        $"Access denied: Policy '{authorizeAttr.Policy}' not satisfied");
+                }
+
+                logger?.LogInformation(
+                    "Policy authorization succeeded: {Policy} for {Method}",
+                    authorizeAttr.Policy, method.Name);
+            }
+
+            // 3. Check roles if specified
+            if (!string.IsNullOrEmpty(authorizeAttr.Roles))
+            {
+                var roles = authorizeAttr.Roles.Split(',').Select(r => r.Trim());
+                var hasRole = roles.Any(role => httpContext.User.IsInRole(role));
+
+                if (!hasRole)
+                {
+                    logger?.LogWarning(
+                        "Authorization failed: User does not have required role {Roles} for {Method}",
+                        authorizeAttr.Roles, method.Name);
+                    throw new UnauthorizedAccessException(
+                        $"Access denied: Required role '{authorizeAttr.Roles}'");
+                }
+
+                logger?.LogInformation(
+                    "Role authorization succeeded: {Roles} for {Method}",
+                    authorizeAttr.Roles, method.Name);
+            }
+        }
+
+        // Authorization passed - create controller instance
+        return ActivatorUtilities.CreateInstance(services, controllerType);
     }
 
     /// <summary>

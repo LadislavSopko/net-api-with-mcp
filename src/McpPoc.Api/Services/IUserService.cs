@@ -13,9 +13,9 @@ public class UserService : IUserService
 {
     private readonly List<User> _users = new()
     {
-        new User { Id = 1, Name = "Alice Smith", Email = "alice@example.com" },
-        new User { Id = 2, Name = "Bob Jones", Email = "bob@example.com" },
-        new User { Id = 3, Name = "Carol White", Email = "carol@example.com" }
+        new User { Id = 1, Name = "Alice Smith", Email = "alice@example.com", Role = UserRole.Member },
+        new User { Id = 2, Name = "Bob Jones", Email = "bob@example.com", Role = UserRole.Manager },
+        new User { Id = 3, Name = "Carol White", Email = "carol@example.com", Role = UserRole.Admin }
     };
 
     public Task<User?> GetByIdAsync(int id)
@@ -35,7 +35,8 @@ public class UserService : IUserService
         {
             Id = _users.Max(u => u.Id) + 1,
             Name = name,
-            Email = email
+            Email = email,
+            Role = UserRole.Member  // Default new users to Member role
         };
         _users.Add(user);
         return Task.FromResult(user);

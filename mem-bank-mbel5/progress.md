@@ -2,25 +2,28 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [STATUS]
-✓poc::Complete{22/22-tests}✓!
-✓auth::Implemented{Keycloak+JWT+Hybrid}✓
-✓performance::Optimized{DNS:39ms}✓
-✓scoping::VERIFIED{DI:working-for-EFCore}✓!
-✓ready::Production{security:endpoint-level+scoping:proven}
+✅phase4::COMPLETE{policy-authorization:100%}✅!
+✓httpAuth::Complete{3/3-tests}✓!
+✓mcpAuth::Complete{7/7-tests}✓!
+@tests::32/32{100%}✅
+✓infrastructure::Complete{4-files+policies}✓
+✓scoping::Fixed{Singleton→Scoped:test-isolation}✓
 
 [METRICS]
-@tests::22/22{100%}✓!
+@tests::32/32{100%:ALL-PASSING}✅!
 @coverage::{
-  5×ToolDiscovery
-  5×ToolInvocation
-  3×HttpCoexistence
-  2×ActionResultSerialization
-  4×Authentication
-  3×DIScopingTests{NEW}✓!
+  6×ToolDiscovery✓
+  5×ToolInvocation✓
+  3×HttpCoexistence✓
+  2×ActionResultSerialization✓
+  4×Authentication✓
+  3×DIScopingTests✓
+  3×HttpAuthorizationTests✓
+  7×PolicyAuthorizationTests✓!
 }
-@files::~33{src+tests+auth+keycloak+scoping}
-@loc::~1100
-@time::~10h{poc+auth+refactor+perf+scoping}
+@files::~40{+7-auth-files}
+@loc::~1450{+350}
+@time::~15h{+5h-phase4}
 
 [POC_VERDICT]
 ✅hypothesis::PROVEN{controllers-can-be-mcp-tools}
@@ -47,6 +50,19 @@
 ✓httpContextAccessor::Registered{ready:filter-pipeline}
 ✓learnings::Documented{[FromServices]¬supported+snake_case+DTOs}
 
+[PHASE4_COMPLETE]
+✅policyAuth::100%{http+mcp:ALL-WORKING}✅!
+✓infrastructure::{
+  PolicyNames+MinimumRoleRequirement+Handler+Extensions
+}✓
+✓preFilter::Implemented{CreateControllerWithPreFilter}✓
+✓httpTests::3/3{Create+Update+Block}✓!
+✓mcpTests::7/7{Create+Update+Promote+Blocks}✓!
+✓roles::Alice{Member}+Bob{Manager}+Carol{Admin}✓
+✓scoping::Singleton→Scoped{test-isolation-fixed}✓!
+✓parameterBinding::Nested-DTO-wrapper{request:{name+email}}✓!
+✓assertions::IsError-null-check{.NotBe(true):success}✓!
+
 [CRITICAL_DISCOVERIES]
 !marshallerBug::new-ValueTask{loses-value}→ValueTask.FromResult{preserves}
 !audienceValidation::Keycloak{azp¬aud}→ValidateAudience:false
@@ -55,6 +71,9 @@
 !aiFunction::[FromServices]¬Supported{use:constructor-injection}!
 !serialization::SnakeCaseLower{MCP:snake_case¬camelCase}!
 !scoping::HttpContext.RequestServices{already-scoped:works}✓!
+!mcpParameterBinding::DTO-needs-nesting{args:{"request":{inner-props}}}!
+!mcpIsError::Null-for-success{use:.NotBe(true):¬.BeFalse()}!
+!clientCredentials::No-user-context{use:alice@example.com:for-auth-tests}!
 
 [SCOPING_BREAKTHROUGH]
 ✅mechanism::Understood{stateless:ScopeRequests=false+UseServicesDirectly}
@@ -65,6 +84,7 @@
 
 [READY_FOR]
 ✓efCore::AddDbContext{confidence:100%:scoping-proven}!
-?phase4::FilterPipeline{pre:[Authorize]-check+post:logging}
-?phase5::CustomPolicies{Claims+AuthorizationHandlers}
-?production::Deploy{security:verified+scoping:verified}
+✓phase4::COMPLETE{pre-filter-auth+policy-based:32/32-tests}✅!
+?phase5::ProductionFeatures{real-CRUD+EFCore+DbContext}
+?phase6::AdvancedAuth{claims+custom-requirements+conditional-policies}
+?production::Deploy{security:verified+scoping:verified+authorization:proven}

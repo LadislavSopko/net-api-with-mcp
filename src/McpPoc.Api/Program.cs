@@ -1,3 +1,4 @@
+using McpPoc.Api.Authorization;
 using McpPoc.Api.Extensions;
 using McpPoc.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -106,11 +107,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// Add MCP POC authorization policies
+builder.Services.AddMcpPocAuthorization();
+
 // Add HttpContextAccessor for accessing HttpContext in filter pipeline
 builder.Services.AddHttpContextAccessor();
 
-// Register user service
-builder.Services.AddSingleton<IUserService, UserService>();
+// Register user service - Scoped for test isolation
+builder.Services.AddScoped<IUserService, UserService>();
 
 // Register scoped request tracker for DI scoping tests
 builder.Services.AddScoped<IScopedRequestTracker, ScopedRequestTracker>();
