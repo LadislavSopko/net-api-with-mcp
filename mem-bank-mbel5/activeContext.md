@@ -2,156 +2,209 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [FOCUS]
-⚡policyAuth::ImplementFilterPipeline+PolicyBasedAuthorization!
-@plan::tasks/tddab-policy-based-authorization-implementation.md
-@approach::PreFilter+MinimumRoleRequirement+IAuthorizationHandler
-@pattern::User's-existing-authorization-code
+⚡libraryExtraction::McpApiExtensions{NuGet-ready+production-quality}!
+@plan::tasks/tddab-mcpapi-extensions-library-v2.md
+@approach::SimplifiedInterface{IAuthForMcpSupplier}+CompleteInvocationHandler
+@architecture::Brilliant{9/10:zen-validated}
 
 [RECENT]
-✓scoping::VERIFIED{3-tests:ALL-PASS}!
-✓scopingProof::EachCall→NewScope{different:RequestId}
-✓infrastructure::IHttpContextAccessor{registered}✓
-✓keycloak::Running{docker-compose:up}✓
-✓tests::22/22{100%}✓
-©User>requested::PolicyBased+RoleHierarchy{like-existing-projects}
->created::TDDAB-Plan{tasks/tddab-policy-based-authorization-implementation.md}
+✓phase4::COMPLETE{policy-authorization:32/32-tests}✅!
+✓zenReview::COMPLETE{deep-technical-analysis:gemini-2.5-pro}!
+✓planV1::Created{identified-critical-gaps}
+✓planV2::FIXED{all-issues-addressed:production-ready}✅!
+©User>requested::IsolateLibrary{McpApiExtensions:reusable-NuGet}
+>created::TDDAB-v2{tasks/tddab-mcpapi-extensions-library-v2.md}
+>validated::Architecture{9/10:IAuthForMcpSupplier-brilliant}
 
 [CURRENT_TASK]
-@phase::ImplementPolicyBasedAuthorization
-@plan::6-TDDABBlocks{infrastructure→preFilter→keycloak→tools→tests→verify}
-@goal::29/29-tests{22-existing+7-new}
-@pattern::FollowUser's-MinimumRoleRequirement+Handler
+@phase5::LibraryExtraction{McpApiExtensions}
+@plan::8-TDDABBlocks{v2:FIXED}
+@goal::57/57-tests{32-existing+15-library+4-supplier+2-docs+4-integration}
+@pattern::SimplifiedInterface{no-HttpContext-in-library}
 
-[PLAN_OVERVIEW]
-@block1::AuthInfrastructure{
-  PolicyNames+MinimumRoleRequirement+Handler+Extensions
-  files:5-new{Authorization/*.cs}
+[PLAN_OVERVIEW_V2]
+@block1::LibraryInfrastructure{
+  IAuthForMcpSupplier+README+.csproj{CPM:Directory.Packages.props}
+  tests:2{interface-contract}
 }
-@block2::PreFilterImplementation{
-  CreateControllerWithPreFilter{check:[Authorize]-BEFORE-execution}
-  location:McpServerBuilderExtensions.cs{enhance-TargetFactory}
+@block2::ActionResultUnwrapper{FIXED:error-handling}
+  tests:4{+ThrowException_ForErrorResult}
 }
-@block3::KeycloakUsers{
-  member@test.com:member123{role:Member}
-  manager@test.com:manager123{role:Manager}
-  admin@test.com:admin123{role:Admin}
+@block3::McpAuthorizationPreFilter{FIXED:AllowAnonymous+Inheritance}
+  tests:7{+AllowAnonymous+InheritedAuthorize}
 }
-@block4::PolicyProtectedTools{
-  create:[Authorize(Policy=RequireMember)]
-  update:[Authorize(Policy=RequireManager)]
-  promote_to_manager:[Authorize(Policy=RequireAdmin)]
+@block4::McpServerBuilderExtensions{FIXED:COMPLETE-invocation-handler}!
+  invocationHandler:150lines{auth→create→invoke→unwrap}
+  tests:2{basic}
 }
-@block5::PolicyAuthorizationTests{
-  7-tests{1-member-allow+2-manager+4-denials}
+@block5::KeycloakAuthSupplier{
+  implements:IAuthForMcpSupplier
+  tests:4{authenticated+policy}
 }
-@block6::VerifyAllPass{
-  expected:29/29{22-existing+7-new}
+@block6::RefactorHost{
+  move:McpServerBuilderExtensions→library
+  update:UsersController{use-library-attributes}
+}
+@block7::NuGetMetadata{
+  version:1.8.0+README+CHANGELOG
+  tests:2{documentation}
+}
+@block8::IntegrationTests{NEW:end-to-end}
+  tests:4{401+auth+policy+anonymous}
 }
 
 [PREREQUISITES_COMPLETE]
-✓diScoping::Verified{HttpContext.RequestServices:works}
-✓httpContextAccessor::Registered{Program.cs:110}
-✓endpointAuth::Working{MapMcp().RequireAuthorization()}
+✓phase4::COMPLETE{32/32-tests:policy-authorization-working}✅
+✓zenReview::COMPLETE{architecture:9/10}✅
+✓planV2::READY{all-critical-issues-fixed}✅
 ✓keycloak::Running{127.0.0.1:8080}
-✓tests::22/22{baseline:established}
+✓baseline::Tests{32/32:established}
+✓cpm::Directory.Build.props+Directory.Packages.props{ready}
 
-[AUTHORIZATION_PATTERN]
-@user'sPattern::{
-  MinimumRoleRequirement:IAuthorizationRequirement
-  MinimumRoleRequirementHandler:AuthorizationHandler<T>
-  PolicyNames:constants{RequireMember+RequireManager+RequireAdmin}
-  AuthorizationServiceExtensions:registration
-}
-@poc::ExactCopy{follow-existing-pattern:¬creative}
+[LIBRARY_ARCHITECTURE]
+@interface::IAuthForMcpSupplier{BRILLIANT-DESIGN}⭐⭐⭐⭐⭐
+  CheckAuthenticatedAsync()→bool
+  CheckPolicyAsync(AuthorizeAttribute)→bool
+  ¬HttpContext:library{host-manages-all-auth}
 
-[PRE_FILTER_ARCHITECTURE]
-```
-MCP-Request
-→TargetFactory{line:75}
-  →CreateControllerWithPreFilter
-    →Get:HttpContext{via:IHttpContextAccessor}
-    →Check:[Authorize]{method||class}
-    →If-Policy:IAuthorizationService.AuthorizeAsync()
-      →MinimumRoleRequirementHandler
-        →Get:User{email-claim}
-        →Check:user.Role>=requirement.MinimumRole
-        →Success:context.Succeed()||Failure:return
-    →If-Success:CreateController||Throw:UnauthorizedAccessException
-→Controller-Method
-```
-
-[ROLE_HIERARCHY]
-@enum::UserRole{Member:1+Manager:2+Admin:3}
-@hierarchy::Admin>Manager>Member
-@tools::{
-  get_by_id:no-policy{endpoint-auth-only}
-  get_all:no-policy{endpoint-auth-only}
-  get_scope_id:no-policy{endpoint-auth-only}
-  create:RequireMember{Member+}
-  update:RequireManager{Manager+}
-  promote_to_manager:RequireAdmin{Admin-only}
+@separation::{
+  Library:reflection+delegation+unwrapping
+  Host:HttpContext+IAuthorizationService+domain
 }
 
-[TEST_STRATEGY]
-@newTests::PolicyAuthorizationTests{7-tests}
-@scenarios::{
-  ✓member→create:ALLOW{RequireMember}
-  ✓manager→update:ALLOW{RequireManager}
-  ✗member→update:DENY{RequireManager}
-  ✓admin→promote:ALLOW{RequireAdmin}
-  ✗manager→promote:DENY{RequireAdmin}
-  ✗member→promote:DENY{RequireAdmin}
+@invocationFlow::{
+  MCP-Request
+  →AIFunctionContext{HttpContext.RequestServices}
+  →Resolve:IAuthForMcpSupplier
+  →McpAuthorizationPreFilter.CheckAuthorizationAsync()
+  →If-authorized:CreateController{ActivatorUtilities}
+  →Invoke:Method
+  →ActionResultUnwrapper.UnwrapAsync()
+  →Return:unwrapped-value
 }
-@verification::RoleHierarchy{Manager-can-create:inherits-Member}
+
+[ZEN_REVIEW_FINDINGS]
+@rating::9/10{architecture:brilliant}
+@strengths::{
+  ✅IAuthForMcpSupplier:simplified{passes-AuthorizeAttribute-directly}
+  ✅separation:clean{library:mechanics|host:domain}
+  ✅reusable:true{works-with-ANY-auth-system}
+  ✅cpm:correct{Directory.Build.props+Directory.Packages.props}
+}
+
+@criticalIssues::{
+  ⛔v1-missing::InvocationHandler{THE-CORE-OF-LIBRARY}
+  ⚠️v1-error::ActionResultUnwrapper{serializes-NotFoundResult}
+  ⚠️v1-missing::AttributeInheritance{inherit:true}
+  ⚠️v1-missing::AllowAnonymous{override-class-Authorize}
+  ⚠️v1-missing::IntegrationTests{end-to-end-verification}
+}
+
+@v2Fixes::{
+  ✅invocationHandler::COMPLETE{150lines:auth+create+invoke+unwrap}
+  ✅errorHandling::FIXED{throw-InvalidOperationException}
+  ✅inheritance::FIXED{GetCustomAttribute(inherit:true)}
+  ✅allowAnonymous::ADDED{check-first:highest-precedence}
+  ✅integration::ADDED{4-tests:401+auth+policy+anonymous}
+}
+
+[TEST_COVERAGE_V2]
+@library::15-tests{
+  2:IAuthForMcpSupplier-contract
+  4:ActionResultUnwrapper{+error-test}
+  7:McpAuthorizationPreFilter{+AllowAnonymous+Inheritance}
+  2:McpServerBuilderExtensions
+}
+@supplier::4-tests{
+  2:CheckAuthenticatedAsync
+  2:CheckPolicyAsync
+}
+@documentation::2-tests{
+  1:AllPublicTypes_HaveXmlDocs
+  1:Package_HasVersion
+}
+@integration::4-tests{NEW}
+  1:MCP_Tool_Requires_Authentication
+  1:MCP_Tool_Allows_Authenticated
+  1:MCP_Tool_With_Policy_Enforces
+  1:MCP_Tool_With_AllowAnonymous
+}
+@existing::32-tests{host:all-pass-after-refactor}
+@total::57-tests{v1:46→v2:57:+11-tests}
 
 [FILES_TO_CREATE]
-1.src/McpPoc.Api/Authorization/PolicyNames.cs
-2.src/McpPoc.Api/Authorization/MinimumRoleRequirement.cs
-3.src/McpPoc.Api/Authorization/MinimumRoleRequirementHandler.cs
-4.src/McpPoc.Api/Authorization/AuthorizationServiceExtensions.cs
-5.tests/McpPoc.Api.Tests/PolicyAuthorizationTests.cs
+@library::{
+  src/McpApiExtensions/McpApiExtensions.csproj
+  src/McpApiExtensions/IAuthForMcpSupplier.cs
+  src/McpApiExtensions/ActionResultUnwrapper.cs
+  src/McpApiExtensions/McpAuthorizationPreFilter.cs
+  src/McpApiExtensions/McpServerBuilderExtensions.cs
+  src/McpApiExtensions/README.md
+  src/McpApiExtensions/CHANGELOG.md
+}
+@libraryTests::{
+  tests/McpApiExtensions.Tests/McpApiExtensions.Tests.csproj
+  tests/McpApiExtensions.Tests/IAuthForMcpSupplierTests.cs
+  tests/McpApiExtensions.Tests/ActionResultUnwrapperTests.cs
+  tests/McpApiExtensions.Tests/McpAuthorizationPreFilterTests.cs
+  tests/McpApiExtensions.Tests/McpServerBuilderExtensionsTests.cs
+  tests/McpApiExtensions.Tests/DocumentationTests.cs
+}
+@hostSupplier::{
+  src/McpPoc.Api/Infrastructure/KeycloakAuthSupplier.cs
+  tests/McpPoc.Api.Tests/KeycloakAuthSupplierTests.cs
+  tests/McpPoc.Api.Tests/McpAuthorizationIntegrationTests.cs
+}
 
 [FILES_TO_MODIFY]
-1.src/McpPoc.Api/Models/User.cs{+UserRole-enum+Role-property}
-2.src/McpPoc.Api/Services/UserService.cs{update:users-with-roles}
-3.src/McpPoc.Api/Program.cs{+AddMcpPocAuthorization()}
-4.src/McpPoc.Api/Extensions/McpServerBuilderExtensions.cs{+CreateControllerWithPreFilter}
-5.src/McpPoc.Api/Controllers/UsersController.cs{+policy-attributes+new-tools}
-6.docker/keycloak/mcppoc-realm.json{+test-users:member+manager+admin}
-7.tests/McpPoc.Api.Tests/McpToolDiscoveryTests.cs{expect:6-tools}
+1.Directory.Packages.props{+4-packages:Authorization+Logging.Abstractions+DI.Abstractions+Moq}
+2.net-api-with-mcp.slnx{+2-projects:McpApiExtensions+Tests}
+3.src/McpPoc.Api/McpPoc.Api.csproj{+ProjectReference:McpApiExtensions}
+4.src/McpPoc.Api/Program.cs{+IAuthForMcpSupplier-registration}
+5.src/McpPoc.Api/Controllers/UsersController.cs{use:library-attributes}
+6.DELETE:src/McpPoc.Api/Extensions/McpServerBuilderExtensions.cs{moved→library}
 
 [EXPECTED_RESULTS]
-@before::Tests{22/22:100%}
-@after::Tests{29/29:100%}
-@new::PolicyAuthorizationTests{7/7:100%}
-@tools::Count{4→6:+create+update+promote_to_manager}
+@before::Tests{32/32:100%}
+@after::Tests{57/57:100%}
+@new::Library{15-tests}+Supplier{4-tests}+Docs{2-tests}+Integration{4-tests}
+@nuget::McpApiExtensions.1.8.0.nupkg{artifacts/}
 
-[CRITICAL_IMPLEMENTATION_NOTES]
-!syncAuth::TargetFactory{synchronous:use-GetAwaiter().GetResult()}
-!userLookup::EmailClaim{Keycloak→email→UserService}
-!errorPropagation::UnauthorizedAccessException{SDK→MCP-error-response}
-!logging::Comprehensive{Trace+Information+Warning}
-!policyEval::IAuthorizationService{standard-AspNetCore}
+[CRITICAL_IMPLEMENTATION_NOTES_V2]
+!invocationHandler::AIFunctionContext→HttpContext.RequestServices→resolve-all
+!errorResults::throw-InvalidOperationException{¬serialize-NotFoundResult}
+!allowAnonymous::check-FIRST{highest-precedence:overrides-class-Authorize}
+!inheritance::GetCustomAttribute(inherit:true){detect-base-class-attributes}
+!logging::Microsoft.Extensions.Logging.Abstractions{¬concrete-implementation}
+!cpm::Directory.Packages.props{NO-versions-in-project-files}
+!versioning::1.8.0{from:Version.props-MainVersion}
 
 [NEXT_STEPS]
 1.await::User-says-ACT
-2.implement::TDDAB-Block-1{AuthInfrastructure}
+2.implement::TDDAB-1{LibraryInfrastructure}
 3.verify::build-agent{CLEAN}
-4.implement::TDDAB-Block-2{PreFilter}
-5.verify::build-agent{CLEAN}
-6.implement::TDDAB-Block-3{Keycloak-users}
-7.implement::TDDAB-Block-4{Policy-tools}
-8.verify::build-agent{CLEAN}
-9.implement::TDDAB-Block-5{Tests}
-10.verify::test-agent{7/7-PASS}
-11.implement::TDDAB-Block-6{Verify-all}
-12.verify::test-agent{29/29-PASS}
-13.update::MemoryBank{completion}
+4.implement::TDDAB-2{ActionResultUnwrapper:FIXED}
+5.verify::build-agent{CLEAN}+test-agent{4/4}
+6.implement::TDDAB-3{McpAuthorizationPreFilter:FIXED}
+7.verify::build-agent{CLEAN}+test-agent{7/7}
+8.implement::TDDAB-4{McpServerBuilderExtensions:COMPLETE-handler}!
+9.verify::build-agent{CLEAN}+test-agent{2/2}
+10.implement::TDDAB-5{KeycloakAuthSupplier}
+11.verify::build-agent{CLEAN}+test-agent{4/4}
+12.implement::TDDAB-6{RefactorHost}
+13.verify::build-agent{CLEAN}+test-agent{32/32:existing-still-pass}
+14.implement::TDDAB-7{NuGetMetadata}
+15.verify::build-agent{CLEAN:Release}+dotnet-pack
+16.implement::TDDAB-8{IntegrationTests}
+17.verify::test-agent{4/4:integration}+test-agent{57/57:ALL}
+18.update::MemoryBank{completion}
 
-[SCOPING_LEARNINGS]
-✓mechanism::HttpContext.RequestServices{already-scoped:by-AspNetCore}
-✓evidence::DIScopingTests{3/3-PASS:different-RequestIds}
-✓conclusion::EFCore{WILL-WORK:scoped-per-request}
-!aiFunction::[FromServices]¬Supported{use:constructor-injection}
-!serialization::SnakeCaseLower{MCP:snake_case¬camelCase}
-!dtoRequired::ProperRecord{¬anonymous-objects}
+[KEY_LEARNINGS_V2]
+✓brilliant::IAuthForMcpSupplier{passes-AuthorizeAttribute-directly}⭐
+✓simplified::¬HttpContext-in-library{host-manages-all}
+✓reusable::works-with-ANY-auth{¬just-Keycloak}
+✓complete::InvocationHandler{auth+create+invoke+unwrap:150lines}
+✓robust::ErrorHandling{throw-for-NotFoundResult:¬serialize}
+✓flexible::AllowAnonymous{override-class-Authorize}
+✓correct::AttributeInheritance{inherit:true:base-classes}
+✓verified::IntegrationTests{end-to-end:4-tests}
