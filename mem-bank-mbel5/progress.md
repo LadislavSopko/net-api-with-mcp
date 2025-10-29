@@ -3,6 +3,7 @@
 
 [STATUS]
 ✅phase4::COMPLETE{policy-authorization:100%}✅!
+⚡phase5::Planning{library-extraction}
 ✓httpAuth::Complete{3/3-tests}✓!
 ✓mcpAuth::Complete{7/7-tests}✓!
 @tests::32/32{100%}✅
@@ -82,9 +83,17 @@
 ✅conclusion::EFCoreDbContext{WILL-WORK:scoped-per-request}!
 ✅tools::#4{get_by_id+get_all+create+get_scope_id}
 
+[PHASE5_PLANNING]
+✓planV1::Created{tasks/tddab-mcpapi-extensions-library.md}
+✓zenReview::COMPLETE{gemini-2.5-pro:found-5-issues}!
+✓planV2::FIXED{tasks/tddab-mcpapi-extensions-library-v2.md}✅
+@blocks::8{infrastructure→tests→refactor→integration}
+@tests::57-target{32-existing+25-new}
+@deliverable::McpApiExtensions.1.8.0.nupkg
+
 [READY_FOR]
 ✓efCore::AddDbContext{confidence:100%:scoping-proven}!
 ✓phase4::COMPLETE{pre-filter-auth+policy-based:32/32-tests}✅!
-?phase5::ProductionFeatures{real-CRUD+EFCore+DbContext}
+⚡phase5::LibraryExtraction{plan-ready:await-ACT}!
 ?phase6::AdvancedAuth{claims+custom-requirements+conditional-policies}
 ?production::Deploy{security:verified+scoping:verified+authorization:proven}

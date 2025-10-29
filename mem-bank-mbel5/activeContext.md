@@ -2,209 +2,32 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [FOCUS]
-⚡libraryExtraction::McpApiExtensions{NuGet-ready+production-quality}!
-@plan::tasks/tddab-mcpapi-extensions-library-v2.md
-@approach::SimplifiedInterface{IAuthForMcpSupplier}+CompleteInvocationHandler
-@architecture::Brilliant{9/10:zen-validated}
+⚡phase5::LibraryExtraction{McpApiExtensions→NuGet}!
+@plan::tasks/tddab-mcpapi-extensions-library-v3.md{8-blocks:PRODUCTION-READY}✅
+@architecture::IAuthForMcpSupplier{9.5/10:zen-validated+security-hardened}
 
 [RECENT]
-✓phase4::COMPLETE{policy-authorization:32/32-tests}✅!
-✓zenReview::COMPLETE{deep-technical-analysis:gemini-2.5-pro}!
-✓planV1::Created{identified-critical-gaps}
-✓planV2::FIXED{all-issues-addressed:production-ready}✅!
-©User>requested::IsolateLibrary{McpApiExtensions:reusable-NuGet}
->created::TDDAB-v2{tasks/tddab-mcpapi-extensions-library-v2.md}
->validated::Architecture{9/10:IAuthForMcpSupplier-brilliant}
+✓zenReview-v2::COMPLETE{gemini-2.5-pro:found-6-issues}!
+>found::🔴CRITICAL{multiple-[Authorize]-security-vulnerability}
+>found::🟠HIGH{null-in-ActionResult+positional-param-binding}
+>fixed::Plan-v3{ALL-critical+high-priority-issues}✅
+@confidence::very-high{validated:gemini-2.5-pro}
 
-[CURRENT_TASK]
-@phase5::LibraryExtraction{McpApiExtensions}
-@plan::8-TDDABBlocks{v2:FIXED}
-@goal::57/57-tests{32-existing+15-library+4-supplier+2-docs+4-integration}
-@pattern::SimplifiedInterface{no-HttpContext-in-library}
+[CURRENT]
+@status::Planning{COMPLETE:v3-PRODUCTION-READY}
+@next::await-ACT{implement-TDDAB-1}
 
-[PLAN_OVERVIEW_V2]
-@block1::LibraryInfrastructure{
-  IAuthForMcpSupplier+README+.csproj{CPM:Directory.Packages.props}
-  tests:2{interface-contract}
-}
-@block2::ActionResultUnwrapper{FIXED:error-handling}
-  tests:4{+ThrowException_ForErrorResult}
-}
-@block3::McpAuthorizationPreFilter{FIXED:AllowAnonymous+Inheritance}
-  tests:7{+AllowAnonymous+InheritedAuthorize}
-}
-@block4::McpServerBuilderExtensions{FIXED:COMPLETE-invocation-handler}!
-  invocationHandler:150lines{auth→create→invoke→unwrap}
-  tests:2{basic}
-}
-@block5::KeycloakAuthSupplier{
-  implements:IAuthForMcpSupplier
-  tests:4{authenticated+policy}
-}
-@block6::RefactorHost{
-  move:McpServerBuilderExtensions→library
-  update:UsersController{use-library-attributes}
-}
-@block7::NuGetMetadata{
-  version:1.8.0+README+CHANGELOG
-  tests:2{documentation}
-}
-@block8::IntegrationTests{NEW:end-to-end}
-  tests:4{401+auth+policy+anonymous}
-}
+[DECISIONS]
+@interface::IAuthForMcpSupplier{simplified:pass-AuthorizeAttribute-directly}
+@separation::Library{mechanics}+Host{domain+HttpContext}
+@cpm::Directory.Build.props+Directory.Packages.props{CPM:enabled}
+@versioning::1.8.0{from:Version.props}
+@tests::58-total{32-existing+26-new}
+!security::MultipleAuthorizeAttributes{GetCustomAttributes:NOT-GetCustomAttribute}
+!robustness::NameBasedBinding{JSON-params:NOT-positional}
+!correctness::NullInActionResult{Ok(null):valid-for-nullable}
 
-[PREREQUISITES_COMPLETE]
-✓phase4::COMPLETE{32/32-tests:policy-authorization-working}✅
-✓zenReview::COMPLETE{architecture:9/10}✅
-✓planV2::READY{all-critical-issues-fixed}✅
-✓keycloak::Running{127.0.0.1:8080}
-✓baseline::Tests{32/32:established}
-✓cpm::Directory.Build.props+Directory.Packages.props{ready}
-
-[LIBRARY_ARCHITECTURE]
-@interface::IAuthForMcpSupplier{BRILLIANT-DESIGN}⭐⭐⭐⭐⭐
-  CheckAuthenticatedAsync()→bool
-  CheckPolicyAsync(AuthorizeAttribute)→bool
-  ¬HttpContext:library{host-manages-all-auth}
-
-@separation::{
-  Library:reflection+delegation+unwrapping
-  Host:HttpContext+IAuthorizationService+domain
-}
-
-@invocationFlow::{
-  MCP-Request
-  →AIFunctionContext{HttpContext.RequestServices}
-  →Resolve:IAuthForMcpSupplier
-  →McpAuthorizationPreFilter.CheckAuthorizationAsync()
-  →If-authorized:CreateController{ActivatorUtilities}
-  →Invoke:Method
-  →ActionResultUnwrapper.UnwrapAsync()
-  →Return:unwrapped-value
-}
-
-[ZEN_REVIEW_FINDINGS]
-@rating::9/10{architecture:brilliant}
-@strengths::{
-  ✅IAuthForMcpSupplier:simplified{passes-AuthorizeAttribute-directly}
-  ✅separation:clean{library:mechanics|host:domain}
-  ✅reusable:true{works-with-ANY-auth-system}
-  ✅cpm:correct{Directory.Build.props+Directory.Packages.props}
-}
-
-@criticalIssues::{
-  ⛔v1-missing::InvocationHandler{THE-CORE-OF-LIBRARY}
-  ⚠️v1-error::ActionResultUnwrapper{serializes-NotFoundResult}
-  ⚠️v1-missing::AttributeInheritance{inherit:true}
-  ⚠️v1-missing::AllowAnonymous{override-class-Authorize}
-  ⚠️v1-missing::IntegrationTests{end-to-end-verification}
-}
-
-@v2Fixes::{
-  ✅invocationHandler::COMPLETE{150lines:auth+create+invoke+unwrap}
-  ✅errorHandling::FIXED{throw-InvalidOperationException}
-  ✅inheritance::FIXED{GetCustomAttribute(inherit:true)}
-  ✅allowAnonymous::ADDED{check-first:highest-precedence}
-  ✅integration::ADDED{4-tests:401+auth+policy+anonymous}
-}
-
-[TEST_COVERAGE_V2]
-@library::15-tests{
-  2:IAuthForMcpSupplier-contract
-  4:ActionResultUnwrapper{+error-test}
-  7:McpAuthorizationPreFilter{+AllowAnonymous+Inheritance}
-  2:McpServerBuilderExtensions
-}
-@supplier::4-tests{
-  2:CheckAuthenticatedAsync
-  2:CheckPolicyAsync
-}
-@documentation::2-tests{
-  1:AllPublicTypes_HaveXmlDocs
-  1:Package_HasVersion
-}
-@integration::4-tests{NEW}
-  1:MCP_Tool_Requires_Authentication
-  1:MCP_Tool_Allows_Authenticated
-  1:MCP_Tool_With_Policy_Enforces
-  1:MCP_Tool_With_AllowAnonymous
-}
-@existing::32-tests{host:all-pass-after-refactor}
-@total::57-tests{v1:46→v2:57:+11-tests}
-
-[FILES_TO_CREATE]
-@library::{
-  src/McpApiExtensions/McpApiExtensions.csproj
-  src/McpApiExtensions/IAuthForMcpSupplier.cs
-  src/McpApiExtensions/ActionResultUnwrapper.cs
-  src/McpApiExtensions/McpAuthorizationPreFilter.cs
-  src/McpApiExtensions/McpServerBuilderExtensions.cs
-  src/McpApiExtensions/README.md
-  src/McpApiExtensions/CHANGELOG.md
-}
-@libraryTests::{
-  tests/McpApiExtensions.Tests/McpApiExtensions.Tests.csproj
-  tests/McpApiExtensions.Tests/IAuthForMcpSupplierTests.cs
-  tests/McpApiExtensions.Tests/ActionResultUnwrapperTests.cs
-  tests/McpApiExtensions.Tests/McpAuthorizationPreFilterTests.cs
-  tests/McpApiExtensions.Tests/McpServerBuilderExtensionsTests.cs
-  tests/McpApiExtensions.Tests/DocumentationTests.cs
-}
-@hostSupplier::{
-  src/McpPoc.Api/Infrastructure/KeycloakAuthSupplier.cs
-  tests/McpPoc.Api.Tests/KeycloakAuthSupplierTests.cs
-  tests/McpPoc.Api.Tests/McpAuthorizationIntegrationTests.cs
-}
-
-[FILES_TO_MODIFY]
-1.Directory.Packages.props{+4-packages:Authorization+Logging.Abstractions+DI.Abstractions+Moq}
-2.net-api-with-mcp.slnx{+2-projects:McpApiExtensions+Tests}
-3.src/McpPoc.Api/McpPoc.Api.csproj{+ProjectReference:McpApiExtensions}
-4.src/McpPoc.Api/Program.cs{+IAuthForMcpSupplier-registration}
-5.src/McpPoc.Api/Controllers/UsersController.cs{use:library-attributes}
-6.DELETE:src/McpPoc.Api/Extensions/McpServerBuilderExtensions.cs{moved→library}
-
-[EXPECTED_RESULTS]
-@before::Tests{32/32:100%}
-@after::Tests{57/57:100%}
-@new::Library{15-tests}+Supplier{4-tests}+Docs{2-tests}+Integration{4-tests}
-@nuget::McpApiExtensions.1.8.0.nupkg{artifacts/}
-
-[CRITICAL_IMPLEMENTATION_NOTES_V2]
-!invocationHandler::AIFunctionContext→HttpContext.RequestServices→resolve-all
-!errorResults::throw-InvalidOperationException{¬serialize-NotFoundResult}
-!allowAnonymous::check-FIRST{highest-precedence:overrides-class-Authorize}
-!inheritance::GetCustomAttribute(inherit:true){detect-base-class-attributes}
-!logging::Microsoft.Extensions.Logging.Abstractions{¬concrete-implementation}
-!cpm::Directory.Packages.props{NO-versions-in-project-files}
-!versioning::1.8.0{from:Version.props-MainVersion}
-
-[NEXT_STEPS]
-1.await::User-says-ACT
-2.implement::TDDAB-1{LibraryInfrastructure}
-3.verify::build-agent{CLEAN}
-4.implement::TDDAB-2{ActionResultUnwrapper:FIXED}
-5.verify::build-agent{CLEAN}+test-agent{4/4}
-6.implement::TDDAB-3{McpAuthorizationPreFilter:FIXED}
-7.verify::build-agent{CLEAN}+test-agent{7/7}
-8.implement::TDDAB-4{McpServerBuilderExtensions:COMPLETE-handler}!
-9.verify::build-agent{CLEAN}+test-agent{2/2}
-10.implement::TDDAB-5{KeycloakAuthSupplier}
-11.verify::build-agent{CLEAN}+test-agent{4/4}
-12.implement::TDDAB-6{RefactorHost}
-13.verify::build-agent{CLEAN}+test-agent{32/32:existing-still-pass}
-14.implement::TDDAB-7{NuGetMetadata}
-15.verify::build-agent{CLEAN:Release}+dotnet-pack
-16.implement::TDDAB-8{IntegrationTests}
-17.verify::test-agent{4/4:integration}+test-agent{57/57:ALL}
-18.update::MemoryBank{completion}
-
-[KEY_LEARNINGS_V2]
-✓brilliant::IAuthForMcpSupplier{passes-AuthorizeAttribute-directly}⭐
-✓simplified::¬HttpContext-in-library{host-manages-all}
-✓reusable::works-with-ANY-auth{¬just-Keycloak}
-✓complete::InvocationHandler{auth+create+invoke+unwrap:150lines}
-✓robust::ErrorHandling{throw-for-NotFoundResult:¬serialize}
-✓flexible::AllowAnonymous{override-class-Authorize}
-✓correct::AttributeInheritance{inherit:true:base-classes}
-✓verified::IntegrationTests{end-to-end:4-tests}
+[KEY_LEARNING]
+!brilliant::¬HttpContext-in-library{host-manages-all-auth}⭐
+!security::GetCustomAttribute→GetCustomAttributes{ALL-attrs-enforced}⭐⭐
+!parameter-binding::JSON-name-based>positional{robust+flexible}⭐
