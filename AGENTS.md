@@ -49,7 +49,7 @@ The `mem-bank-mbel5/README.md` directory stores the canonical project context. A
 ## Mindset Commands
 
 - When the user issues `x-csharp-tddab`, treat it as a mindset setup command.
-- Perform the required context reads from `.claude/commands/x-csharp-tddab.md`, `.claude/commands/mind-sets/csharp-senior.md`, `.claude/commands/mind-sets/tddab-planner.md`, and the Memory Bank (skip `progress.md` and `docs/` unless explicitly asked) before proceeding.
+- Perform the required context reads from `.claude/commands/x-csharp-tddab.md`, `.claude/commands/mind-sets/csharp-senior.md`, `.claude/commands/mind-sets/tddab-planner.md`, and the Memory Bank (`docs/` unless explicitly asked) before proceeding.
 - Adopt the rules in those mindset files: prefer VS MCP tooling for .NET work, enforce TDDAB planning discipline, and follow the user's .NET coding standards.
 - Confirm the mindset activation in your reply so the user knows you are operating under the requested constraints.
 - Mindsets apply for the current session only; wait for the user to reissue commands if a reset occurs.
