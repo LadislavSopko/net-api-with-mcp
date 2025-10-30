@@ -27,10 +27,28 @@ public class PackageTests
             .Where(t => t.IsPublic && !t.IsNested)
             .ToList();
 
-        // Assert
+        // Assert - Core interfaces and attributes
         publicTypes.Should().Contain(t => t.Name == "IAuthForMcpSupplier");
         publicTypes.Should().Contain(t => t.Name == "McpServerBuilderExtensions");
         publicTypes.Should().Contain(t => t.Name == "McpServerToolTypeAttribute");
         publicTypes.Should().Contain(t => t.Name == "McpServerToolAttribute");
+
+        // Assert - Configuration and endpoint mapping
+        publicTypes.Should().Contain(t => t.Name == "ZeroMcpOptions");
+        publicTypes.Should().Contain(t => t.Name == "McpEndpointExtensions");
+    }
+
+    [Fact]
+    public void ZeroMcpOptions_Should_HaveDefaultValues()
+    {
+        // Arrange & Act
+        var options = new ZeroMcpOptions();
+
+        // Assert
+        options.RequireAuthentication.Should().BeTrue();
+        options.UseAuthorization.Should().BeTrue();
+        options.McpEndpointPath.Should().Be("/mcp");
+        options.ToolAssembly.Should().BeNull();
+        options.SerializerOptions.Should().BeNull();
     }
 }

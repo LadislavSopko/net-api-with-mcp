@@ -8,12 +8,16 @@
 
     <!-- NuGet metadata (inherits Version from Directory.Build.props) -->
     <PackageId>Zero.Mcp.Extensions</PackageId>
-    <Description>Enables ASP.NET Core API controllers to function as MCP (Model Context Protocol) server tools with flexible authorization support.</Description>
-    <PackageTags>mcp;model-context-protocol;aspnetcore;api;authorization</PackageTags>
+    <Authors>Zero.Mcp.Extensions Contributors</Authors>
+    <Company>Zero.Mcp.Extensions</Company>
+    <Description>Enables ASP.NET Core API controllers to function as MCP (Model Context Protocol) server tools with flexible authorization support. Turn your existing controllers into MCP tools with simple attributes.</Description>
+    <PackageTags>mcp;model-context-protocol;aspnetcore;api;authorization;authentication;ai;llm</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>Production release: Security hardened (multiple [Authorize]), robust (name-based binding), supports nullable types.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.9.0: Professional configuration system with ZeroMcpOptions. Control authentication, authorization, endpoint path, assembly scanning, and JSON serialization.</PackageReleaseNotes>
     <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/yourusername/net-api-with-mcp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yourusername/net-api-with-mcp</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>

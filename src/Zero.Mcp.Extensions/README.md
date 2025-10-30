@@ -145,6 +145,65 @@ builder.Services.AddZeroMcpExtensions(options =>
 });
 ```
 
+**Custom JSON Serialization:**
+```csharp
+builder.Services.AddZeroMcpExtensions(options =>
+{
+    options.SerializerOptions = new JsonSerializerOptions
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+});
+```
+
+## Architecture
+
+The library follows a clean architecture with clear separation of concerns:
+
+- **Zero.Mcp.Extensions**: Core library with no HttpContext dependency
+- **IAuthForMcpSupplier**: Interface that host implements for auth integration
+- **Host Application**: Provides `IAuthForMcpSupplier` implementation with access to HttpContext
+
+This design allows the library to remain **completely decoupled** from ASP.NET Core infrastructure while still supporting flexible authentication and authorization.
+
+## How It Works
+
+1. **Discovery**: Library scans for classes marked with `[McpServerToolType]`
+2. **Registration**: Methods marked with `[McpServerTool]` are registered as MCP tools
+3. **Authorization Pre-Filter**: Before each tool invocation, checks `[Authorize]` attributes
+4. **Execution**: Invokes controller method if authorized
+5. **Unwrapping**: Extracts value from `ActionResult<T>` for MCP serialization
+6. **Error Handling**: Throws exception for error results (NotFound, BadRequest, etc.)
+
+## Security
+
+- **Multiple [Authorize] Enforcement**: ALL `[Authorize]` attributes are enforced (not just first)
+- **[AllowAnonymous] Support**: Method-level `[AllowAnonymous]` overrides class-level `[Authorize]`
+- **Attribute Inheritance**: Inherits authorization attributes from base classes
+- **Pre-Filter Checks**: Authorization verified BEFORE controller instantiation
+
+## Best Practices
+
+1. **Register IAuthForMcpSupplier as Scoped**: Ensures proper lifecycle management
+2. **Use Policy-Based Authorization**: More flexible than role-based
+3. **Test Authorization**: Write tests to verify auth behavior
+4. **Handle Null Values**: Controllers can return `Ok(null)` for nullable types
+5. **Error Results**: Return appropriate error results (NotFound, BadRequest) - they're converted to exceptions
+
+## Troubleshooting
+
+**Problem**: Tools not discovered
+**Solution**: Ensure `[McpServerToolType]` is on class and `[McpServerTool]` is on methods
+
+**Problem**: Authorization always fails
+**Solution**: Verify `IAuthForMcpSupplier` is registered and implementation is correct
+
+**Problem**: "IAuthForMcpSupplier is not registered" error
+**Solution**: Either register `IAuthForMcpSupplier` or set `UseAuthorization = false`
+
+**Problem**: Wrong assembly scanned
+**Solution**: Explicitly set `options.ToolAssembly = typeof(YourController).Assembly`
+
 ## License
 
 MIT

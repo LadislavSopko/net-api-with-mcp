@@ -111,6 +111,7 @@ builder.Services.AddMcpPocAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IScopedRequestTracker, ScopedRequestTracker>();
+
 builder.Services.AddScoped<IAuthForMcpSupplier, KeycloakAuthSupplier>();
 
 // Configure MCP with authentication and authorization
