@@ -1,4 +1,4 @@
-# TDDAB Plan v4.1: McpApiExtensions Library (FINAL - CORRECTED)
+# TDDAB Plan v4.1: Zero.Mcp.Extensions Library (FINAL - CORRECTED)
 
 > **This is the definitive plan - all interface corrections applied**
 >
@@ -43,7 +43,7 @@ Extract `src/McpPoc.Api/Extensions/McpServerBuilderExtensions.cs` into a product
 
 ### 1.1 Tests First (Will FAIL initially)
 
-**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/tests/McpApiExtensions.Tests/McpApiExtensions.Tests.csproj`
+**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/tests/Zero.Mcp.Extensions.Tests/Zero.Mcp.Extensions.Tests.csproj`
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -66,18 +66,18 @@ Extract `src/McpPoc.Api/Extensions/McpServerBuilderExtensions.cs` into a product
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\McpApiExtensions\McpApiExtensions.csproj" />
+    <ProjectReference Include="..\..\src\Zero.Mcp.Extensions\Zero.Mcp.Extensions.csproj" />
   </ItemGroup>
 </Project>
 ```
 
-**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/tests/McpApiExtensions.Tests/IAuthForMcpSupplierTests.cs`
+**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/tests/Zero.Mcp.Extensions.Tests/IAuthForMcpSupplierTests.cs`
 ```csharp
 using FluentAssertions;
 using Microsoft.AspNetCore.Authorization;
 using Xunit;
 
-namespace McpApiExtensions.Tests;
+namespace Zero.Mcp.Extensions.Tests;
 
 public class IAuthForMcpSupplierTests
 {
@@ -130,7 +130,7 @@ Add to `/mnt/d/Projekty/AI_Works/net-api-with-mcp/Directory.Packages.props`:
 
 **Step 2: Create Library Project**
 
-**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/McpApiExtensions/McpApiExtensions.csproj`
+**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/Zero.Mcp.Extensions/Zero.Mcp.Extensions.csproj`
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -141,7 +141,7 @@ Add to `/mnt/d/Projekty/AI_Works/net-api-with-mcp/Directory.Packages.props`:
     <NoWarn>$(NoWarn);1591</NoWarn>
 
     <!-- NuGet metadata (inherits Version from Directory.Build.props) -->
-    <PackageId>McpApiExtensions</PackageId>
+    <PackageId>Zero.Mcp.Extensions</PackageId>
     <Description>Enables ASP.NET Core API controllers to function as MCP (Model Context Protocol) server tools with flexible authorization support.</Description>
     <PackageTags>mcp;model-context-protocol;aspnetcore;api;authorization</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -165,11 +165,11 @@ Add to `/mnt/d/Projekty/AI_Works/net-api-with-mcp/Directory.Packages.props`:
 
 **Step 3: Create IAuthForMcpSupplier Interface**
 
-**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/McpApiExtensions/IAuthForMcpSupplier.cs`
+**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/Zero.Mcp.Extensions/IAuthForMcpSupplier.cs`
 ```csharp
 using Microsoft.AspNetCore.Authorization;
 
-namespace McpApiExtensions;
+namespace Zero.Mcp.Extensions;
 
 /// <summary>
 /// Provides authentication and authorization verification for MCP tool invocations.
@@ -198,9 +198,9 @@ public interface IAuthForMcpSupplier
 
 **Step 4: Create README**
 
-**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/McpApiExtensions/README.md`
+**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/Zero.Mcp.Extensions/README.md`
 ```markdown
-# McpApiExtensions
+# Zero.Mcp.Extensions
 
 Enables ASP.NET Core API controllers to function as MCP (Model Context Protocol) server tools with flexible authorization support.
 
@@ -218,7 +218,7 @@ Enables ASP.NET Core API controllers to function as MCP (Model Context Protocol)
 ## Installation
 
 ```bash
-dotnet add package McpApiExtensions
+dotnet add package Zero.Mcp.Extensions
 ```
 
 ## Quick Start
@@ -300,7 +300,7 @@ MIT
 ### 1.3 Verification
 
 ```bash
-Use build-agent to build McpApiExtensions
+Use build-agent to build Zero.Mcp.Extensions
 → Expected: ✅ CLEAN (0 errors, 0 warnings)
 
 Use test-agent to run tests for IAuthForMcpSupplierTests
@@ -313,13 +313,13 @@ Use test-agent to run tests for IAuthForMcpSupplierTests
 
 ### 2.1 Tests First (Will FAIL initially)
 
-**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/tests/McpApiExtensions.Tests/MarshalResultTests.cs`
+**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/tests/Zero.Mcp.Extensions.Tests/MarshalResultTests.cs`
 ```csharp
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
 
-namespace McpApiExtensions.Tests;
+namespace Zero.Mcp.Extensions.Tests;
 
 public class MarshalResultTests
 {
@@ -399,12 +399,12 @@ public class MarshalResultTests
 
 ### 2.2 Implementation
 
-**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/McpApiExtensions/MarshalResult.cs`
+**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/Zero.Mcp.Extensions/MarshalResult.cs`
 ```csharp
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 
-namespace McpApiExtensions;
+namespace Zero.Mcp.Extensions;
 
 /// <summary>
 /// Marshals ActionResult&lt;T&gt; responses to extract the actual value for MCP serialization.
@@ -506,7 +506,7 @@ internal static class MarshalResult
 ### 2.3 Verification
 
 ```bash
-Use build-agent to build McpApiExtensions
+Use build-agent to build Zero.Mcp.Extensions
 → Expected: ✅ CLEAN (0 errors, 0 warnings)
 
 Use test-agent to run tests for MarshalResultTests
@@ -519,7 +519,7 @@ Use test-agent to run tests for MarshalResultTests
 
 ### 3.1 Tests First (Will FAIL initially)
 
-**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/tests/McpApiExtensions.Tests/McpAuthorizationPreFilterTests.cs`
+**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/tests/Zero.Mcp.Extensions.Tests/McpAuthorizationPreFilterTests.cs`
 ```csharp
 using FluentAssertions;
 using Microsoft.AspNetCore.Authorization;
@@ -527,7 +527,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
-namespace McpApiExtensions.Tests;
+namespace Zero.Mcp.Extensions.Tests;
 
 public class McpAuthorizationPreFilterTests
 {
@@ -682,13 +682,13 @@ public class McpAuthorizationPreFilterTests
 
 ### 3.2 Implementation
 
-**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/McpApiExtensions/McpAuthorizationPreFilter.cs`
+**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/Zero.Mcp.Extensions/McpAuthorizationPreFilter.cs`
 ```csharp
 using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 
-namespace McpApiExtensions;
+namespace Zero.Mcp.Extensions;
 
 /// <summary>
 /// Performs authorization checks before MCP tool execution using the host's IAuthForMcpSupplier.
@@ -774,7 +774,7 @@ internal class McpAuthorizationPreFilter
 ### 3.3 Verification
 
 ```bash
-Use build-agent to build McpApiExtensions
+Use build-agent to build Zero.Mcp.Extensions
 → Expected: ✅ CLEAN (0 errors, 0 warnings)
 
 Use test-agent to run tests for McpAuthorizationPreFilterTests
@@ -787,19 +787,19 @@ Use test-agent to run tests for McpAuthorizationPreFilterTests
 
 ### 4.1 Tests First (Will FAIL initially)
 
-**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/tests/McpApiExtensions.Tests/McpServerBuilderExtensionsTests.cs`
+**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/tests/Zero.Mcp.Extensions.Tests/McpServerBuilderExtensionsTests.cs`
 ```csharp
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
 
-namespace McpApiExtensions.Tests;
+namespace Zero.Mcp.Extensions.Tests;
 
 public class McpServerBuilderExtensionsTests
 {
     [Fact]
-    public void AddMcpApiExtensions_Should_RegisterRequiredServices()
+    public void AddZero.Mcp.Extensions_Should_RegisterRequiredServices()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -807,7 +807,7 @@ public class McpServerBuilderExtensionsTests
         services.AddSingleton(Mock.Of<IAuthForMcpSupplier>());
 
         // Act
-        services.AddMcpApiExtensions();
+        services.AddZero.Mcp.Extensions();
         var provider = services.BuildServiceProvider();
 
         // Assert
@@ -825,7 +825,7 @@ public class McpServerBuilderExtensionsTests
 
 ### 4.2 Implementation
 
-**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/McpApiExtensions/McpServerBuilderExtensions.cs`
+**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/Zero.Mcp.Extensions/McpServerBuilderExtensions.cs`
 
 This is the main extraction from `src/McpPoc.Api/Extensions/McpServerBuilderExtensions.cs`.
 
@@ -840,7 +840,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 
-namespace McpApiExtensions;
+namespace Zero.Mcp.Extensions;
 
 /// <summary>
 /// Extension methods for configuring MCP server with ASP.NET Core controllers.
@@ -851,7 +851,7 @@ public static class McpServerBuilderExtensions
     /// Adds MCP API Extensions services to the service collection.
     /// Requires IAuthForMcpSupplier to be registered by the host.
     /// </summary>
-    public static IServiceCollection AddMcpApiExtensions(this IServiceCollection services)
+    public static IServiceCollection AddZero.Mcp.Extensions(this IServiceCollection services)
     {
         // No services to register - extension method is for MCP server builder
         // Host must register IAuthForMcpSupplier
@@ -1085,7 +1085,7 @@ public class McpServerToolAttribute : Attribute
 ### 4.3 Verification
 
 ```bash
-Use build-agent to build McpApiExtensions
+Use build-agent to build Zero.Mcp.Extensions
 → Expected: ✅ CLEAN (0 errors, 0 warnings)
 
 Use test-agent to run tests for McpServerBuilderExtensionsTests
@@ -1101,7 +1101,7 @@ Use test-agent to run tests for McpServerBuilderExtensionsTests
 **Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/tests/McpPoc.Api.Tests/KeycloakAuthSupplierTests.cs`
 ```csharp
 using FluentAssertions;
-using McpApiExtensions;
+using Zero.Mcp.Extensions;
 using McpPoc.Api.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -1216,7 +1216,7 @@ public class KeycloakAuthSupplierTests
 
 **Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/McpPoc.Api/Infrastructure/KeycloakAuthSupplier.cs`
 ```csharp
-using McpApiExtensions;
+using Zero.Mcp.Extensions;
 using Microsoft.AspNetCore.Authorization;
 
 namespace McpPoc.Api.Infrastructure;
@@ -1350,14 +1350,14 @@ public async Task<ActionResult<object>> GetPublicInfo()
 ```xml
 <!-- Add after existing ItemGroup with PackageReferences -->
 <ItemGroup>
-  <ProjectReference Include="..\McpApiExtensions\McpApiExtensions.csproj" />
+  <ProjectReference Include="..\Zero.Mcp.Extensions\Zero.Mcp.Extensions.csproj" />
 </ItemGroup>
 ```
 
 **Step 3: Update Program.cs**
 
 ```csharp
-using McpApiExtensions;
+using Zero.Mcp.Extensions;
 using McpPoc.Api.Infrastructure;
 
 // ... existing code ...
@@ -1369,7 +1369,7 @@ builder.Services.AddScoped<IAuthForMcpSupplier, KeycloakAuthSupplier>();
 builder.Services
     .AddMcpServer()
     .WithHttpTransport()
-    .WithToolsFromAssemblyUnwrappingActionResult();  // Now from McpApiExtensions
+    .WithToolsFromAssemblyUnwrappingActionResult();  // Now from Zero.Mcp.Extensions
 
 // ... existing code ...
 
@@ -1379,18 +1379,18 @@ app.MapMcp("/mcp").RequireAuthorization();
 **Step 4: Update UsersController.cs**
 
 ```csharp
-using McpApiExtensions;  // Add this
+using Zero.Mcp.Extensions;  // Add this
 
 [ApiController]
 [Route("api/[controller]")]
-[McpServerToolType]  // Now from McpApiExtensions
+[McpServerToolType]  // Now from Zero.Mcp.Extensions
 [Authorize]
 public class UsersController : ControllerBase
 {
     // ... existing code
 
     [HttpGet("{id}")]
-    [McpServerTool]  // Now from McpApiExtensions
+    [McpServerTool]  // Now from Zero.Mcp.Extensions
     public async Task<ActionResult<User>> GetById(Guid id)
     {
         // ... existing code
@@ -1410,8 +1410,8 @@ This file is no longer needed - all logic now in library.
 
 Add to `net-api-with-mcp.slnx`:
 ```xml
-<Project Path="src\McpApiExtensions\McpApiExtensions.csproj" />
-<Project Path="tests\McpApiExtensions.Tests\McpApiExtensions.Tests.csproj" />
+<Project Path="src\Zero.Mcp.Extensions\Zero.Mcp.Extensions.csproj" />
+<Project Path="tests\Zero.Mcp.Extensions.Tests\Zero.Mcp.Extensions.Tests.csproj" />
 ```
 
 **Step 7: Update test helper for name-based binding**
@@ -1474,13 +1474,13 @@ Use test-agent to run all tests
 
 ### 7.1 Tests First
 
-**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/tests/McpApiExtensions.Tests/PackageTests.cs`
+**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/tests/Zero.Mcp.Extensions.Tests/PackageTests.cs`
 ```csharp
 using FluentAssertions;
 using System.Reflection;
 using Xunit;
 
-namespace McpApiExtensions.Tests;
+namespace Zero.Mcp.Extensions.Tests;
 
 public class PackageTests
 {
@@ -1518,7 +1518,7 @@ public class PackageTests
 
 **Step 1: Create CHANGELOG**
 
-**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/McpApiExtensions/CHANGELOG.md`
+**Create:** `/mnt/d/Projekty/AI_Works/net-api-with-mcp/src/Zero.Mcp.Extensions/CHANGELOG.md`
 ```markdown
 # Changelog
 
@@ -1553,15 +1553,15 @@ public class PackageTests
 ### 7.3 Verification
 
 ```bash
-Use build-agent to build McpApiExtensions in Release configuration
+Use build-agent to build Zero.Mcp.Extensions in Release configuration
 → Expected: ✅ CLEAN (0 errors, 0 warnings)
 
 Use test-agent to run all tests
 → Expected: ✅ ALL PASS (52 total tests)
 
 # Create NuGet package
-dotnet pack src/McpApiExtensions/McpApiExtensions.csproj -c Release -o artifacts
-→ Expected: ✅ McpApiExtensions.1.8.0.nupkg created in artifacts/
+dotnet pack src/Zero.Mcp.Extensions/Zero.Mcp.Extensions.csproj -c Release -o artifacts
+→ Expected: ✅ Zero.Mcp.Extensions.1.8.0.nupkg created in artifacts/
 ```
 
 ---
@@ -1717,7 +1717,7 @@ Use test-agent to run all tests in solution
 
 **From**: `src/McpPoc.Api/Extensions/McpServerBuilderExtensions.cs` (DELETE after migration)
 
-**To**: `src/McpApiExtensions/` library with:
+**To**: `src/Zero.Mcp.Extensions/` library with:
 - `IAuthForMcpSupplier.cs` - Interface (NO HttpContext parameters)
 - `MarshalResult.cs` - Unwrapping logic
 - `McpAuthorizationPreFilter.cs` - Pre-filter authorization (multiple [Authorize])
@@ -1773,8 +1773,8 @@ Use test-agent to run all tests in solution
 → Expected: ✅ ALL PASS (60 tests)
 
 # Create NuGet package
-dotnet pack src/McpApiExtensions/McpApiExtensions.csproj -c Release -o artifacts
-→ Expected: ✅ McpApiExtensions.1.8.0.nupkg created
+dotnet pack src/Zero.Mcp.Extensions/Zero.Mcp.Extensions.csproj -c Release -o artifacts
+→ Expected: ✅ Zero.Mcp.Extensions.1.8.0.nupkg created
 
 # Verify old file is deleted
 ls src/McpPoc.Api/Extensions/McpServerBuilderExtensions.cs

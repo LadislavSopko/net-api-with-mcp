@@ -2,7 +2,7 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [FOCUS]
-⚡phase5::LibraryExtraction{McpApiExtensions→NuGet}!
+⚡phase5::LibraryExtraction{Zero.Mcp.Extensions→NuGet}!
 @plan::tasks/tddab-mcpapi-extensions-library-v4.1-final.md{FINAL:8-blocks}✅
 @status::PRODUCTION-READY{all-fixes+codebase-verified+interface-corrected}
 @architecture::IAuthForMcpSupplier{10/10:zen-validated+security-hardened+¬HttpContext-param}⭐
@@ -16,6 +16,7 @@
 >created::Plan-v4{unified:v3+v3.1-mechanics}✅
 ©User>corrected::Interface{¬HttpContext-param:host-manages-own-dependencies}!
 >created::Plan-v4.1{FINAL:interface-corrected}✅
+©User>renamed::Library{McpApiExtensions→Zero.Mcp.Extensions:professional-branding}✅
 @confidence::very-high{zen-validated+codebase-verified+interface-final}
 
 [CURRENT]
@@ -24,7 +25,8 @@
 @tests::60-total{32-existing+18-library+4-supplier+2-package+4-integration}
 
 [DECISIONS]
-@interface::IAuthForMcpSupplier{HttpContext-param:library-¬-depends-on-IHttpContextAccessor}
+@library-name::Zero.Mcp.Extensions{professional-branding:suggests-ecosystem}✨
+@interface::IAuthForMcpSupplier{¬HttpContext-param:host-manages-own-dependencies}
 @separation::Library{mechanics}+Host{domain+HttpContext+IAuthorizationService}
 @cpm::Directory.Build.props+Directory.Packages.props{CPM:enabled}
 @versioning::1.8.0{from:Version.props}
@@ -36,8 +38,9 @@
 @naming::MarshalResult{NOT-ActionResultUnwrapper:use-actual-name}
 
 [KEY_LEARNING]
-!brilliant::¬HttpContext-in-library{host-manages-all-auth}⭐
+!brilliant::¬HttpContext-in-interface{host-uses-IHttpContextAccessor-internally}⭐⭐⭐
 !security::GetCustomAttribute→GetCustomAttributes{ALL-attrs-enforced}⭐⭐
 !parameter-binding::JSON-name-based>positional{robust+flexible}⭐
-!design-pattern::pass-HttpContext-as-param{NOT-IHttpContextAccessor-DI}⭐⭐
+!design-pattern::clean-separation{library:mechanics|host:dependencies}⭐⭐
 @verified::src/McpPoc.Api/Extensions/McpServerBuilderExtensions.cs{single-file-extraction}
+@naming::Zero-prefix{professional-branding:ecosystem-ready}✨
