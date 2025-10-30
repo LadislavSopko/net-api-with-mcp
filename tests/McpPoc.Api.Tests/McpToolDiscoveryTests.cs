@@ -30,7 +30,7 @@ public class McpToolDiscoveryTests : IAsyncLifetime
 
         // Assert
         tools.Should().NotBeNull();
-        tools.Should().HaveCount(6, "GetById, GetAll, Create, Update, PromoteToManager, and GetScopeId should be exposed");
+        tools.Should().HaveCount(7, "GetById, GetAll, Create, Update, PromoteToManager, GetScopeId, and GetPublicInfo should be exposed");
 
         // Verify expected tool names (SDK converts to snake_case)
         var toolNames = tools.Select(t => t.Name).ToList();
@@ -40,6 +40,7 @@ public class McpToolDiscoveryTests : IAsyncLifetime
         toolNames.Should().Contain("update");
         toolNames.Should().Contain("promote_to_manager");
         toolNames.Should().Contain("get_scope_id");
+        toolNames.Should().Contain("get_public_info");
     }
 
     [Fact]

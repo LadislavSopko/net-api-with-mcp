@@ -11,9 +11,11 @@
   </Folder>
   <Folder Name="/1 - apps/">
     <Project Path="src\McpPoc.Api\McpPoc.Api.csproj" />
+    <Project Path="src\Zero.Mcp.Extensions\Zero.Mcp.Extensions.csproj" />
   </Folder>
   <Folder Name="/2 - tests/">
     <Project Path="tests\McpPoc.Api.Tests\McpPoc.Api.Tests.csproj" />
+    <Project Path="tests\Zero.Mcp.Extensions.Tests\Zero.Mcp.Extensions.Tests.csproj" />
   </Folder>
   <Folder Name="/3 - rdp/" />
   <Folder Name="/3 - rdp/mcp-sdk/">

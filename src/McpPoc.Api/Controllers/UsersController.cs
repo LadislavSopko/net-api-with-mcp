@@ -3,7 +3,7 @@ using McpPoc.Api.Models;
 using McpPoc.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ModelContextProtocol.Server;
+using Zero.Mcp.Extensions;
 using System.ComponentModel;
 
 namespace McpPoc.Api.Controllers;
@@ -136,6 +136,22 @@ public class UsersController : ControllerBase
         );
 
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Public information endpoint for testing [AllowAnonymous] with MCP.
+    /// </summary>
+    [HttpGet("public")]
+    [McpServerTool, Description("Gets public information without authentication")]
+    [AllowAnonymous]
+    public ActionResult<object> GetPublicInfo()
+    {
+        return Ok(new
+        {
+            message = "This is public information accessible without authentication",
+            timestamp = DateTime.UtcNow,
+            serverVersion = "1.8.0"
+        });
     }
 
     /// <summary>

@@ -1,9 +1,10 @@
 using McpPoc.Api.Authorization;
-using McpPoc.Api.Extensions;
+using McpPoc.Api.Infrastructure;
 using McpPoc.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using Zero.Mcp.Extensions;
 
 // Configure Serilog for file logging
 Log.Logger = new LoggerConfiguration()
@@ -106,26 +107,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
-
-// Add MCP POC authorization policies
 builder.Services.AddMcpPocAuthorization();
-
-// Add HttpContextAccessor for accessing HttpContext in filter pipeline
 builder.Services.AddHttpContextAccessor();
-
-// Register user service - Scoped for test isolation
 builder.Services.AddScoped<IUserService, UserService>();
-
-// Register scoped request tracker for DI scoping tests
 builder.Services.AddScoped<IScopedRequestTracker, ScopedRequestTracker>();
+builder.Services.AddScoped<IAuthForMcpSupplier, KeycloakAuthSupplier>();
 
-// ============================================
-// TEST: Add MCP Server with HTTP transport
-// ============================================
-builder.Services
-    .AddMcpServer()
-    .WithHttpTransport()  // HTTP transport for full pipeline
-    .WithToolsFromAssemblyUnwrappingActionResult();  // Custom extension that unwraps ActionResult<T>
+// Configure MCP with authentication and authorization
+builder.Services.AddZeroMcpExtensions(options =>
+{
+    options.RequireAuthentication = true;  // Require auth for MCP endpoint
+    options.UseAuthorization = true;       // Use [Authorize] policies
+    options.McpEndpointPath = "/mcp";      // MCP endpoint path
+});
 
 var app = builder.Build();
 
@@ -146,14 +140,10 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-
-// ============================================
-// TEST: Map MCP endpoint with authentication
-// ============================================
-app.MapMcp("/mcp").RequireAuthorization();  // Expose MCP at /mcp with auth required
+app.MapZeroMcp();  // Uses configuration from AddZeroMcpExtensions
 
 app.Logger.LogInformation("===========================================");
-app.Logger.LogInformation("TEST: MCP + Controller Integration");
+app.Logger.LogInformation("MCP POC API");
 app.Logger.LogInformation("HTTP API: http://127.0.0.1:5001/api/users");
 app.Logger.LogInformation("MCP Endpoint: http://127.0.0.1:5001/mcp");
 app.Logger.LogInformation("Swagger: http://127.0.0.1:5001/swagger");
