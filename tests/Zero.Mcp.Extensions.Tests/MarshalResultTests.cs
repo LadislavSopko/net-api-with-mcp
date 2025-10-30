@@ -72,6 +72,149 @@ public class MarshalResultTests
         result.Should().BeNull();
     }
 
+    [Fact]
+    public async Task MarshalResult_Should_UnwrapValueTask()
+    {
+        // Arrange
+        var valueTask = new ValueTask();
+
+        // Act
+        var result = await MarshalResult.UnwrapAsync(valueTask);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task MarshalResult_Should_UnwrapTaskOfT()
+    {
+        // Arrange
+        var user = new TestUser { Id = Guid.NewGuid(), Name = "Test" };
+        var task = Task.FromResult(user);
+
+        // Act
+        var result = await MarshalResult.UnwrapAsync(task);
+
+        // Assert
+        result.Should().Be(user);
+    }
+
+    [Fact]
+    public async Task MarshalResult_Should_UnwrapNonGenericTask()
+    {
+        // Arrange
+        var task = Task.CompletedTask;
+
+        // Act
+        var result = await MarshalResult.UnwrapAsync(task);
+
+        // Assert
+        result.Should().NotBeNull("Task.CompletedTask returns VoidTaskResult");
+    }
+
+    [Fact]
+    public async Task MarshalResult_Should_ThrowException_ForBadRequestResult()
+    {
+        // Arrange
+        var actionResult = new ActionResult<TestUser>(new BadRequestResult());
+
+        // Act & Assert
+        var act = async () => await MarshalResult.UnwrapAsync(actionResult);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Controller returned error result: BadRequestResult*");
+    }
+
+    [Fact]
+    public async Task MarshalResult_Should_ThrowException_ForUnauthorizedResult()
+    {
+        // Arrange
+        var actionResult = new ActionResult<TestUser>(new UnauthorizedResult());
+
+        // Act & Assert
+        var act = async () => await MarshalResult.UnwrapAsync(actionResult);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Controller returned error result: UnauthorizedResult*");
+    }
+
+    [Fact]
+    public async Task MarshalResult_Should_ReturnNull_ForNullInput()
+    {
+        // Act
+        var result = await MarshalResult.UnwrapAsync(null);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task MarshalResult_Should_ExtractValue_FromCreatedAtActionResult()
+    {
+        // Arrange
+        var user = new TestUser { Id = Guid.NewGuid(), Name = "Test" };
+        var createdResult = new CreatedAtActionResult("GetById", "Users", new { id = 1 }, user);
+        var actionResult = new ActionResult<TestUser>(createdResult);
+
+        // Act
+        var result = await MarshalResult.UnwrapAsync(actionResult);
+
+        // Assert
+        result.Should().Be(user);
+    }
+
+    [Fact]
+    public async Task MarshalResult_Should_ExtractValue_FromActionResultWithDirectValue()
+    {
+        // Arrange - ActionResult<T> with direct value (no Result property)
+        var user = new TestUser { Id = Guid.NewGuid(), Name = "Test" };
+        var actionResult = new ActionResult<TestUser>(user);
+
+        // Act
+        var result = await MarshalResult.UnwrapAsync(actionResult);
+
+        // Assert
+        result.Should().Be(user);
+    }
+
+    [Fact]
+    public async Task MarshalResult_Should_ThrowException_ForStatusCodeActionResult()
+    {
+        // Arrange - StatusCodeResult (not ObjectResult)
+        var actionResult = new ActionResult<TestUser>(new StatusCodeResult(500));
+
+        // Act & Assert
+        var act = async () => await MarshalResult.UnwrapAsync(actionResult);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Controller returned error result: StatusCodeResult*");
+    }
+
+    [Fact]
+    public async Task MarshalResult_Should_ExtractValue_FromAcceptedResult()
+    {
+        // Arrange
+        var user = new TestUser { Id = Guid.NewGuid(), Name = "Test" };
+        var acceptedResult = new AcceptedResult("location", user);
+        var actionResult = new ActionResult<TestUser>(acceptedResult);
+
+        // Act
+        var result = await MarshalResult.UnwrapAsync(actionResult);
+
+        // Assert
+        result.Should().Be(user);
+    }
+
+    [Fact]
+    public async Task MarshalResult_Should_ReturnOriginalValue_WhenNotActionResult()
+    {
+        // Arrange
+        var plainString = "plain value";
+
+        // Act
+        var result = await MarshalResult.UnwrapAsync(plainString);
+
+        // Assert
+        result.Should().Be(plainString);
+    }
+
     private record TestUser
     {
         public Guid Id { get; init; }
