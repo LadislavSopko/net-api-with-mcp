@@ -34,7 +34,10 @@
     },
     "poc": {
       "type": "http",
-      "url": "http://localhost:5001/mcp/"      
+      "url": "http://localhost:5001/mcp",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICIxejlEZWVOZVNwckRnQVo2YlA3YWplM0Rfd1hjUk43djROWFN3VW1iRFpNIn0.eyJleHAiOjE3NjE4MzUzOTcsImlhdCI6MTc2MTgzMTc5NywianRpIjoiNmE2MTI1YTAtMjQ3MS00OGQyLWE2ZTMtMWFmMzk0ODFjOGFkIiwiaXNzIjoiaHR0cDovLzEyNy4wLjAuMTo4MDgwL3JlYWxtcy9tY3Bwb2MtcmVhbG0iLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJtY3Bwb2MtYXBpIiwic2lkIjoiZDA2NDkzMGItNmU2Ni00Y2RhLWE5OTYtZmEwZDJkN2ZhNjM0IiwicmVzb3VyY2VfYWNjZXNzIjp7Im1jcHBvYy1hcGkiOnsicm9sZXMiOlsiYWRtaW4iXX0sImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoiZW1haWwgcm9sZXMgcHJvZmlsZSIsInJlYWxtX3JvbGVzIjpbIm9mZmxpbmVfYWNjZXNzIiwiYWRtaW4iLCJ1bWFfYXV0aG9yaXphdGlvbiIsInVzZXIiXSwiZW1haWxfdmVyaWZpZWQiOnRydWUsInByZWZlcnJlZF91c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBtY3Bwb2MuY29tIn0.qezrWgqxYcepoxgwYBnTXhe7J0imnZuX4wUCuP3KH0Gkz6xlMFL3uWEovUeQury4Zl8dCpv8gJe2tOZ4U-ZuSZ9x6xJ_Lu-9uaAgUi1h_0ZHpY2jrmV0RouceWOPTxYkaWd2ci9SzfFVt8OOpbp7ldwbZwhDOdJoBBxJy__cO_Oqhocg_Mi_m0bPMK70iJocYqkj9matkHwrvzV08Um2y-uqsoN6iiA6rPN_tJYX7O5bzRRM1b3V6NljEC8I9HFHMA7F0WzcL382BMzhGNmFligTpGy-yrD6KDlI4tiv4sQL3SSvTHVvKULpqmE4z6fCh8MsE5shrLtI2mlZFuzbvQ"
+      }
     }
   }
 }

@@ -26,28 +26,6 @@ public class KeycloakTokenHelper
     }
 
     /// <summary>
-    /// Get access token using client credentials flow
-    /// </summary>
-    public async Task<string> GetClientCredentialsTokenAsync()
-    {
-        using var httpClient = new HttpClient();
-        var tokenEndpoint = $"{_keycloakUrl}/realms/{_realm}/protocol/openid-connect/token";
-
-        var requestContent = new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["grant_type"] = "client_credentials",
-            ["client_id"] = _clientId,
-            ["client_secret"] = _clientSecret
-        });
-
-        var response = await httpClient.PostAsync(tokenEndpoint, requestContent);
-        response.EnsureSuccessStatusCode();
-
-        var tokenResponse = await response.Content.ReadFromJsonAsync<TokenResponse>();
-        return tokenResponse?.AccessToken ?? throw new Exception("Failed to get access token");
-    }
-
-    /// <summary>
     /// Get access token using password grant (for user login)
     /// </summary>
     public async Task<string> GetPasswordTokenAsync(string username, string password)
@@ -59,9 +37,9 @@ public class KeycloakTokenHelper
         {
             ["grant_type"] = "password",
             ["client_id"] = _clientId,
-            ["client_secret"] = _clientSecret,
             ["username"] = username,
             ["password"] = password
+            // Note: client_secret not needed for public client
         });
 
         var response = await httpClient.PostAsync(tokenEndpoint, requestContent);

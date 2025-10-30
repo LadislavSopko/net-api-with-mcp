@@ -2,9 +2,10 @@ namespace McpPoc.Api.Models;
 
 public enum UserRole
 {
-    Member = 1,
-    Manager = 2,
-    Admin = 3
+    Viewer = 0,   // Read-only access
+    Member = 1,   // Read + Create
+    Manager = 2,  // Read + Create + Update
+    Admin = 3     // Everything
 }
 
 public class User

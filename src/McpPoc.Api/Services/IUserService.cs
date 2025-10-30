@@ -11,11 +11,17 @@ public interface IUserService
 
 public class UserService : IUserService
 {
+    // IMPORTANT: Username must match Keycloak's preferred_username claim
+    // For "admin" login -> preferred_username = "admin" (NOT "admin@mcppoc.com")
+    // For "alice@example.com" login -> preferred_username = "alice@example.com"
     private readonly List<User> _users = new()
     {
         new User { Id = 1, Name = "Alice Smith", Email = "alice@example.com", Role = UserRole.Member },
         new User { Id = 2, Name = "Bob Jones", Email = "bob@example.com", Role = UserRole.Manager },
-        new User { Id = 3, Name = "Carol White", Email = "carol@example.com", Role = UserRole.Admin }
+        new User { Id = 3, Name = "Carol White", Email = "carol@example.com", Role = UserRole.Admin },
+        new User { Id = 100, Name = "Admin User", Email = "admin", Role = UserRole.Admin },
+        new User { Id = 101, Name = "Regular User", Email = "user", Role = UserRole.Member },
+        new User { Id = 102, Name = "Viewer User", Email = "viewer", Role = UserRole.Viewer }
     };
 
     public Task<User?> GetByIdAsync(int id)

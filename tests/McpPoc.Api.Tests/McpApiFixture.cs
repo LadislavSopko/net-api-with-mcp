@@ -18,25 +18,14 @@ public class McpApiFixture : WebApplicationFactory<Program>
     }
 
     /// <summary>
-    /// Get HttpClient with authentication using client credentials flow.
+    /// Get HttpClient with authentication using default test user (alice@example.com).
     /// Tokens are cached for performance.
     /// </summary>
     public async Task<HttpClient> GetAuthenticatedClientAsync()
     {
-        const string cacheKey = "client_credentials";
-
-        if (!_tokenCache.TryGetValue(cacheKey, out var token))
-        {
-            token = await _tokenHelper.GetClientCredentialsTokenAsync();
-            _tokenCache[cacheKey] = token;
-        }
-
-        var client = CreateClient(new WebApplicationFactoryClientOptions
-        {
-            BaseAddress = new Uri("http://127.0.0.1")
-        });
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return client;
+        // Use alice@example.com as the default authenticated user
+        // (client_credentials flow no longer supported since client is public)
+        return await GetAuthenticatedClientAsync("alice@example.com", "alice123");
     }
 
     /// <summary>

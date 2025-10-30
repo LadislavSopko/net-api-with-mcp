@@ -49,20 +49,20 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "mcppoc-api-secret",
-      "publicClient": false,
+      "publicClient": true,
       "bearerOnly": false,
       "consentRequired": false,
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": true,
-      "serviceAccountsEnabled": true,
+      "serviceAccountsEnabled": false,
       "authorizationServicesEnabled": false,
       "frontchannelLogout": false,
       "protocol": "openid-connect",
       "attributes": {
         "post.logout.redirect.uris": "http://127.0.0.1:5001/*##http://localhost:5001/*",
-        "access.token.lifespan": "3600"
+        "access.token.lifespan": "3600",
+        "pkce.code.challenge.method": "S256"
       },
       "authenticationFlowBindingOverrides": {},
       "fullScopeAllowed": true,
@@ -177,6 +177,22 @@
         }
       ],
       "realmRoles": ["admin", "user"]
+    },
+    {
+      "username": "viewer",
+      "email": "viewer@mcppoc.com",
+      "emailVerified": true,
+      "firstName": "Viewer",
+      "lastName": "User",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "viewer123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
     }
   ],
   "clientScopes": [

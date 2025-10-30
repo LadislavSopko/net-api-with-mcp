@@ -58,4 +58,64 @@ public class HttpAuthorizationTests
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden, "Member (Alice) should NOT be able to update users via HTTP");
     }
+
+    // ========================================
+    // VIEWER ROLE TESTS (Read-only)
+    // ========================================
+
+    [Fact]
+    public async Task Should_AllowRead_WhenUserIsViewer_ViaHttp()
+    {
+        // Arrange
+        var client = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
+
+        // Act
+        var response = await client.GetAsync("/api/users/1");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK, "Viewer should be able to read users via HTTP");
+        var user = await response.Content.ReadFromJsonAsync<UserDto>();
+        user.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Should_BlockCreate_WhenUserIsViewer_ViaHttp()
+    {
+        // Arrange
+        var client = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
+        var request = new { name = "Test User", email = "test@example.com" };
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/users", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden, "Viewer should NOT be able to create users via HTTP");
+    }
+
+    [Fact]
+    public async Task Should_BlockUpdate_WhenUserIsViewer_ViaHttp()
+    {
+        // Arrange
+        var client = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
+        var request = new { name = "Updated Name", email = "updated@example.com" };
+
+        // Act
+        var response = await client.PutAsJsonAsync("/api/users/1", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden, "Viewer should NOT be able to update users via HTTP");
+    }
+
+    [Fact]
+    public async Task Should_BlockPromote_WhenUserIsViewer_ViaHttp()
+    {
+        // Arrange
+        var client = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
+
+        // Act
+        var response = await client.PostAsync("/api/users/1/promote", null);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden, "Viewer should NOT be able to promote users via HTTP");
+    }
 }

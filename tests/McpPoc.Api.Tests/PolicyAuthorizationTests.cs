@@ -8,6 +8,7 @@ namespace McpPoc.Api.Tests;
 public class PolicyAuthorizationTests : IAsyncLifetime
 {
     private readonly McpApiFixture _fixture;
+    private McpClientHelper _viewerClient = null!;
     private McpClientHelper _memberClient = null!;
     private McpClientHelper _managerClient = null!;
     private McpClientHelper _adminClient = null!;
@@ -20,6 +21,9 @@ public class PolicyAuthorizationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         // Create authenticated clients for each role
+        var viewerHttp = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
+        _viewerClient = new McpClientHelper(viewerHttp);
+
         var memberHttp = await _fixture.GetAuthenticatedClientAsync("alice@example.com", "alice123");
         _memberClient = new McpClientHelper(memberHttp);
 
@@ -32,6 +36,7 @@ public class PolicyAuthorizationTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
+        await _viewerClient.DisposeAsync();
         await _memberClient.DisposeAsync();
         await _managerClient.DisposeAsync();
         await _adminClient.DisposeAsync();
@@ -187,5 +192,90 @@ public class PolicyAuthorizationTests : IAsyncLifetime
         result.Should().NotBeNull();
         result.IsError.Should().NotBe(true, "Manager should inherit Member permissions and be able to create users");
         result.Content.Should().NotBeEmpty();
+    }
+
+    // ========================================
+    // VIEWER ROLE TESTS (Read-only)
+    // ========================================
+
+    [Fact]
+    public async Task Should_AllowRead_WhenUserIsViewer()
+    {
+        // Arrange - Viewer user calling read tool
+        var args = new Dictionary<string, object?>
+        {
+            ["id"] = 1
+        };
+
+        // Act
+        var result = await _viewerClient.CallToolAsync("get_by_id", args);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.IsError.Should().NotBe(true, "Viewer should be able to read users via MCP");
+        result.Content.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task Should_BlockCreate_WhenUserIsViewer()
+    {
+        // Arrange - Viewer user trying to call Member-protected tool
+        var args = new Dictionary<string, object?>
+        {
+            ["request"] = new Dictionary<string, object?>
+            {
+                ["name"] = "Test User",
+                ["email"] = "test@example.com"
+            }
+        };
+
+        // Act
+        var result = await _viewerClient.CallToolAsync("create", args);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.IsError.Should().Be(true, "Viewer should NOT be able to create users - authorization should block this");
+        result.Content.Should().NotBeEmpty("error response should contain error details");
+    }
+
+    [Fact]
+    public async Task Should_BlockUpdate_WhenUserIsViewer()
+    {
+        // Arrange - Viewer user trying to call Manager-protected tool
+        var args = new Dictionary<string, object?>
+        {
+            ["id"] = 1,
+            ["request"] = new Dictionary<string, object?>
+            {
+                ["name"] = "Updated Name",
+                ["email"] = "updated@example.com"
+            }
+        };
+
+        // Act
+        var result = await _viewerClient.CallToolAsync("update", args);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.IsError.Should().Be(true, "Viewer should NOT be able to update users - authorization should block this");
+        result.Content.Should().NotBeEmpty("error response should contain error details");
+    }
+
+    [Fact]
+    public async Task Should_BlockPromote_WhenUserIsViewer()
+    {
+        // Arrange - Viewer user trying to call Admin-protected tool
+        var args = new Dictionary<string, object?>
+        {
+            ["id"] = 1
+        };
+
+        // Act
+        var result = await _viewerClient.CallToolAsync("promote_to_manager", args);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.IsError.Should().Be(true, "Viewer should NOT be able to promote users - authorization should block this");
+        result.Content.Should().NotBeEmpty("error response should contain error details");
     }
 }

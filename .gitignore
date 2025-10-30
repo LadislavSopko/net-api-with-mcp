@@ -273,4 +273,6 @@ PublishProfiles/
 
 /global.json.bak
 
+*.bak
+
 **/.claude/settings.local.json

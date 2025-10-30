@@ -31,14 +31,14 @@ builder.Services.AddSwaggerGen(options =>
         Description = "API with MCP tools and Keycloak authentication"
     });
 
-    // Add OAuth2 security definition
+    // Add OAuth2 security definition (Authorization Code with PKCE)
     var keycloakAuthority = builder.Configuration["Keycloak:Authority"];
     options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.OAuth2,
         Flows = new OpenApiOAuthFlows
         {
-            Implicit = new OpenApiOAuthFlow
+            AuthorizationCode = new OpenApiOAuthFlow
             {
                 AuthorizationUrl = new Uri($"{keycloakAuthority}/protocol/openid-connect/auth"),
                 TokenUrl = new Uri($"{keycloakAuthority}/protocol/openid-connect/token"),
