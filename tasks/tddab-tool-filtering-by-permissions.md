@@ -1,1176 +1,420 @@
-# TDDAB Plan: MCP Tool Filtering by User Permissions
+# TDDAB Plan: MCP Tool Filtering by User Permissions (v2 - Simplified)
 
-## Executive Summary
+## Problem
+```
+Viewer calls tools/list → sees 5 tools → tries "create" → 403 Forbidden 😠
+```
 
-**Problem**: UX Issue - `tools/list` shows ALL tools to all users, including tools they cannot use (403 Forbidden)
+## Solution
+Use SDK's `AddListToolsFilter()` to filter tools/list response based on user role.
 
-**Impact**: Poor user experience - Viewer sees `create`, `update`, `promote_to_manager` but gets 403 when calling them
-
-**Solution**: Metadata-based runtime filtering - capture authorization requirements during registration, filter at runtime based on user role
-
-**Approach**: 4 TDDAB blocks using agent-optimized verification (build-agent + test-agent)
-
-**Target**: 52/52 tests (44 existing + 8 new filtering tests)
+## Target
+- 3 TDDAB blocks (simplified from 4)
+- ~10 new tests
+- 54/54 total tests (44 existing + 10 new)
 
 ---
 
-## Current State
+## Architecture (Simple!)
 
-### What Works ✅
-- ✅ 44/44 tests passing (36 core + 8 viewer role)
-- ✅ 4-tier role hierarchy: Viewer(0) → Member(1) → Manager(2) → Admin(3)
-- ✅ Policy-based authorization with MinimumRoleRequirement
-- ✅ Pre-filter authorization in CreateControllerWithPreFilter
-- ✅ Zero.Mcp.Extensions library v1.9.0
+```
+STARTUP:
+  Scan [Authorize(Policy="RequireX")] → store in Dictionary<toolName, minRole>
 
-### Problem
-```csharp
-// Current behavior - tools/list returns ALL tools
-Viewer calls tools/list → ["get_by_id", "get_all", "create", "update", "promote_to_manager"]
-
-// Then viewer tries create
-Viewer calls create → 403 Forbidden ❌
-
-// Expected behavior
-Viewer calls tools/list → ["get_by_id", "get_all"] ✅
+RUNTIME (tools/list):
+  SDK calls our filter → we check user role → return only authorized tools
 ```
 
-### Tool Authorization Matrix
-| Tool | Minimum Role | Viewer | Member | Manager | Admin |
-|------|--------------|--------|--------|---------|-------|
-| get_by_id | Authenticated | ✅ | ✅ | ✅ | ✅ |
-| get_all | Authenticated | ✅ | ✅ | ✅ | ✅ |
-| create | Member (1) | ❌ | ✅ | ✅ | ✅ |
-| update | Manager (2) | ❌ | ❌ | ✅ | ✅ |
-| promote_to_manager | Admin (3) | ❌ | ❌ | ❌ | ✅ |
+**Components:**
+1. `ToolAuthorizationMetadata` - simple record
+2. `IToolAuthorizationStore` - dictionary wrapper
+3. `AddListToolsFilter()` - SDK's built-in hook
 
 ---
 
-## Architecture Design
+## TDDAB Block 1: Metadata Capture
 
-### Components
+### Goal
+Capture authorization requirements during tool registration.
 
-**1. ToolMetadata** (new)
-```csharp
-public class ToolMetadata
-{
-    public string ToolName { get; init; } = string.Empty;
-    public int? MinimumRole { get; init; }  // Role value: Viewer=0, Member=1, Manager=2, Admin=3
-    public bool RequiresAuthentication { get; init; }
-    public string[] Policies { get; init; } = Array.Empty<string>();
-}
-```
+### 1.1 Tests First
 
-**2. IToolMetadataStore** (new)
-```csharp
-public interface IToolMetadataStore
-{
-    void RegisterTool(ToolMetadata metadata);
-    IEnumerable<ToolMetadata> GetAllTools();
-    ToolMetadata? GetTool(string toolName);
-}
-```
-
-**3. IToolFilterService** (new)
-```csharp
-public interface IToolFilterService
-{
-    Task<IEnumerable<string>> GetAuthorizedToolsAsync(
-        IEnumerable<string> allTools,
-        CancellationToken cancellationToken = default);
-}
-```
-
-**4. MCP Server Interceptor** (new)
-- Intercepts `tools/list` MCP method
-- Applies filtering before returning response
-- Uses IToolFilterService + IAuthForMcpSupplier
-
-### Data Flow
-```
-[Registration - Startup]
-Tool Registration
-  → Extract [Authorize] attributes
-  → Determine MinimumRole from [Authorize(Policy = "MinimumRole:X")]
-  → Store in ToolMetadataStore
-
-[Runtime - tools/list]
-MCP Request "tools/list"
-  → Interceptor detects tools/list
-  → Get user role via IAuthForMcpSupplier
-  → IToolFilterService.GetAuthorizedToolsAsync()
-  → Filter tools where user.Role >= tool.MinimumRole
-  → Return filtered list
-```
-
----
-
-## Prerequisites: Interface Extension
-
-### Objective
-Extend IAuthForMcpSupplier to support role-based filtering
-
-### Required Changes
-
-**File**: `src/Zero.Mcp.Extensions/IAuthForMcpSupplier.cs`
-
-Add new method to existing interface:
-```csharp
-public interface IAuthForMcpSupplier
-{
-    // Existing methods - DO NOT CHANGE
-    Task<bool> CheckAuthenticatedAsync();
-    Task<bool> CheckPolicyAsync(AuthorizeAttribute attribute);
-
-    // NEW: Required for tool filtering
-    /// <summary>
-    /// Gets the current user's role value.
-    /// Returns null if user is not authenticated.
-    /// Role values: Viewer=0, Member=1, Manager=2, Admin=3
-    /// </summary>
-    Task<int?> GetUserRoleAsync(CancellationToken cancellationToken = default);
-}
-```
-
-**Implementation**: `src/McpPoc.Api/Infrastructure/KeycloakAuthSupplier.cs`
-
-Add implementation to the KeycloakAuthSupplier class:
-```csharp
-public async Task<int?> GetUserRoleAsync(CancellationToken cancellationToken = default)
-{
-    var httpContext = _httpContextAccessor.HttpContext;
-    if (httpContext?.User?.Identity?.IsAuthenticated != true)
-    {
-        return null;
-    }
-
-    var roleClaim = httpContext.User.FindFirst("role")?.Value;
-    if (string.IsNullOrEmpty(roleClaim))
-    {
-        return null;
-    }
-
-    // Parse role claim to UserRole enum value
-    if (Enum.TryParse<UserRole>(roleClaim, ignoreCase: true, out var role))
-    {
-        return (int)role;
-    }
-
-    return null;
-}
-```
-
----
-
-## TDDAB Block 1: Tool Metadata System
-
-### Objective
-Capture and store authorization metadata during tool registration
-
-### RED Phase - Tests
-
-**File**: `tests/Zero.Mcp.Extensions.Tests/ToolMetadataTests.cs`
+**File**: `tests/Zero.Mcp.Extensions.Tests/ToolAuthorizationMetadataTests.cs`
 
 ```csharp
 using FluentAssertions;
 using Microsoft.AspNetCore.Authorization;
-using System.Reflection;
 using Xunit;
 
 namespace Zero.Mcp.Extensions.Tests;
 
-public class ToolMetadataTests
+public class ToolAuthorizationMetadataTests
 {
     [Fact]
-    public void ShouldExtractMetadata_When_MethodHasAuthorizePolicy()
+    public void Should_ExtractMinimumRole_FromRequireMemberPolicy()
     {
         // Arrange
-        var methodInfo = typeof(TestToolController).GetMethod(nameof(TestToolController.RequireMemberMethod))!;
-        var toolName = "test_tool";
+        var method = typeof(TestController).GetMethod(nameof(TestController.MemberOnly))!;
 
         // Act
-        var metadata = ToolMetadataExtractor.ExtractMetadata(methodInfo, toolName);
+        var metadata = ToolAuthorizationMetadata.FromMethod(method, "member_only");
 
         // Assert
-        metadata.Should().NotBeNull();
-        metadata.ToolName.Should().Be(toolName);
-        metadata.RequiresAuthentication.Should().BeTrue();
-        metadata.MinimumRole.Should().Be(1); // Member role
-        metadata.Policies.Should().Contain("RequireMember");
+        metadata.MinimumRole.Should().Be(1);
     }
 
     [Fact]
-    public void ShouldExtractMetadata_When_MethodHasAllowAnonymous()
+    public void Should_ExtractMinimumRole_FromRequireManagerPolicy()
     {
-        // Arrange
-        var methodInfo = typeof(TestToolController).GetMethod(nameof(TestToolController.AnonymousMethod))!;
-        var toolName = "anonymous_tool";
+        var method = typeof(TestController).GetMethod(nameof(TestController.ManagerOnly))!;
+        var metadata = ToolAuthorizationMetadata.FromMethod(method, "manager_only");
+        metadata.MinimumRole.Should().Be(2);
+    }
 
-        // Act
-        var metadata = ToolMetadataExtractor.ExtractMetadata(methodInfo, toolName);
+    [Fact]
+    public void Should_ExtractMinimumRole_FromRequireAdminPolicy()
+    {
+        var method = typeof(TestController).GetMethod(nameof(TestController.AdminOnly))!;
+        var metadata = ToolAuthorizationMetadata.FromMethod(method, "admin_only");
+        metadata.MinimumRole.Should().Be(3);
+    }
 
-        // Assert
-        metadata.Should().NotBeNull();
-        metadata.ToolName.Should().Be(toolName);
-        metadata.RequiresAuthentication.Should().BeFalse();
+    [Fact]
+    public void Should_ReturnNullMinimumRole_ForAuthenticatedOnly()
+    {
+        var method = typeof(TestController).GetMethod(nameof(TestController.AuthenticatedOnly))!;
+        var metadata = ToolAuthorizationMetadata.FromMethod(method, "authenticated_only");
         metadata.MinimumRole.Should().BeNull();
-        metadata.Policies.Should().BeEmpty();
     }
 
     [Fact]
-    public void ShouldStoreAndRetrieveMetadata_When_UsingToolMetadataStore()
+    public void Should_StoreAndRetrieve_Metadata()
     {
         // Arrange
-        var store = new ToolMetadataStore();
-        var metadata = new ToolMetadata
-        {
-            ToolName = "create",
-            RequiresAuthentication = true,
-            MinimumRole = 1,
-            Policies = new[] { "RequireMember" }
-        };
+        var store = new ToolAuthorizationStore();
 
         // Act
-        store.RegisterTool(metadata);
-        var retrieved = store.GetTool("create");
+        store.Register("create", new ToolAuthorizationMetadata("create", 1));
+        store.Register("update", new ToolAuthorizationMetadata("update", 2));
 
         // Assert
-        retrieved.Should().NotBeNull();
-        retrieved!.ToolName.Should().Be("create");
-        retrieved.MinimumRole.Should().Be(1);
-        retrieved.Policies.Should().Contain("RequireMember");
+        store.GetMinimumRole("create").Should().Be(1);
+        store.GetMinimumRole("update").Should().Be(2);
+        store.GetMinimumRole("unknown").Should().BeNull();
     }
 }
 
-// Test controller for metadata extraction
-internal class TestToolController
+// Test fixtures
+internal class TestController
 {
     [Authorize(Policy = "RequireMember")]
-    public void RequireMemberMethod() { }
+    public void MemberOnly() { }
 
-    [AllowAnonymous]
-    public void AnonymousMethod() { }
+    [Authorize(Policy = "RequireManager")]
+    public void ManagerOnly() { }
+
+    [Authorize(Policy = "RequireAdmin")]
+    public void AdminOnly() { }
+
+    [Authorize]
+    public void AuthenticatedOnly() { }
 }
 ```
 
-### GREEN Phase - Implementation
+### 1.2 Implementation
 
-**File**: `src/Zero.Mcp.Extensions/ToolMetadata.cs`
+**File**: `src/Zero.Mcp.Extensions/ToolAuthorizationMetadata.cs`
+
 ```csharp
+using Microsoft.AspNetCore.Authorization;
+using System.Reflection;
+
 namespace Zero.Mcp.Extensions;
 
-public class ToolMetadata
+/// <summary>
+/// Authorization metadata for a tool.
+/// </summary>
+public record ToolAuthorizationMetadata(string ToolName, int? MinimumRole)
 {
-    public string ToolName { get; init; } = string.Empty;
-    public int? MinimumRole { get; init; }  // Role value: Viewer=0, Member=1, Manager=2, Admin=3
-    public bool RequiresAuthentication { get; init; }
-    public string[] Policies { get; init; } = Array.Empty<string>();
-}
-
-public interface IToolMetadataStore
-{
-    void RegisterTool(ToolMetadata metadata);
-    IEnumerable<ToolMetadata> GetAllTools();
-    ToolMetadata? GetTool(string toolName);
-}
-
-public class ToolMetadataStore : IToolMetadataStore
-{
-    private readonly Dictionary<string, ToolMetadata> _metadata = new();
-
-    public void RegisterTool(ToolMetadata metadata)
+    /// <summary>
+    /// Extracts authorization metadata from method attributes.
+    /// </summary>
+    public static ToolAuthorizationMetadata FromMethod(MethodInfo method, string toolName)
     {
-        _metadata[metadata.ToolName] = metadata;
-    }
+        // Check method and class level [Authorize] attributes
+        var authorizeAttrs = method.GetCustomAttributes<AuthorizeAttribute>()
+            .Concat(method.DeclaringType?.GetCustomAttributes<AuthorizeAttribute>()
+                    ?? Enumerable.Empty<AuthorizeAttribute>());
 
-    public IEnumerable<ToolMetadata> GetAllTools() => _metadata.Values;
-
-    public ToolMetadata? GetTool(string toolName)
-        => _metadata.TryGetValue(toolName, out var meta) ? meta : null;
-}
-```
-
-**File**: `src/Zero.Mcp.Extensions/ToolMetadataExtractor.cs`
-```csharp
-namespace Zero.Mcp.Extensions;
-
-internal static class ToolMetadataExtractor
-{
-    public static ToolMetadata ExtractMetadata(MethodInfo method, string toolName)
-    {
-        // Check both method-level and class-level [Authorize] attributes
-        var methodAttrs = method.GetCustomAttributes<AuthorizeAttribute>();
-        var typeAttrs = method.DeclaringType?.GetCustomAttributes<AuthorizeAttribute>() ?? Enumerable.Empty<AuthorizeAttribute>();
-        var authorizeAttrs = methodAttrs.Concat(typeAttrs).ToArray();
-
-        // Check for [AllowAnonymous] - if present, no auth required
-        var allowAnonymous = method.GetCustomAttribute<AllowAnonymousAttribute>() is not null;
-        if (allowAnonymous)
-        {
-            return new ToolMetadata
-            {
-                ToolName = toolName,
-                RequiresAuthentication = false,
-                MinimumRole = null,
-                Policies = Array.Empty<string>()
-            };
-        }
-
-        var requiresAuth = authorizeAttrs.Any();
         int? minimumRole = null;
-        var policies = new List<string>();
 
         foreach (var attr in authorizeAttrs)
         {
-            if (!string.IsNullOrEmpty(attr.Policy))
+            if (string.IsNullOrEmpty(attr.Policy)) continue;
+
+            var role = attr.Policy switch
             {
-                policies.Add(attr.Policy);
+                "RequireMember" => 1,
+                "RequireManager" => 2,
+                "RequireAdmin" => 3,
+                _ => (int?)null
+            };
 
-                // Parse "RequireMember" → 1, "RequireManager" → 2, "RequireAdmin" → 3
-                // Unknown policies (e.g., RequireTwoFactor) are ignored to preserve existing minimumRole
-                var parsedRole = attr.Policy switch
-                {
-                    "RequireMember" => (int?)1,
-                    "RequireManager" => (int?)2,
-                    "RequireAdmin" => (int?)3,
-                    _ => null // Unknown policy - don't change minimumRole
-                };
-
-                // Take the higher role if multiple role policies exist
-                if (parsedRole.HasValue)
-                {
-                    minimumRole = minimumRole.HasValue
-                        ? Math.Max(minimumRole.Value, parsedRole.Value)
-                        : parsedRole.Value;
-                }
+            if (role.HasValue)
+            {
+                minimumRole = minimumRole.HasValue
+                    ? Math.Max(minimumRole.Value, role.Value)
+                    : role;
             }
         }
 
-        return new ToolMetadata
-        {
-            ToolName = toolName,
-            MinimumRole = minimumRole,
-            RequiresAuthentication = requiresAuth,
-            Policies = policies.ToArray()
-        };
+        return new ToolAuthorizationMetadata(toolName, minimumRole);
     }
+}
+
+/// <summary>
+/// Simple store for tool authorization metadata.
+/// </summary>
+public interface IToolAuthorizationStore
+{
+    void Register(string toolName, ToolAuthorizationMetadata metadata);
+    int? GetMinimumRole(string toolName);
+}
+
+public class ToolAuthorizationStore : IToolAuthorizationStore
+{
+    private readonly Dictionary<string, ToolAuthorizationMetadata> _store = new();
+
+    public void Register(string toolName, ToolAuthorizationMetadata metadata)
+        => _store[toolName] = metadata;
+
+    public int? GetMinimumRole(string toolName)
+        => _store.TryGetValue(toolName, out var meta) ? meta.MinimumRole : null;
 }
 ```
 
-**Modification**: `src/Zero.Mcp.Extensions/McpServerBuilderExtensions.cs`
+### 1.3 Integration
 
-Modify `WithToolsFromAssemblyUnwrappingActionResult` method to capture metadata in a static list:
+**Modify**: `src/Zero.Mcp.Extensions/McpServerBuilderExtensions.cs`
+
+In `WithToolsFromAssemblyUnwrappingActionResult`, add metadata capture:
+
 ```csharp
-// Static metadata list captured during registration (before DI container is built)
-private static readonly List<ToolMetadata> _capturedMetadata = new();
+// At the start of the method, get or create the store
+var store = new ToolAuthorizationStore();
 
-private static IMcpServerBuilder WithToolsFromAssemblyUnwrappingActionResult(
-    this IMcpServerBuilder builder,
-    ZeroMcpOptions options)
-{
-    var toolAssembly = options.ToolAssembly!;
-    var serializerOptions = options.GetEffectiveSerializerOptions();
+// Inside the foreach loop, after getting toolName:
+var metadata = ToolAuthorizationMetadata.FromMethod(method, toolName);
+store.Register(toolName, metadata);
 
-    // Clear previous metadata (for testing scenarios)
-    _capturedMetadata.Clear();
-
-    // Find all types with [McpServerToolType]
-    var toolTypes = toolAssembly.GetTypes()
-        .Where(t => t.GetCustomAttribute<McpServerToolTypeAttribute>() is not null);
-
-    foreach (var toolType in toolTypes)
-    {
-        var toolMethods = toolType.GetMethods(
-            BindingFlags.Public | BindingFlags.NonPublic |
-            BindingFlags.Static | BindingFlags.Instance)
-            .Where(m => m.GetCustomAttribute<McpServerToolAttribute>() is not null);
-
-        foreach (var method in toolMethods)
-        {
-            var toolName = ConvertToSnakeCase(method.Name);
-
-            // Extract and capture metadata
-            var metadata = ToolMetadataExtractor.ExtractMetadata(method, toolName);
-            _capturedMetadata.Add(metadata);
-
-            // Register the tool (full implementation)
-            if (method.IsStatic)
-            {
-                // Static method with custom marshaller
-                builder.Services.AddSingleton<McpServerTool>(services =>
-                {
-                    var aiFunction = AIFunctionFactory.Create(
-                        method,
-                        target: null,
-                        new AIFunctionFactoryOptions
-                        {
-                            Name = toolName,
-                            MarshalResult = async (result, resultType, ct) => await MarshalResult.UnwrapAsync(result),
-                            SerializerOptions = serializerOptions
-                        });
-                    return McpServerTool.Create(aiFunction, new McpServerToolCreateOptions { Services = services });
-                });
-            }
-            else
-            {
-                // Instance method - capture MethodInfo for pre-filter authorization
-                var methodCopy = method; // Capture in closure
-
-                builder.Services.AddSingleton<McpServerTool>(services =>
-                {
-                    var aiFunction = AIFunctionFactory.Create(
-                        methodCopy,
-                        args => CreateControllerWithPreFilter(args.Services!, toolType, methodCopy, options),
-                        new AIFunctionFactoryOptions
-                        {
-                            Name = toolName,
-                            MarshalResult = async (result, resultType, ct) => await MarshalResult.UnwrapAsync(result),
-                            SerializerOptions = serializerOptions
-                        });
-
-                    return McpServerTool.Create(aiFunction, new McpServerToolCreateOptions
-                    {
-                        Services = services
-                    });
-                });
-            }
-        }
-    }
-
-    return builder;
-}
+// Register the store as singleton (return it for later use)
 ```
 
-Update `AddZeroMcpExtensions` to populate metadata store after registration:
-```csharp
-// Register tool metadata store (singleton factory that populates from captured metadata)
-services.AddSingleton<IToolMetadataStore>(sp =>
-{
-    var store = new ToolMetadataStore();
-    foreach (var metadata in _capturedMetadata)
-    {
-        store.RegisterTool(metadata);
-    }
-    return store;
-});
-```
+### 1.4 Verify
 
-### VERIFY Phase
-
-**Command**:
 ```bash
-mcp__vs-mcp__ExecuteCommand --command build --what Zero.Mcp.Extensions --pathFormat WSL
-mcp__vs-mcp__ExecuteAsyncTest --operation start --projectName Zero.Mcp.Extensions.Tests --filter "FullyQualifiedName~ToolMetadataTests" --pathFormat WSL
-mcp__vs-mcp__ExecuteAsyncTest --operation status --pathFormat WSL
+Use build-agent to build Zero.Mcp.Extensions
+Use test-agent to run tests for ToolAuthorizationMetadataTests
 ```
 
-**Expected**: 3/3 tests passing, CLEAN build
+**Expected**: 5/5 tests pass, CLEAN build
 
 ---
 
-## TDDAB Block 2: Tool Filtering Service
+## TDDAB Block 2: ListTools Filter
 
-### Objective
-Implement service that filters tools based on user permissions
+### Goal
+Filter tools/list response based on user role using SDK's filter hook.
 
-### RED Phase - Tests
+### 2.1 Tests First
 
-**File**: `tests/Zero.Mcp.Extensions.Tests/ToolFilterServiceTests.cs`
+**File**: `tests/Zero.Mcp.Extensions.Tests/ToolFilteringTests.cs`
 
 ```csharp
 using FluentAssertions;
-using Microsoft.Extensions.Logging;
-using Moq;
+using System.Security.Claims;
 using Xunit;
 
 namespace Zero.Mcp.Extensions.Tests;
 
-public class ToolFilterServiceTests
+public class ToolFilteringTests
 {
-    [Fact]
-    public async Task ShouldReturnOnlyReadTools_When_UserIsViewer()
+    [Theory]
+    [InlineData(0, new[] { "get_by_id", "get_all" })]                                    // Viewer
+    [InlineData(1, new[] { "get_by_id", "get_all", "create" })]                          // Member
+    [InlineData(2, new[] { "get_by_id", "get_all", "create", "update" })]                // Manager
+    [InlineData(3, new[] { "get_by_id", "get_all", "create", "update", "promote" })]     // Admin
+    public void Should_FilterTools_ByUserRole(int userRole, string[] expectedTools)
     {
         // Arrange
-        var authSupplier = Mock.Of<IAuthForMcpSupplier>(a => a.GetUserRoleAsync(default) == Task.FromResult<int?>(0));
-        var store = CreateMetadataStore();
-        var logger = Mock.Of<ILogger<ToolFilterService>>();
-        var service = new ToolFilterService(store, authSupplier, logger);
-        var allTools = new[] { "get_by_id", "get_all", "create", "update", "promote_to_manager" };
+        var store = CreateTestStore();
+        var allTools = new[] { "get_by_id", "get_all", "create", "update", "promote" };
 
         // Act
-        var result = await service.GetAuthorizedToolsAsync(allTools);
+        var filtered = ToolListFilter.FilterByRole(allTools, userRole, store);
 
         // Assert
-        result.Should().BeEquivalentTo(new[] { "get_by_id", "get_all" });
+        filtered.Should().BeEquivalentTo(expectedTools);
     }
 
     [Fact]
-    public async Task ShouldReturnReadAndCreateTools_When_UserIsMember()
+    public void Should_ExtractRole_FromClaimsPrincipal()
     {
         // Arrange
-        var authSupplier = Mock.Of<IAuthForMcpSupplier>(a => a.GetUserRoleAsync(default) == Task.FromResult<int?>(1));
-        var store = CreateMetadataStore();
-        var logger = Mock.Of<ILogger<ToolFilterService>>();
-        var service = new ToolFilterService(store, authSupplier, logger);
-        var allTools = new[] { "get_by_id", "get_all", "create", "update", "promote_to_manager" };
+        var claims = new[] { new Claim("role", "Manager") };
+        var identity = new ClaimsIdentity(claims, "test");
+        var principal = new ClaimsPrincipal(identity);
 
         // Act
-        var result = await service.GetAuthorizedToolsAsync(allTools);
+        var role = ToolListFilter.GetUserRole(principal);
 
         // Assert
-        result.Should().BeEquivalentTo(new[] { "get_by_id", "get_all", "create" });
+        role.Should().Be(2);
     }
 
     [Fact]
-    public async Task ShouldReturnReadCreateUpdateTools_When_UserIsManager()
+    public void Should_ReturnNull_WhenNoRoleClaim()
     {
-        // Arrange
-        var authSupplier = Mock.Of<IAuthForMcpSupplier>(a => a.GetUserRoleAsync(default) == Task.FromResult<int?>(2));
-        var store = CreateMetadataStore();
-        var logger = Mock.Of<ILogger<ToolFilterService>>();
-        var service = new ToolFilterService(store, authSupplier, logger);
-        var allTools = new[] { "get_by_id", "get_all", "create", "update", "promote_to_manager" };
-
-        // Act
-        var result = await service.GetAuthorizedToolsAsync(allTools);
-
-        // Assert
-        result.Should().BeEquivalentTo(new[] { "get_by_id", "get_all", "create", "update" });
+        var principal = new ClaimsPrincipal(new ClaimsIdentity());
+        var role = ToolListFilter.GetUserRole(principal);
+        role.Should().BeNull();
     }
 
-    [Fact]
-    public async Task ShouldReturnAllTools_When_UserIsAdmin()
+    private static ToolAuthorizationStore CreateTestStore()
     {
-        // Arrange
-        var authSupplier = Mock.Of<IAuthForMcpSupplier>(a => a.GetUserRoleAsync(default) == Task.FromResult<int?>(3));
-        var store = CreateMetadataStore();
-        var logger = Mock.Of<ILogger<ToolFilterService>>();
-        var service = new ToolFilterService(store, authSupplier, logger);
-        var allTools = new[] { "get_by_id", "get_all", "create", "update", "promote_to_manager" };
-
-        // Act
-        var result = await service.GetAuthorizedToolsAsync(allTools);
-
-        // Assert
-        result.Should().BeEquivalentTo(new[] { "get_by_id", "get_all", "create", "update", "promote_to_manager" });
-    }
-
-    [Fact]
-    public async Task ShouldReturnEmpty_When_UserIsUnauthenticated()
-    {
-        // Arrange
-        var authSupplier = Mock.Of<IAuthForMcpSupplier>(a => a.GetUserRoleAsync(default) == Task.FromResult<int?>(null));
-        var store = CreateMetadataStore();
-        var logger = Mock.Of<ILogger<ToolFilterService>>();
-        var service = new ToolFilterService(store, authSupplier, logger);
-        var allTools = new[] { "get_by_id", "get_all", "create", "update", "promote_to_manager" };
-
-        // Act
-        var result = await service.GetAuthorizedToolsAsync(allTools);
-
-        // Assert
-        result.Should().BeEmpty();
-    }
-
-    private static IToolMetadataStore CreateMetadataStore()
-    {
-        var store = new ToolMetadataStore();
-        store.RegisterTool(new ToolMetadata { ToolName = "get_by_id", RequiresAuthentication = true, MinimumRole = null });
-        store.RegisterTool(new ToolMetadata { ToolName = "get_all", RequiresAuthentication = true, MinimumRole = null });
-        store.RegisterTool(new ToolMetadata { ToolName = "create", RequiresAuthentication = true, MinimumRole = 1 });
-        store.RegisterTool(new ToolMetadata { ToolName = "update", RequiresAuthentication = true, MinimumRole = 2 });
-        store.RegisterTool(new ToolMetadata { ToolName = "promote_to_manager", RequiresAuthentication = true, MinimumRole = 3 });
+        var store = new ToolAuthorizationStore();
+        store.Register("get_by_id", new ToolAuthorizationMetadata("get_by_id", null));
+        store.Register("get_all", new ToolAuthorizationMetadata("get_all", null));
+        store.Register("create", new ToolAuthorizationMetadata("create", 1));
+        store.Register("update", new ToolAuthorizationMetadata("update", 2));
+        store.Register("promote", new ToolAuthorizationMetadata("promote", 3));
         return store;
     }
 }
 ```
 
-### GREEN Phase - Implementation
+### 2.2 Implementation
 
-**File**: `src/Zero.Mcp.Extensions/ToolFilterService.cs`
+**File**: `src/Zero.Mcp.Extensions/ToolListFilter.cs`
+
 ```csharp
+using System.Security.Claims;
+
 namespace Zero.Mcp.Extensions;
 
-public interface IToolFilterService
+/// <summary>
+/// Filters tool lists based on user authorization.
+/// </summary>
+public static class ToolListFilter
 {
-    Task<IEnumerable<string>> GetAuthorizedToolsAsync(
+    /// <summary>
+    /// Filters tools to only those the user is authorized to use.
+    /// </summary>
+    public static IEnumerable<string> FilterByRole(
         IEnumerable<string> allTools,
-        CancellationToken cancellationToken = default);
-}
-
-public class ToolFilterService : IToolFilterService
-{
-    private readonly IToolMetadataStore _metadataStore;
-    private readonly IAuthForMcpSupplier _authSupplier;
-    private readonly ILogger<ToolFilterService> _logger;
-
-    public ToolFilterService(
-        IToolMetadataStore metadataStore,
-        IAuthForMcpSupplier authSupplier,
-        ILogger<ToolFilterService> logger)
+        int? userRole,
+        IToolAuthorizationStore store)
     {
-        _metadataStore = metadataStore;
-        _authSupplier = authSupplier;
-        _logger = logger;
-    }
-
-    public async Task<IEnumerable<string>> GetAuthorizedToolsAsync(
-        IEnumerable<string> allTools,
-        CancellationToken cancellationToken = default)
-    {
-        // Get current user role
-        var userRole = await _authSupplier.GetUserRoleAsync(cancellationToken);
-
         if (userRole == null)
+            return Enumerable.Empty<string>();
+
+        return allTools.Where(tool =>
         {
-            _logger.LogDebug("No user context - returning empty tool list");
-            return Array.Empty<string>();
-        }
-
-        var authorizedTools = new List<string>();
-
-        foreach (var toolName in allTools)
-        {
-            var metadata = _metadataStore.GetTool(toolName);
-
-            if (metadata == null)
-            {
-                // No metadata - include tool (backward compatibility)
-                _logger.LogWarning("No metadata for tool: {Tool} - including by default", toolName);
-                authorizedTools.Add(toolName);
-                continue;
-            }
-
-            // Check if user has required role
-            if (!metadata.RequiresAuthentication)
-            {
-                // Public tool
-                authorizedTools.Add(toolName);
-            }
-            else if (metadata.MinimumRole == null)
-            {
-                // Requires auth but no specific role - any authenticated user
-                authorizedTools.Add(toolName);
-            }
-            else if (userRole >= metadata.MinimumRole)
-            {
-                // User meets minimum role requirement
-                authorizedTools.Add(toolName);
-            }
-        }
-
-        _logger.LogDebug(
-            "Filtered {Total} tools to {Authorized} for role {Role}",
-            allTools.Count(),
-            authorizedTools.Count,
-            userRole);
-
-        return authorizedTools;
-    }
-}
-```
-
-**Modification**: `src/Zero.Mcp.Extensions/McpServerBuilderExtensions.cs`
-
-Add to `AddZeroMcpExtensions` method:
-```csharp
-// Register tool filter service
-services.AddScoped<IToolFilterService, ToolFilterService>();
-```
-
-### VERIFY Phase
-
-**Command**:
-```bash
-mcp__vs-mcp__ExecuteCommand --command build --what Zero.Mcp.Extensions --pathFormat WSL
-mcp__vs-mcp__ExecuteAsyncTest --operation start --projectName Zero.Mcp.Extensions.Tests --filter "FullyQualifiedName~ToolFilterServiceTests" --pathFormat WSL
-mcp__vs-mcp__ExecuteAsyncTest --operation status --pathFormat WSL
-```
-
-**Expected**: 5/5 tests passing, CLEAN build
-
----
-
-## TDDAB Block 3: MCP Tools/List Interceptor
-
-### Objective
-Intercept `tools/list` MCP requests and apply filtering
-
-### RED Phase - Tests
-
-**File**: `tests/Zero.Mcp.Extensions.Tests/FilteredMcpServerTests.cs`
-
-```csharp
-using FluentAssertions;
-using Microsoft.Extensions.Logging;
-using ModelContextProtocol.Server;
-using Moq;
-using Xunit;
-
-namespace Zero.Mcp.Extensions.Tests;
-
-public class FilteredMcpServerTests
-{
-    [Fact]
-    public async Task ShouldInterceptToolsList_When_ListToolsAsyncCalled()
-    {
-        // Arrange
-        var innerServer = Mock.Of<IMcpServer>();
-        var filterService = Mock.Of<IToolFilterService>();
-        var logger = Mock.Of<ILogger<FilteredMcpServer>>();
-        var server = new FilteredMcpServer(innerServer, filterService, logger);
-
-        Mock.Get(innerServer)
-            .Setup(s => s.ListToolsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ToolListResult
-            {
-                Tools = new List<McpServerTool>
-                {
-                    CreateMockTool("get_by_id"),
-                    CreateMockTool("create")
-                }
-            });
-
-        Mock.Get(filterService)
-            .Setup(f => f.GetAuthorizedToolsAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { "get_by_id", "create" });
-
-        // Act
-        var result = await server.ListToolsAsync(CancellationToken.None);
-
-        // Assert
-        Mock.Get(innerServer).Verify(s => s.ListToolsAsync(It.IsAny<CancellationToken>()), Times.Once);
-        Mock.Get(filterService).Verify(
-            f => f.GetAuthorizedToolsAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
-
-    [Fact]
-    public async Task ShouldFilterToolsList_When_UserIsViewer()
-    {
-        // Arrange
-        var innerServer = Mock.Of<IMcpServer>();
-        var filterService = Mock.Of<IToolFilterService>();
-        var logger = Mock.Of<ILogger<FilteredMcpServer>>();
-        var server = new FilteredMcpServer(innerServer, filterService, logger);
-
-        Mock.Get(innerServer)
-            .Setup(s => s.ListToolsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ToolListResult
-            {
-                Tools = new List<McpServerTool>
-                {
-                    CreateMockTool("get_by_id"),
-                    CreateMockTool("get_all"),
-                    CreateMockTool("create"),
-                    CreateMockTool("update"),
-                    CreateMockTool("promote")
-                }
-            });
-
-        Mock.Get(filterService)
-            .Setup(f => f.GetAuthorizedToolsAsync(
-                It.Is<IEnumerable<string>>(tools => tools.Count() == 5),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { "get_by_id", "get_all" }); // Viewer can only read
-
-        // Act
-        var result = await server.ListToolsAsync(CancellationToken.None);
-
-        // Assert
-        result.Tools.Should().HaveCount(2);
-        result.Tools.Select(t => t.Metadata.Name).Should().BeEquivalentTo(new[] { "get_by_id", "get_all" });
-    }
-
-    [Fact]
-    public async Task ShouldDelegateCallToolAsync_ToInnerServer()
-    {
-        // Arrange
-        var innerServer = Mock.Of<IMcpServer>();
-        var filterService = Mock.Of<IToolFilterService>();
-        var logger = Mock.Of<ILogger<FilteredMcpServer>>();
-        var server = new FilteredMcpServer(innerServer, filterService, logger);
-
-        var expectedResult = new CallToolResult { Content = new[] { new TextContent { Text = "result" } } };
-        Mock.Get(innerServer)
-            .Setup(s => s.CallToolAsync("test_tool", It.IsAny<object>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedResult);
-
-        // Act
-        var result = await server.CallToolAsync("test_tool", new { arg = "value" }, CancellationToken.None);
-
-        // Assert
-        result.Should().Be(expectedResult);
-        Mock.Get(innerServer).Verify(
-            s => s.CallToolAsync("test_tool", It.IsAny<object>(), It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
-
-    private static McpServerTool CreateMockTool(string name)
-    {
-        return new McpServerTool(
-            new AIFunction(name, "Description", (args, ct) => Task.FromResult<object?>(null)),
-            new McpServerToolCreateOptions());
-    }
-}
-```
-
-### GREEN Phase - Implementation
-
-**Solution**: Wrap IMcpServer with decorator pattern (cleaner, more testable)
-
-**File**: `src/Zero.Mcp.Extensions/FilteredMcpServer.cs`
-```csharp
-namespace Zero.Mcp.Extensions;
-
-internal class FilteredMcpServer : IMcpServer
-{
-    private readonly IMcpServer _innerServer;
-    private readonly IToolFilterService _filterService;
-    private readonly ILogger<FilteredMcpServer> _logger;
-
-    public FilteredMcpServer(
-        IMcpServer innerServer,
-        IToolFilterService filterService,
-        ILogger<FilteredMcpServer> logger)
-    {
-        _innerServer = innerServer;
-        _filterService = filterService;
-        _logger = logger;
-    }
-
-    public async Task<ToolListResult> ListToolsAsync(CancellationToken cancellationToken)
-    {
-        _logger.LogDebug("Intercepting tools/list request for filtering");
-
-        var allTools = await _innerServer.ListToolsAsync(cancellationToken);
-
-        var authorizedToolNames = await _filterService.GetAuthorizedToolsAsync(
-            allTools.Tools.Select(t => t.Metadata.Name),
-            cancellationToken);
-
-        var filteredTools = allTools.Tools
-            .Where(t => authorizedToolNames.Contains(t.Metadata.Name))
-            .ToList();
-
-        _logger.LogInformation(
-            "Filtered tools list: {Total} → {Filtered}",
-            allTools.Tools.Count,
-            filteredTools.Count);
-
-        return new ToolListResult { Tools = filteredTools };
-    }
-
-    // Delegate all other methods to _innerServer
-    public Task<CallToolResult> CallToolAsync(string name, object? arguments, CancellationToken cancellationToken)
-        => _innerServer.CallToolAsync(name, arguments, cancellationToken);
-
-    public Task<PromptListResult> ListPromptsAsync(CancellationToken cancellationToken)
-        => _innerServer.ListPromptsAsync(cancellationToken);
-
-    public Task<GetPromptResult> GetPromptAsync(string name, object? arguments, CancellationToken cancellationToken)
-        => _innerServer.GetPromptAsync(name, arguments, cancellationToken);
-
-    public Task<ResourceListResult> ListResourcesAsync(CancellationToken cancellationToken)
-        => _innerServer.ListResourcesAsync(cancellationToken);
-
-    public Task<ReadResourceResult> ReadResourceAsync(string uri, CancellationToken cancellationToken)
-        => _innerServer.ReadResourceAsync(uri, cancellationToken);
-
-    public Task<ResourceTemplateListResult> ListResourceTemplatesAsync(CancellationToken cancellationToken)
-        => _innerServer.ListResourceTemplatesAsync(cancellationToken);
-
-    public Task<InitializeResult> InitializeAsync(InitializeRequest request, CancellationToken cancellationToken)
-        => _innerServer.InitializeAsync(request, cancellationToken);
-
-    public Task PingAsync(CancellationToken cancellationToken)
-        => _innerServer.PingAsync(cancellationToken);
-}
-```
-
-**Modification**: `src/Zero.Mcp.Extensions/McpServerBuilderExtensions.cs`
-
-Add decorator registration in `AddZeroMcpExtensions` after `AddMcpServer()`:
-```csharp
-var builder = services.AddMcpServer();
-
-// Wrap with filtered server if both authorization AND filtering are enabled
-if (options.UseAuthorization && options.FilterToolsByPermissions)
-{
-    // Manual decorator registration without Scrutor
-    var descriptors = services.Where(d => d.ServiceType == typeof(IMcpServer)).ToList();
-    foreach (var descriptor in descriptors)
-    {
-        services.Remove(descriptor);
-
-        services.Add(new ServiceDescriptor(
-            typeof(IMcpServer),
-            sp =>
-            {
-                var inner = descriptor.ImplementationFactory != null
-                    ? descriptor.ImplementationFactory(sp) as IMcpServer
-                    : ActivatorUtilities.CreateInstance(sp, descriptor.ImplementationType!) as IMcpServer;
-
-                var filterService = sp.GetRequiredService<IToolFilterService>();
-                var logger = sp.GetRequiredService<ILogger<FilteredMcpServer>>();
-
-                return new FilteredMcpServer(inner!, filterService, logger);
-            },
-            descriptor.Lifetime));
-    }
-}
-
-return builder.WithHttpTransport()
-    .WithToolsFromAssemblyUnwrappingActionResult(options);
-```
-
-### VERIFY Phase
-
-**Command**:
-```bash
-mcp__vs-mcp__ExecuteCommand --command build --what Zero.Mcp.Extensions --pathFormat WSL
-mcp__vs-mcp__ExecuteAsyncTest --operation start --projectName Zero.Mcp.Extensions.Tests --filter "FullyQualifiedName~FilteredMcpServerTests" --pathFormat WSL
-mcp__vs-mcp__ExecuteAsyncTest --operation status --pathFormat WSL
-```
-
-**Expected**: 3/3 tests passing, CLEAN build
-
----
-
-## TDDAB Block 4: Integration Tests
-
-### Objective
-End-to-end verification that each role sees correct tools
-
-### RED Phase - Tests
-
-**Test 4.1**: Viewer sees only read tools
-```csharp
-[Fact]
-public async Task Should_ShowOnlyReadTools_ForViewerRole()
-{
-    // Arrange
-    var client = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
-
-    // Act
-    var response = await client.PostAsJsonAsync("/mcp", new
-    {
-        jsonrpc = "2.0",
-        id = 1,
-        method = "tools/list"
-    });
-
-    // Assert
-    response.Should().BeSuccessful();
-    var result = await response.Content.ReadFromJsonAsync<McpToolsListResponse>();
-    result.Should().NotBeNull();
-    result!.Result.Tools.Should().HaveCount(2);
-    result.Result.Tools.Select(t => t.Name).Should().BeEquivalentTo(new[] { "get_by_id", "get_all" });
-}
-```
-
-**Test 4.2**: Member sees read + create tools
-```csharp
-[Fact]
-public async Task Should_ShowReadAndCreateTools_ForMemberRole()
-{
-    // Arrange
-    var client = await _fixture.GetAuthenticatedClientAsync("alice@example.com", "alice123");
-
-    // Act
-    var response = await client.PostAsJsonAsync("/mcp", new
-    {
-        jsonrpc = "2.0",
-        id = 1,
-        method = "tools/list"
-    });
-
-    // Assert
-    response.Should().BeSuccessful();
-    var result = await response.Content.ReadFromJsonAsync<McpToolsListResponse>();
-    result!.Result.Tools.Should().HaveCount(3);
-    result.Result.Tools.Select(t => t.Name).Should().BeEquivalentTo(new[] { "get_by_id", "get_all", "create" });
-}
-```
-
-**Test 4.3**: Manager sees read + create + update tools
-```csharp
-[Fact]
-public async Task Should_ShowReadCreateUpdateTools_ForManagerRole()
-{
-    // Arrange
-    var client = await _fixture.GetAuthenticatedClientAsync("bob@example.com", "bob123");
-
-    // Act
-    var response = await client.PostAsJsonAsync("/mcp", new
-    {
-        jsonrpc = "2.0",
-        id = 1,
-        method = "tools/list"
-    });
-
-    // Assert
-    response.Should().BeSuccessful();
-    var result = await response.Content.ReadFromJsonAsync<McpToolsListResponse>();
-    result!.Result.Tools.Should().HaveCount(4);
-    result.Result.Tools.Select(t => t.Name).Should().BeEquivalentTo(new[] { "get_by_id", "get_all", "create", "update" });
-}
-```
-
-**Test 4.4**: Admin sees all tools
-```csharp
-[Fact]
-public async Task Should_ShowAllTools_ForAdminRole()
-{
-    // Arrange
-    var client = await _fixture.GetAuthenticatedClientAsync("admin@example.com", "admin123");
-
-    // Act
-    var response = await client.PostAsJsonAsync("/mcp", new
-    {
-        jsonrpc = "2.0",
-        id = 1,
-        method = "tools/list"
-    });
-
-    // Assert
-    response.Should().BeSuccessful();
-    var result = await response.Content.ReadFromJsonAsync<McpToolsListResponse>();
-    result!.Result.Tools.Should().HaveCount(5);
-    result.Result.Tools.Select(t => t.Name).Should().BeEquivalentTo(
-        new[] { "get_by_id", "get_all", "create", "update", "promote_to_manager" });
-}
-```
-
-**Test 4.5**: Unauthenticated sees no tools
-```csharp
-[Fact]
-public async Task Should_Return401_ForUnauthenticatedToolsList()
-{
-    // No authentication
-    var client = _fixture.GetUnauthenticatedClient();
-
-    // tools/list should return 401 (endpoint is protected)
-    var response = await client.PostAsJsonAsync("/mcp", new
-    {
-        jsonrpc = "2.0",
-        id = 1,
-        method = "tools/list"
-    });
-    response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-}
-```
-
-**Test 4.6**: Public tools visible to all (if any exist)
-```csharp
-[Fact]
-public async Task Should_ShowPublicTool_ToAllRoles()
-{
-    // Arrange - test with multiple roles
-    var roles = new[]
-    {
-        ("viewer", "viewer123"),
-        ("alice@example.com", "alice123"),
-        ("bob@example.com", "bob123"),
-        ("admin@example.com", "admin123")
-    };
-
-    foreach (var (username, password) in roles)
-    {
-        var client = await _fixture.GetAuthenticatedClientAsync(username, password);
-
-        // Act
-        var response = await client.PostAsJsonAsync("/mcp", new
-        {
-            jsonrpc = "2.0",
-            id = 1,
-            method = "tools/list"
+            var minRole = store.GetMinimumRole(tool);
+            // null minRole = any authenticated user can access
+            return minRole == null || userRole >= minRole;
         });
+    }
 
-        // Assert
-        response.Should().BeSuccessful();
-        var result = await response.Content.ReadFromJsonAsync<McpToolsListResponse>();
-        result.Should().NotBeNull();
+    /// <summary>
+    /// Extracts role value from ClaimsPrincipal.
+    /// </summary>
+    public static int? GetUserRole(ClaimsPrincipal? user)
+    {
+        if (user?.Identity?.IsAuthenticated != true)
+            return null;
 
-        // If public tools exist (e.g., [AllowAnonymous]), they should appear for all roles
-        // Current API has no public tools, so this test verifies filtering doesn't break
-        result!.Result.Tools.Should().NotBeEmpty("all authenticated users should see at least read tools");
+        var roleClaim = user.FindFirst("role")?.Value;
+        if (string.IsNullOrEmpty(roleClaim))
+            return null;
+
+        return roleClaim switch
+        {
+            "Viewer" => 0,
+            "Member" => 1,
+            "Manager" => 2,
+            "Admin" => 3,
+            _ => null
+        };
     }
 }
 ```
 
-**Test 4.7**: Viewer cannot call filtered-out tools
-```csharp
-[Fact]
-public async Task Should_Return403_WhenViewerCallsFilteredTool()
-{
-    // Arrange
-    var client = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
+### 2.3 Integration
 
-    // Act - try to call create (not in tools/list for Viewer)
-    var response = await client.PostAsJsonAsync("/mcp", new
+**Modify**: `src/Zero.Mcp.Extensions/McpServerBuilderExtensions.cs`
+
+Add the filter in `AddZeroMcpExtensions`:
+
+```csharp
+// After WithToolsFromAssemblyUnwrappingActionResult(options):
+
+if (options.FilterToolsByPermissions)
+{
+    builder.AddListToolsFilter(next => async (request, cancellationToken) =>
     {
-        jsonrpc = "2.0",
-        id = 1,
-        method = "tools/call",
-        @params = new
+        var result = await next(request, cancellationToken);
+
+        var store = request.Services.GetRequiredService<IToolAuthorizationStore>();
+        var userRole = ToolListFilter.GetUserRole(request.User);
+
+        var authorizedTools = ToolListFilter.FilterByRole(
+            result.Tools.Select(t => t.Name),
+            userRole,
+            store);
+
+        return new ListToolsResult
         {
-            name = "create",
-            arguments = new
-            {
-                name = "Test User",
-                email = "test@example.com"
-            }
-        }
+            Tools = result.Tools
+                .Where(t => authorizedTools.Contains(t.Name))
+                .ToList()
+        };
     });
-
-    // Assert - should still get 403 (double protection: filter + authorization)
-    response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 }
 ```
 
-**Test 4.8**: Tool filtering respects role hierarchy
+**Modify**: `src/Zero.Mcp.Extensions/ZeroMcpOptions.cs`
+
 ```csharp
-[Fact]
-public async Task Should_RespectRoleHierarchy_InToolFiltering()
-{
-    // Arrange & Act - get tool lists for Member and Manager
-    var memberClient = await _fixture.GetAuthenticatedClientAsync("alice@example.com", "alice123");
-    var memberResponse = await memberClient.PostAsJsonAsync("/mcp", new
-    {
-        jsonrpc = "2.0",
-        id = 1,
-        method = "tools/list"
-    });
-    var memberResult = await memberResponse.Content.ReadFromJsonAsync<McpToolsListResponse>();
-    var memberTools = memberResult!.Result.Tools.Select(t => t.Name).ToList();
-
-    var managerClient = await _fixture.GetAuthenticatedClientAsync("bob@example.com", "bob123");
-    var managerResponse = await managerClient.PostAsJsonAsync("/mcp", new
-    {
-        jsonrpc = "2.0",
-        id = 1,
-        method = "tools/list"
-    });
-    var managerResult = await managerResponse.Content.ReadFromJsonAsync<McpToolsListResponse>();
-    var managerTools = managerResult!.Result.Tools.Select(t => t.Name).ToList();
-
-    // Assert - Manager should see all Member tools plus Manager-specific tools
-    memberTools.Should().BeSubsetOf(managerTools, "higher roles inherit lower role permissions");
-    managerTools.Should().HaveCountGreaterThan(memberTools.Count, "Manager should have additional tools beyond Member");
-    managerTools.Should().Contain("update", "Manager should see update tool");
-    memberTools.Should().NotContain("update", "Member should not see update tool");
-}
+/// <summary>
+/// Filter tools/list response based on user permissions.
+/// Default: true
+/// </summary>
+public bool FilterToolsByPermissions { get; set; } = true;
 ```
 
-### GREEN Phase - Implementation
+### 2.4 Verify
 
-**File**: `tests/McpPoc.Api.Tests/ToolFilteringTests.cs`
+```bash
+Use build-agent to build Zero.Mcp.Extensions
+Use test-agent to run tests for ToolFilteringTests
+```
+
+**Expected**: 6/6 tests pass (4 role tests + 2 claim tests), CLEAN build
+
+---
+
+## TDDAB Block 3: Integration Tests
+
+### Goal
+End-to-end verification with real HTTP requests.
+
+### 3.1 Tests
+
+**File**: `tests/McpPoc.Api.Tests/ToolVisibilityTests.cs`
 
 ```csharp
 using FluentAssertions;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
 using Xunit;
@@ -1178,65 +422,50 @@ using Xunit;
 namespace McpPoc.Api.Tests;
 
 [Collection("McpApi")]
-public class ToolFilteringTests
+public class ToolVisibilityTests
 {
     private readonly McpApiFixture _fixture;
 
-    public ToolFilteringTests(McpApiFixture fixture)
-    {
-        _fixture = fixture;
-    }
+    public ToolVisibilityTests(McpApiFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task Should_ShowOnlyReadTools_ForViewerRole()
+    public async Task Viewer_Should_SeeOnly_ReadTools()
     {
-        // Arrange
         var client = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
+        var tools = await GetToolsListAsync(client);
 
-        // Act
-        var response = await client.PostAsJsonAsync("/mcp", new
-        {
-            jsonrpc = "2.0",
-            id = 1,
-            method = "tools/list"
-        });
-
-        // Assert
-        response.Should().BeSuccessful();
-        var result = await response.Content.ReadFromJsonAsync<McpToolsListResponse>();
-        result.Should().NotBeNull();
-        result!.Result.Tools.Should().HaveCount(2);
-        result.Result.Tools.Select(t => t.Name).Should().BeEquivalentTo(new[] { "get_by_id", "get_all" });
+        tools.Should().BeEquivalentTo(new[] { "get_by_id", "get_all" });
     }
 
     [Fact]
-    public async Task Should_ShowReadAndCreateTools_ForMemberRole()
+    public async Task Member_Should_See_ReadAndCreateTools()
     {
-        // Arrange
         var client = await _fixture.GetAuthenticatedClientAsync("alice@example.com", "alice123");
+        var tools = await GetToolsListAsync(client);
 
-        // Act
-        var response = await client.PostAsJsonAsync("/mcp", new
-        {
-            jsonrpc = "2.0",
-            id = 1,
-            method = "tools/list"
-        });
-
-        // Assert
-        response.Should().BeSuccessful();
-        var result = await response.Content.ReadFromJsonAsync<McpToolsListResponse>();
-        result!.Result.Tools.Should().HaveCount(3);
-        result.Result.Tools.Select(t => t.Name).Should().BeEquivalentTo(new[] { "get_by_id", "get_all", "create" });
+        tools.Should().BeEquivalentTo(new[] { "get_by_id", "get_all", "create" });
     }
 
     [Fact]
-    public async Task Should_ShowReadCreateUpdateTools_ForManagerRole()
+    public async Task Manager_Should_See_ReadCreateUpdateTools()
     {
-        // Arrange
         var client = await _fixture.GetAuthenticatedClientAsync("bob@example.com", "bob123");
+        var tools = await GetToolsListAsync(client);
 
-        // Act
+        tools.Should().BeEquivalentTo(new[] { "get_by_id", "get_all", "create", "update" });
+    }
+
+    [Fact]
+    public async Task Admin_Should_See_AllTools()
+    {
+        var client = await _fixture.GetAuthenticatedClientAsync("carol@example.com", "carol123");
+        var tools = await GetToolsListAsync(client);
+
+        tools.Should().BeEquivalentTo(new[] { "get_by_id", "get_all", "create", "update", "promote_to_manager" });
+    }
+
+    private static async Task<string[]> GetToolsListAsync(HttpClient client)
+    {
         var response = await client.PostAsJsonAsync("/mcp", new
         {
             jsonrpc = "2.0",
@@ -1244,332 +473,74 @@ public class ToolFilteringTests
             method = "tools/list"
         });
 
-        // Assert
         response.Should().BeSuccessful();
-        var result = await response.Content.ReadFromJsonAsync<McpToolsListResponse>();
-        result!.Result.Tools.Should().HaveCount(4);
-        result.Result.Tools.Select(t => t.Name).Should().BeEquivalentTo(new[] { "get_by_id", "get_all", "create", "update" });
-    }
 
-    [Fact]
-    public async Task Should_ShowAllTools_ForAdminRole()
-    {
-        // Arrange
-        var client = await _fixture.GetAuthenticatedClientAsync("admin@example.com", "admin123");
-
-        // Act
-        var response = await client.PostAsJsonAsync("/mcp", new
-        {
-            jsonrpc = "2.0",
-            id = 1,
-            method = "tools/list"
-        });
-
-        // Assert
-        response.Should().BeSuccessful();
-        var result = await response.Content.ReadFromJsonAsync<McpToolsListResponse>();
-        result!.Result.Tools.Should().HaveCount(5);
-        result.Result.Tools.Select(t => t.Name).Should().BeEquivalentTo(
-            new[] { "get_by_id", "get_all", "create", "update", "promote_to_manager" });
-    }
-
-    [Fact]
-    public async Task Should_Return401_ForUnauthenticatedToolsList()
-    {
-        // Arrange
-        var client = _fixture.GetUnauthenticatedClient();
-
-        // Act
-        var response = await client.PostAsJsonAsync("/mcp", new
-        {
-            jsonrpc = "2.0",
-            id = 1,
-            method = "tools/list"
-        });
-
-        // Assert - endpoint is protected by RequireAuthorization
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-
-    [Fact]
-    public async Task Should_ShowPublicTool_ToAllRoles()
-    {
-        // Arrange - test with multiple roles
-        var roles = new[]
-        {
-            ("viewer", "viewer123"),
-            ("alice@example.com", "alice123"),
-            ("bob@example.com", "bob123"),
-            ("admin@example.com", "admin123")
-        };
-
-        foreach (var (username, password) in roles)
-        {
-            var client = await _fixture.GetAuthenticatedClientAsync(username, password);
-
-            // Act
-            var response = await client.PostAsJsonAsync("/mcp", new
-            {
-                jsonrpc = "2.0",
-                id = 1,
-                method = "tools/list"
-            });
-
-            // Assert
-            response.Should().BeSuccessful();
-            var result = await response.Content.ReadFromJsonAsync<McpToolsListResponse>();
-            result.Should().NotBeNull();
-
-            // If public tools exist (e.g., [AllowAnonymous]), they should appear for all roles
-            // Current API has no public tools, so this test verifies filtering doesn't break
-            result!.Result.Tools.Should().NotBeEmpty("all authenticated users should see at least read tools");
-        }
-    }
-
-    [Fact]
-    public async Task Should_Return403_WhenViewerCallsFilteredTool()
-    {
-        // Arrange
-        var client = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
-
-        // Act - try to call create (not in tools/list for Viewer)
-        var response = await client.PostAsJsonAsync("/mcp", new
-        {
-            jsonrpc = "2.0",
-            id = 1,
-            method = "tools/call",
-            @params = new
-            {
-                name = "create",
-                arguments = new
-                {
-                    name = "Test User",
-                    email = "test@example.com"
-                }
-            }
-        });
-
-        // Assert - should still get 403 (double protection: filter + authorization)
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-    }
-
-    [Fact]
-    public async Task Should_RespectRoleHierarchy_InToolFiltering()
-    {
-        // Arrange & Act - get tool lists for Member and Manager
-        var memberClient = await _fixture.GetAuthenticatedClientAsync("alice@example.com", "alice123");
-        var memberResponse = await memberClient.PostAsJsonAsync("/mcp", new
-        {
-            jsonrpc = "2.0",
-            id = 1,
-            method = "tools/list"
-        });
-        var memberResult = await memberResponse.Content.ReadFromJsonAsync<McpToolsListResponse>();
-        var memberTools = memberResult!.Result.Tools.Select(t => t.Name).ToList();
-
-        var managerClient = await _fixture.GetAuthenticatedClientAsync("bob@example.com", "bob123");
-        var managerResponse = await managerClient.PostAsJsonAsync("/mcp", new
-        {
-            jsonrpc = "2.0",
-            id = 1,
-            method = "tools/list"
-        });
-        var managerResult = await managerResponse.Content.ReadFromJsonAsync<McpToolsListResponse>();
-        var managerTools = managerResult!.Result.Tools.Select(t => t.Name).ToList();
-
-        // Assert - Manager should see all Member tools plus Manager-specific tools
-        memberTools.Should().BeSubsetOf(managerTools, "higher roles inherit lower role permissions");
-        managerTools.Should().HaveCountGreaterThan(memberTools.Count, "Manager should have additional tools beyond Member");
-        managerTools.Should().Contain("update", "Manager should see update tool");
-        memberTools.Should().NotContain("update", "Member should not see update tool");
+        var result = await response.Content.ReadFromJsonAsync<ToolsListResponse>();
+        return result?.Result?.Tools?.Select(t => t.Name).ToArray() ?? Array.Empty<string>();
     }
 }
 
-// Response DTOs for tools/list
-public class McpToolsListResponse
-{
-    public McpToolsListResult Result { get; set; } = new();
-}
-
-public class McpToolsListResult
-{
-    public List<McpTool> Tools { get; set; } = new();
-}
-
-public class McpTool
-{
-    public string Name { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-}
+// Simple DTOs
+file record ToolsListResponse(ToolsListResult? Result);
+file record ToolsListResult(List<ToolInfo>? Tools);
+file record ToolInfo(string Name);
 ```
 
-**Note**: Most implementation is already done in Blocks 1-3, this block is primarily verification
+### 3.2 Verify
 
-### VERIFY Phase
-
-**Command**:
 ```bash
-mcp__vs-mcp__ExecuteCommand --command build --what McpPoc.Api --pathFormat WSL
-mcp__vs-mcp__ExecuteAsyncTest --operation start --projectName McpPoc.Api.Tests --filter "FullyQualifiedName~ToolFilteringTests" --pathFormat WSL
-mcp__vs-mcp__ExecuteAsyncTest --operation status --pathFormat WSL
-```
-
-**Expected**: 8/8 tests passing, CLEAN build
-
-**Final verification**:
-```bash
-mcp__vs-mcp__ExecuteAsyncTest --operation start --projectName McpPoc.Api.Tests --pathFormat WSL
-mcp__vs-mcp__ExecuteAsyncTest --operation status --pathFormat WSL
-```
-
-**Expected**: 52/52 tests passing (44 existing + 8 new)
-
----
-
-## Implementation Checklist
-
-### Prerequisites
-- ✅ Zero.Mcp.Extensions library exists (v1.9.0)
-- ✅ 4-tier role system implemented
-- ✅ IAuthForMcpSupplier interface available
-- ✅ Policy-based authorization working
-
-### TDDAB Block 1: Tool Metadata
-- [ ] Create ToolMetadata.cs
-- [ ] Create IToolMetadataStore interface
-- [ ] Implement ToolMetadataStore
-- [ ] Create ToolMetadataExtractor utility
-- [ ] Modify McpServerBuilderExtensions to capture metadata
-- [ ] Write 3 unit tests
-- [ ] VERIFY: build-agent + test-agent → 3/3 passing
-
-### TDDAB Block 2: Tool Filtering
-- [ ] Create IToolFilterService interface
-- [ ] Implement ToolFilterService
-- [ ] Register service in DI container
-- [ ] Write 5 unit tests (Viewer, Member, Manager, Admin, Unauth)
-- [ ] VERIFY: build-agent + test-agent → 5/5 passing
-
-### TDDAB Block 3: MCP Interceptor
-- [ ] Create FilteredMcpServer decorator
-- [ ] Implement IMcpServer wrapper
-- [ ] Modify McpServerBuilderExtensions to apply decorator
-- [ ] Add configuration option (FilterTools: bool)
-- [ ] Write 3 unit tests
-- [ ] VERIFY: build-agent + test-agent → 3/3 passing
-
-### TDDAB Block 4: Integration Tests
-- [ ] Create ToolFilteringTests.cs
-- [ ] Write 8 integration tests
-- [ ] VERIFY: build-agent + test-agent → 8/8 passing
-- [ ] Final: test-agent all tests → 52/52 passing
-
----
-
-## Success Criteria
-
-### Functional
-✅ Viewer sees only 2 tools: get_by_id, get_all
-✅ Member sees 3 tools: get_by_id, get_all, create
-✅ Manager sees 4 tools: get_by_id, get_all, create, update
-✅ Admin sees 5 tools: all tools
-✅ Unauthenticated user gets 401 on tools/list
-✅ Filtered tools still return 403 if called directly (defense in depth)
-✅ Role hierarchy respected (higher roles see all lower role tools)
-
-### Technical
-✅ Metadata extraction from [Authorize] attributes
-✅ Scoped IToolFilterService per request
-✅ Decorator pattern for IMcpServer
-✅ Backward compatible (tools without metadata included by default)
-✅ Logging for debugging
-✅ 52/52 tests passing (100% success rate)
-
-### Quality
-✅ Agent-optimized TDDAB (90%+ context savings)
-✅ Clean separation of concerns
-✅ No breaking changes to existing API
-✅ Configuration option to enable/disable filtering
-✅ Comprehensive test coverage
-
----
-
-## Configuration
-
-Add to ZeroMcpOptions:
-```csharp
-public class ZeroMcpOptions
-{
-    // Existing options...
-
-    /// <summary>
-    /// Filter tools/list response based on user permissions.
-    /// Default: true
-    /// </summary>
-    public bool FilterToolsByPermissions { get; set; } = true;
-}
-```
-
----
-
-## Risks and Mitigations
-
-**Risk 1**: MCP SDK doesn't support IMcpServer decoration
-- **Mitigation**: Test decorator approach in Block 3, fallback to middleware if needed
-
-**Risk 2**: Performance impact of metadata extraction at startup
-- **Mitigation**: Cache metadata in dictionary, one-time cost at registration
-
-**Risk 3**: Breaking changes to existing tests
-- **Mitigation**: Tests expect all tools, need to update based on test user role
-
-**Risk 4**: Metadata extraction fails for complex [Authorize] scenarios
-- **Mitigation**: Start with MinimumRole:X pattern, extend later if needed
-
----
-
-## Post-Implementation Tasks
-
-- [ ] Update README.md with filtering feature
-- [ ] Update USERS-AND-PERMISSIONS.md
-- [ ] Add filtering examples to documentation
-- [ ] Consider adding to Zero.Mcp.Extensions v1.10.0
-- [ ] Create demo video showing different tool lists per role
-
----
-
-## Agent Commands
-
-### Build Verification
-```bash
-Use build-agent to build Zero.Mcp.Extensions
 Use build-agent to build McpPoc.Api
+Use test-agent to run tests for ToolVisibilityTests
+Use test-agent to run all tests
 ```
 
-### Test Execution
-```bash
-Use test-agent to run tests for ToolMetadataTests
-Use test-agent to run tests for ToolFilterServiceTests
-Use test-agent to run tests for FilteredMcpServerTests
-Use test-agent to run tests for ToolFilteringTests
-Use test-agent to run all tests for McpPoc.Api.Tests
-```
-
-### Expected Final State
-- Build: ✅ CLEAN (all projects)
-- Tests: ✅ 52/52 PASS (100%)
-- Coverage: All 4 roles tested for tool visibility
-- Context: 90%+ savings from agent optimization
+**Expected**: 4/4 new tests pass, 54/54 total tests pass
 
 ---
 
-## Notes
+## Summary
 
-This plan follows agent-optimized TDDAB methodology:
-- Each block is atomic and independently verifiable
-- Build-agent provides compressed build feedback
-- Test-agent provides compressed test results
-- Massive context savings (500-2000 lines → 10-30 lines per block)
-- 5-10x faster feedback loops
+### What We're Building
 
-Ready to execute? Start with **TDDAB Block 1: Tool Metadata System**
+| Component | Lines | Purpose |
+|-----------|-------|---------|
+| `ToolAuthorizationMetadata.cs` | ~50 | Record + FromMethod extractor |
+| `ToolListFilter.cs` | ~40 | Static filter + role extraction |
+| Modify `McpServerBuilderExtensions.cs` | ~15 | Capture metadata + add filter |
+| Modify `ZeroMcpOptions.cs` | ~5 | Add config option |
+| **Total new code** | **~110** | Simple, focused |
+
+### Test Count
+
+| Block | New Tests |
+|-------|-----------|
+| 1 - Metadata | 5 |
+| 2 - Filtering | 6 |
+| 3 - Integration | 4 |
+| **Total new** | **15** |
+| **Grand total** | **59** (44 + 15) |
+
+### Why This is Better
+
+1. **Uses SDK's hook** - `AddListToolsFilter()` is designed for this
+2. **~110 lines vs ~400** - Much less code to maintain
+3. **3 blocks vs 4** - Faster to implement
+4. **No decorator pattern** - No fighting the framework
+5. **Testable static methods** - Easy unit testing
+
+---
+
+## Execution Order
+
+```
+1. Block 1: ToolAuthorizationMetadata + Store (5 tests)
+   → build-agent → test-agent
+
+2. Block 2: ToolListFilter + SDK integration (6 tests)
+   → build-agent → test-agent
+
+3. Block 3: Integration tests (4 tests)
+   → build-agent → test-agent → ALL tests
+```
+
+Ready to start with Block 1?
