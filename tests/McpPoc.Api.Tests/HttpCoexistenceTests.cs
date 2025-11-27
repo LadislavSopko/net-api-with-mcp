@@ -8,6 +8,8 @@ public class HttpCoexistenceTests
     public HttpCoexistenceTests(McpApiFixture fixture)
     {
         _fixture = fixture;
+        // Reset data to seed state for test isolation
+        _fixture.ResetUserStore();
     }
 
     [Fact]

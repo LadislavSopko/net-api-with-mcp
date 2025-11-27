@@ -23,6 +23,9 @@ public class ToolVisibilityTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // Reset data to seed state for test isolation
+        _fixture.ResetUserStore();
+
         var viewerHttp = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
         _viewerClient = new McpClientHelper(viewerHttp);
 

@@ -15,7 +15,15 @@ public interface IUserService
 /// </summary>
 public class UserStore
 {
-    private readonly List<User> _users = new()
+    private List<User> _users;
+    private readonly object _lock = new();
+
+    public UserStore()
+    {
+        _users = CreateSeedData();
+    }
+
+    private static List<User> CreateSeedData() => new()
     {
         new User { Id = 1, Name = "Alice Smith", Email = "alice@example.com", Role = UserRole.Member },
         new User { Id = 2, Name = "Bob Jones", Email = "bob@example.com", Role = UserRole.Manager },
@@ -24,8 +32,6 @@ public class UserStore
         new User { Id = 101, Name = "Regular User", Email = "user", Role = UserRole.Member },
         new User { Id = 102, Name = "Viewer User", Email = "viewer", Role = UserRole.Viewer }
     };
-
-    private readonly object _lock = new();
 
     public User? GetById(int id)
     {
@@ -44,6 +50,31 @@ public class UserStore
             user.Id = _users.Max(u => u.Id) + 1;
             _users.Add(user);
             return user;
+        }
+    }
+
+    public User? Update(int id, string name, string email)
+    {
+        lock (_lock)
+        {
+            var user = _users.FirstOrDefault(u => u.Id == id);
+            if (user != null)
+            {
+                user.Name = name;
+                user.Email = email;
+            }
+            return user;
+        }
+    }
+
+    /// <summary>
+    /// Reset to seed data. Used for test isolation.
+    /// </summary>
+    public void Reset()
+    {
+        lock (_lock)
+        {
+            _users = CreateSeedData();
         }
     }
 }
