@@ -36,6 +36,13 @@ public class ZeroMcpOptions
     public JsonSerializerOptions? SerializerOptions { get; set; }
 
     /// <summary>
+    /// Filter tools/list response based on user permissions.
+    /// When true, users only see tools they are authorized to invoke.
+    /// Default is true.
+    /// </summary>
+    public bool FilterToolsByPermissions { get; set; } = true;
+
+    /// <summary>
     /// Gets the effective serializer options (returns provided options or default).
     /// </summary>
     internal JsonSerializerOptions GetEffectiveSerializerOptions()

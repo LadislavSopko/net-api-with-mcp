@@ -23,24 +23,29 @@ public class McpToolDiscoveryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Should_DiscoverThreeMcpTools_WhenListingTools()
+    public async Task Should_DiscoverToolsFilteredByRole_WhenListingTools()
     {
-        // Act
+        // Act - default user is alice@example.com (Member role)
         var tools = await _mcpClient.ListToolsAsync();
 
-        // Assert
+        // Assert - Member sees base tools + create (5 total)
+        // Base tools: get_by_id, get_all, get_scope_id, get_public_info
+        // Role-protected: create (Member+)
+        // Not visible to Member: update (Manager+), promote_to_manager (Admin+)
         tools.Should().NotBeNull();
-        tools.Should().HaveCount(7, "GetById, GetAll, Create, Update, PromoteToManager, GetScopeId, and GetPublicInfo should be exposed");
+        tools.Should().HaveCount(5, "Member should see 4 base tools + create");
 
         // Verify expected tool names (SDK converts to snake_case)
         var toolNames = tools.Select(t => t.Name).ToList();
         toolNames.Should().Contain("get_by_id");
         toolNames.Should().Contain("get_all");
         toolNames.Should().Contain("create");
-        toolNames.Should().Contain("update");
-        toolNames.Should().Contain("promote_to_manager");
         toolNames.Should().Contain("get_scope_id");
         toolNames.Should().Contain("get_public_info");
+
+        // Member should NOT see higher-role tools
+        toolNames.Should().NotContain("update", "Member cannot see Manager-level tools");
+        toolNames.Should().NotContain("promote_to_manager", "Member cannot see Admin-level tools");
     }
 
     [Fact]

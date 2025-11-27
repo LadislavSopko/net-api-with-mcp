@@ -7,6 +7,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Zero.Mcp.Extensions;
@@ -54,6 +55,10 @@ public static class McpServerBuilderExtensions
         var toolAssembly = options.ToolAssembly!;
         var serializerOptions = options.GetEffectiveSerializerOptions();
 
+        // Create authorization metadata store
+        var authStore = new ToolAuthorizationStore();
+        builder.Services.AddSingleton<IToolAuthorizationStore>(authStore);
+
         // Find all types with [McpServerToolType]
         var toolTypes = toolAssembly.GetTypes()
             .Where(t => t.GetCustomAttribute<McpServerToolTypeAttribute>() is not null);
@@ -68,6 +73,12 @@ public static class McpServerBuilderExtensions
 
             foreach (var method in toolMethods)
             {
+                var toolName = ConvertToSnakeCase(method.Name);
+
+                // Capture authorization metadata for this tool
+                var metadata = ToolAuthorizationMetadata.FromMethod(method, toolName);
+                authStore.Register(toolName, metadata);
+
                 if (method.IsStatic)
                 {
                     // Static method with custom marshaller
@@ -78,7 +89,7 @@ public static class McpServerBuilderExtensions
                             target: null,
                             new AIFunctionFactoryOptions
                             {
-                                Name = ConvertToSnakeCase(method.Name),
+                                Name = toolName,
                                 MarshalResult = async (result, resultType, ct) => await MarshalResult.UnwrapAsync(result),
                                 SerializerOptions = serializerOptions
                             });
@@ -89,6 +100,7 @@ public static class McpServerBuilderExtensions
                 {
                     // Instance method - capture MethodInfo for pre-filter authorization
                     var methodCopy = method; // Capture in closure
+                    var toolNameCopy = toolName; // Capture in closure
 
                     builder.Services.AddSingleton<McpServerTool>(services =>
                     {
@@ -97,7 +109,7 @@ public static class McpServerBuilderExtensions
                             args => CreateControllerWithPreFilter(args.Services!, toolType, methodCopy, options),
                             new AIFunctionFactoryOptions
                             {
-                                Name = ConvertToSnakeCase(methodCopy.Name),
+                                Name = toolNameCopy,
                                 MarshalResult = async (result, resultType, ct) => await MarshalResult.UnwrapAsync(result),
                                 SerializerOptions = serializerOptions
                             });
@@ -109,6 +121,43 @@ public static class McpServerBuilderExtensions
                     });
                 }
             }
+        }
+
+        // Add tools/list filter if enabled
+        if (options.FilterToolsByPermissions)
+        {
+            builder.AddListToolsFilter(next => async (request, cancellationToken) =>
+            {
+                var result = await next(request, cancellationToken);
+
+                // store must be registered if filtering is enabled
+                var store = request.Services?.GetRequiredService<IToolAuthorizationStore>();
+                // IUserRoleResolver is optional but if not present it will not filter based on claims
+                var roleResolver = request.Services?.GetService<IUserRoleResolver>();
+
+                // Try IUserRoleResolver first (application-provided), fall back to claim-based
+                int? userRole;
+                if (roleResolver != null && request.User != null)
+                {
+                    userRole = await roleResolver.GetUserRoleAsync(request.User);
+                }
+                else
+                {
+                    userRole = ToolListFilter.GetUserRole(request.User);
+                }
+
+                var authorizedToolNames = ToolListFilter.FilterByRole(
+                    result.Tools.Select(t => t.Name),
+                    userRole,
+                    store).ToHashSet();
+
+                return new ListToolsResult
+                {
+                    Tools = result.Tools
+                        .Where(t => authorizedToolNames.Contains(t.Name))
+                        .ToList()
+                };
+            });
         }
 
         return builder;
