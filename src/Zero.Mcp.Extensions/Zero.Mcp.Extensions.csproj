@@ -9,7 +9,7 @@
     <PackageId>Zero.Mcp.Extensions</PackageId>
     <Description>Enables ASP.NET Core API controllers to function as MCP (Model Context Protocol) server tools with flexible authorization support. Turn your existing controllers into MCP tools with simple attributes. Includes role-based tool visibility filtering.</Description>
     <PackageTags>mcp;model-context-protocol;aspnetcore;api;authorization;authentication;ai;llm;tools</PackageTags>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>v2.0.0: Role-based tool filtering - tools/list only returns tools the user is authorized to invoke. Professional configuration system with ZeroMcpOptions.</PackageReleaseNotes>
   </PropertyGroup>
