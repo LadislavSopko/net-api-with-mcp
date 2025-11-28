@@ -11,7 +11,7 @@
 *.userprefs
 
 
-3rdp/csharp-sdk/
+# 3rdp/csharp-sdk/ - kept as git submodule
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
