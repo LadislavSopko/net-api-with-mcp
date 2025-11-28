@@ -3,20 +3,29 @@
 
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <TargetFramework>$(BuildFor)</TargetFramework>
   </PropertyGroup>
 
   <PropertyGroup>
-			<PackageProjectUrl>...</PackageProjectUrl>
-			<Authors>Ladislav Sopko</Authors>
-			<Company>0ics srl</Company>
-			<AssemblyVersion>$(MainVersion).$([System.DateTime]::Now.ToString("yy"))$([System.DateTime]::Now.DayOfYear.ToString("000"))</AssemblyVersion>
-			<FileVersion>$(MainVersion).$([System.DateTime]::Now.ToString("yy"))$([System.DateTime]::Now.DayOfYear.ToString("000"))</FileVersion>
-			<Version>$(MainVersion)</Version>
-			<PackageVersion>$(MainVersion)</PackageVersion>
-			<Copyright>Copyright © 0ics srl 2025</Copyright>
-			<LangVersion>latest</LangVersion>
-	</PropertyGroup>
-  
-  
+    <Authors>Ladislav Sopko</Authors>
+    <Company>0ics srl</Company>
+    <PackageProjectUrl>https://github.com/LadislavSopko/net-api-with-mcp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/LadislavSopko/net-api-with-mcp</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <AssemblyVersion>$(MainVersion).$([System.DateTime]::Now.ToString("yy"))$([System.DateTime]::Now.DayOfYear.ToString("000"))</AssemblyVersion>
+    <FileVersion>$(MainVersion).$([System.DateTime]::Now.ToString("yy"))$([System.DateTime]::Now.DayOfYear.ToString("000"))</FileVersion>
+    <Version>$(MainVersion)</Version>
+    <PackageVersion>$(MainVersion)</PackageVersion>
+    <Copyright>Copyright © Ladislav Sopko / 0ics srl 2025</Copyright>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <!-- SourceLink for debugging NuGet packages -->
+  <PropertyGroup>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
 
 </Project>

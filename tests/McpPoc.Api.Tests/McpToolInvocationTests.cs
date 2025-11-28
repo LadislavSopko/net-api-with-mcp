@@ -15,6 +15,9 @@ public class McpToolInvocationTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // Reset data to seed state for test isolation
+        _fixture.ResetUserStore();
+
         // Use alice@example.com (Member role) for tests that require authorization
         var httpClient = await _fixture.GetAuthenticatedClientAsync("alice@example.com", "alice123");
         _mcpClient = new McpClientHelper(httpClient);

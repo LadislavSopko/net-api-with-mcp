@@ -9,12 +9,21 @@ public interface IUserService
     Task<User> CreateAsync(string name, string email);
 }
 
-public class UserService : IUserService
+/// <summary>
+/// Singleton store for user data persistence across requests.
+/// HACK: In-memory persistence until EF Core is wired up.
+/// </summary>
+public class UserStore
 {
-    // IMPORTANT: Username must match Keycloak's preferred_username claim
-    // For "admin" login -> preferred_username = "admin" (NOT "admin@mcppoc.com")
-    // For "alice@example.com" login -> preferred_username = "alice@example.com"
-    private readonly List<User> _users = new()
+    private List<User> _users;
+    private readonly object _lock = new();
+
+    public UserStore()
+    {
+        _users = CreateSeedData();
+    }
+
+    private static List<User> CreateSeedData() => new()
     {
         new User { Id = 1, Name = "Alice Smith", Email = "alice@example.com", Role = UserRole.Member },
         new User { Id = 2, Name = "Bob Jones", Email = "bob@example.com", Role = UserRole.Manager },
@@ -24,27 +33,79 @@ public class UserService : IUserService
         new User { Id = 102, Name = "Viewer User", Email = "viewer", Role = UserRole.Viewer }
     };
 
+    public User? GetById(int id)
+    {
+        lock (_lock) return _users.FirstOrDefault(u => u.Id == id);
+    }
+
+    public List<User> GetAll()
+    {
+        lock (_lock) return _users.ToList();
+    }
+
+    public User Add(User user)
+    {
+        lock (_lock)
+        {
+            user.Id = _users.Max(u => u.Id) + 1;
+            _users.Add(user);
+            return user;
+        }
+    }
+
+    public User? Update(int id, string name, string email)
+    {
+        lock (_lock)
+        {
+            var user = _users.FirstOrDefault(u => u.Id == id);
+            if (user != null)
+            {
+                user.Name = name;
+                user.Email = email;
+            }
+            return user;
+        }
+    }
+
+    /// <summary>
+    /// Reset to seed data. Used for test isolation.
+    /// </summary>
+    public void Reset()
+    {
+        lock (_lock)
+        {
+            _users = CreateSeedData();
+        }
+    }
+}
+
+public class UserService : IUserService
+{
+    private readonly UserStore _store;
+
+    public UserService(UserStore store)
+    {
+        _store = store;
+    }
+
     public Task<User?> GetByIdAsync(int id)
     {
-        var user = _users.FirstOrDefault(u => u.Id == id);
-        return Task.FromResult(user);
+        return Task.FromResult(_store.GetById(id));
     }
 
     public Task<List<User>> GetAllAsync()
     {
-        return Task.FromResult(_users.ToList());
+        return Task.FromResult(_store.GetAll());
     }
 
     public Task<User> CreateAsync(string name, string email)
     {
         var user = new User
         {
-            Id = _users.Max(u => u.Id) + 1,
             Name = name,
             Email = email,
-            Role = UserRole.Member  // Default new users to Member role
+            Role = UserRole.Member
         };
-        _users.Add(user);
-        return Task.FromResult(user);
+        return Task.FromResult(_store.Add(user));
     }
 }

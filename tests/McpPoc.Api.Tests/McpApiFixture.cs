@@ -1,4 +1,6 @@
+using McpPoc.Api.Services;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using System.Net.Http.Headers;
 
 namespace McpPoc.Api.Tests;
@@ -15,6 +17,15 @@ public class McpApiFixture : WebApplicationFactory<Program>
     {
         _tokenHelper = new KeycloakTokenHelper();
         _tokenCache = new Dictionary<string, string>();
+    }
+
+    /// <summary>
+    /// Reset test data to seed state. Call before tests that need clean data.
+    /// </summary>
+    public void ResetUserStore()
+    {
+        var store = Services.GetRequiredService<UserStore>();
+        store.Reset();
     }
 
     /// <summary>

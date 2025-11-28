@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.0.0] - 2025-01-30
+
+### Added
+- **Role-Based Tool Filtering**: `tools/list` now only returns tools the user is authorized to invoke
+- `IUserRoleResolver` interface for application-specific role lookup
+- `IToolAuthorizationStore` for capturing tool authorization requirements
+- `ToolAuthorizationMetadata` record for storing tool minimum role requirements
+- `ToolListFilter` static class for filtering tools by user role
+- `FilterToolsByPermissions` option in `ZeroMcpOptions` (default: true)
+
+### How It Works
+1. During tool registration, `[Authorize(Policy="...")]` attributes are analyzed
+2. Minimum role requirements are extracted and stored in `IToolAuthorizationStore`
+3. When `tools/list` is called, the filter removes tools the user cannot invoke
+4. Role hierarchy is respected: Admin > Manager > Member > Viewer
+
+### Breaking Changes
+- Tools are now filtered by default. Set `FilterToolsByPermissions = false` to disable.
+
 ## [1.9.0] - 2025-01-30
 
 ### Added

@@ -1,10 +1,6 @@
 <Project>
   <PropertyGroup>
-    <BuildFor>net472</BuildFor>
-    <MainVersion>1.9.0</MainVersion>
-
-    <!-- dll load problem for vsix-->
-    <NugetPackages>$(USERPROFILE)\.nuget\packages</NugetPackages>
-    <TasExtensionsVer>4.6.3</TasExtensionsVer>
+    <BuildFor>net9.0</BuildFor>
+    <MainVersion>2.0.0</MainVersion>
   </PropertyGroup>
 </Project> 

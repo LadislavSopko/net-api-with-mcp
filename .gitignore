@@ -11,7 +11,7 @@
 *.userprefs
 
 
-3rdp/csharp-sdk/
+# 3rdp/csharp-sdk/ - kept as git submodule
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
@@ -276,3 +276,7 @@ PublishProfiles/
 *.bak
 
 **/.claude/settings.local.json
+
+# MCP configuration (contains API keys and tokens)
+.mcp.json
+.nuget-api-key

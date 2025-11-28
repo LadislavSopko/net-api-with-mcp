@@ -3,54 +3,58 @@
 
 [FOCUS]
 ⚡phase6::RoleBasedToolFiltering{tools/list→filter-by-permissions}!
-@status::Planning{TDDAB:metadata+filter+interceptor+integration}
+@status::Ready-to-implement{TDDAB-v2:simplified:3-blocks}⚡
 @trigger::UX-issue{viewer-sees-unusable-tools}
-@solution::ToolMetadata+IToolFilter+ToolsListInterceptor
+@solution::SDK-AddListToolsFilter{¬decorator-pattern}✅
 
 ✅phase5::LibraryExtraction{Zero.Mcp.Extensions→NuGet}✅
 @status::COMPLETE{v1.9.0:production-ready}
-@architecture::IAuthForMcpSupplier{10/10:zen-validated+security-hardened}⭐
 
 [RECENT]
-✅phase5::COMPLETE{library-extraction+tests+config-system}✅!
->implemented::Zero.Mcp.Extensions{v1.9.0:all-features}✅
->added::ZeroMcpOptions{RequireAuth+UseAuth+Path+Assembly}✅
->fixed::Tests{36→44:client-credentials→password-flow}✅
->added::UserRole.Viewer{0:read-only-access}✅!
->added::User{viewer:viewer123:ID-102}✅
->tested::Viewer{8-tests:4-MCP+4-HTTP}✅!
->created::do-login-poc.sh{auto-login+update-.mcp.json}✅
->recreated::KeycloakDB{fresh-realm-with-viewer}✅
-©User>identified::UX-issue{tools/list-shows-unauthorized-tools}!
-@next::Implement-tool-filtering{TDDAB:4-blocks}
+>investigated::SDK-internals{AddListToolsFilter:exists}✅!
+>discovered::SDK-filter-hook{request.User+request.Services:available}⭐⭐
+>refactored::TDDAB-plan{v1→v2:4-blocks→3-blocks:~400→~110-lines}✅
+>abandoned::Decorator-pattern{IMcpServer:risky+complex}
+>adopted::SDK-filter{AddListToolsFilter:designed-for-this}✅
+@plan::tasks/tddab-tool-filtering-by-permissions.md{v2:simplified}
 
 [CURRENT]
-@status::Phase6-Planning{tool-filtering-by-permissions}⚡
+@status::Phase6-Ready{TDDAB-v2:3-blocks:~110-lines}⚡
 @tests::44-total{36-core+8-viewer-role}✅
+@target::59-tests{44-existing+15-new}
 @users::6{viewer+alice+bob+carol+admin+user}
 @roles::4{Viewer:0+Member:1+Manager:2+Admin:3}
-@challenge::Filter-tools/list{show-only-authorized-tools}
+
+[PHASE6_PLAN_V2]
+@block1::ToolAuthorizationMetadata{record+store+extractor:5-tests}
+@block2::ToolListFilter{SDK-hook+role-check:6-tests}
+@block3::IntegrationTests{end-to-end:4-tests}
+@total::~110-lines-new-code{simple+focused}
+
+[ARCHITECTURE_SIMPLIFIED]
+@startup::Scan-Authorize-attrs→store{toolName:minRole}
+@runtime::SDK-filter→check{user.role≥tool.minRole}→return-filtered
+@components::{
+  ToolAuthorizationMetadata::record{toolName+minRole}
+  ToolAuthorizationStore::dictionary-wrapper
+  ToolListFilter::static-methods{FilterByRole+GetUserRole}
+  AddListToolsFilter::SDK-built-in-hook⭐
+}
+
+[KEY_DISCOVERY]
+!sdk-filter::AddListToolsFilter{request.User:ClaimsPrincipal+request.Services:DI}⭐⭐⭐
+!no-decorator::IMcpServer-wrapping{unnecessary:SDK-provides-filter-hook}✅
+!simple-over-complex::~110-lines>~400-lines{same-result}⭐
 
 [DECISIONS]
-@library-name::Zero.Mcp.Extensions{professional-branding}✨
-@versioning::v1.9.0{published}✅
-@roles::4-tier{Viewer:0→Member:1→Manager:2→Admin:3}!
-@viewer::Read-only{¬create¬update¬promote}✅
-@users::6-total{viewer+alice+bob+carol+admin+user}
-@tests::44{36-core+8-viewer}✅
-@keycloak::Recreated{fresh-DB:with-viewer}✅
-@scripts::do-login-poc.sh{auto-login+mcp-update}✅
-@test-auth::Password-flow{¬client-credentials:needs-user-context}!
-@next-feature::Tool-filtering{metadata-based:TDDAB-4-blocks}⚡
+@approach::SDK-filter{¬decorator:AddListToolsFilter}✅
+@plan-version::v2{simplified:3-blocks}
+@code-reduction::~75%{400→110-lines}
+@test-count::15-new{5+6+4}
+@config::FilterToolsByPermissions{default:true}
 
-[KEY_LEARNING]
-!brilliant::¬HttpContext-in-interface{host-uses-IHttpContextAccessor-internally}⭐⭐⭐
-!security::GetCustomAttribute→GetCustomAttributes{ALL-attrs-enforced}⭐⭐
-!parameter-binding::JSON-name-based>positional{robust+flexible}⭐
-!design-pattern::clean-separation{library:mechanics|host:dependencies}⭐⭐
-!role-hierarchy::MinimumRole-pattern{higher≥lower:Manager-can-create}⭐
-!test-auth::Password-flow{client-credentials:¬user-context}!
-!keycloak-public-client::¬client-secret{PKCE-enabled}✅
-!viewer-role::Essential{UX:read-only-users-need-access}⭐
-!ux-issue::tools/list-shows-all{BAD:user-sees-unauthorized-tools}!
-@solution::Metadata-filtering{runtime:based-on-user-role}⚡
+[NEXT]
+?start::Block1{ToolAuthorizationMetadata+Store:5-tests}
+?then::Block2{ToolListFilter+SDK-integration:6-tests}
+?finally::Block3{Integration-tests:4-tests}
+@command::ACT{to-start-implementation}

@@ -20,6 +20,9 @@ public class PolicyAuthorizationTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // Reset data to seed state for test isolation
+        _fixture.ResetUserStore();
+
         // Create authenticated clients for each role
         var viewerHttp = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
         _viewerClient = new McpClientHelper(viewerHttp);

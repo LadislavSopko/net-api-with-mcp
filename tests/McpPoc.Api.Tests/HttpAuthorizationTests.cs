@@ -12,6 +12,8 @@ public class HttpAuthorizationTests
     public HttpAuthorizationTests(McpApiFixture fixture)
     {
         _fixture = fixture;
+        // Reset data to seed state for test isolation
+        _fixture.ResetUserStore();
     }
 
     [Fact]

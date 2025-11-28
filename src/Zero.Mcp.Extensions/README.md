@@ -206,4 +206,4 @@ This design allows the library to remain **completely decoupled** from ASP.NET C
 
 ## License
 
-MIT
+Apache-2.0

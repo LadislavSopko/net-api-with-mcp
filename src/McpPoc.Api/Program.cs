@@ -109,10 +109,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.AddMcpPocAuthorization();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<UserStore>();  // HACK: In-memory persistence
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IScopedRequestTracker, ScopedRequestTracker>();
 
 builder.Services.AddScoped<IAuthForMcpSupplier, KeycloakAuthSupplier>();
+builder.Services.AddScoped<IUserRoleResolver, UserRoleResolver>();
 
 // Configure MCP with authentication and authorization
 builder.Services.AddZeroMcpExtensions(options =>
