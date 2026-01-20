@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Zero.Mcp.Extensions;
 using System.ComponentModel;
+using Microsoft.Extensions.Primitives;
 
 namespace McpPoc.Api.Controllers;
 
@@ -20,22 +21,29 @@ public class UsersController : ControllerBase
     private readonly IUserService _userService;
     private readonly ILogger<UsersController> _logger;
     private readonly IScopedRequestTracker _scopedTracker;
+    private readonly IMcpRequestContext _mcpContext;
 
-    public UsersController(IUserService userService, ILogger<UsersController> logger, IScopedRequestTracker scopedTracker)
+    public UsersController(
+        IUserService userService,
+        ILogger<UsersController> logger,
+        IScopedRequestTracker scopedTracker,
+        IMcpRequestContext mcpContext)
     {
         _userService = userService;
         _logger = logger;
         _scopedTracker = scopedTracker;
+        _mcpContext = mcpContext;
     }
 
     /// <summary>
     /// TEST: Regular HTTP endpoint + MCP tool
     /// </summary>
     [HttpGet("{id}")]
-    [McpServerTool, Description("Gets a user by their ID")]  // ← TESTING THIS!
+    [McpServerTool(Name = "UserGetById"), Description("Gets a user by their ID")]  // ← TESTING THIS!
     public async Task<ActionResult<User>> GetById(int id)
     {
-        _logger.LogInformation("GetById called with id: {Id}", id);
+        _logger.LogInformation("GetById called with id: {Id} call done by mcp: {isMcp}", id, _mcpContext.IsMcpCall);
+
 
         var user = await _userService.GetByIdAsync(id);
 
@@ -155,6 +163,28 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
+    /// Diagnostic endpoint to verify IMcpRequestContext works.
+    /// Returns information about the current request context.
+    /// </summary>
+    [HttpGet("mcp-context")]
+    [McpServerTool, Description("Returns MCP request context information for diagnostics")]
+    public ActionResult<McpContextInfo> GetMcpContext()
+    {
+        var xMcpCallHeader = _mcpContext.GetHeader("x-mcp-call");
+
+        _logger.LogInformation(
+            "GetMcpContext called - IsMcpCall: {IsMcpCall}, x-mcp-call: {XMcpCall}",
+            _mcpContext.IsMcpCall,
+            xMcpCallHeader);
+
+        return Ok(new McpContextInfo(
+            _mcpContext.IsMcpCall,
+            xMcpCallHeader,
+            _mcpContext.Headers?.Count ?? 0
+        ));
+    }
+
+    /// <summary>
     /// Regular HTTP endpoint WITHOUT MCP tool
     /// </summary>
     [HttpDelete("{id}")]
@@ -164,6 +194,11 @@ public class UsersController : ControllerBase
         return Task.FromResult((IActionResult)NoContent());
     }
 }
+
+/// <summary>
+/// Response containing MCP context information for diagnostics.
+/// </summary>
+public record McpContextInfo(bool IsMcpCall, string? XMcpCallHeader, int HeaderCount);
 
 /// <summary>
 /// Response for GetScopeId tool - used to verify DI scoping works correctly

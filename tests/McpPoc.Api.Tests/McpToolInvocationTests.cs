@@ -65,7 +65,7 @@ public class McpToolInvocationTests : IAsyncLifetime
 
         // Parse JSON array
         var users = JsonSerializer.Deserialize<JsonElement>(textBlock.Text);
-        users.GetArrayLength().Should().BeGreaterOrEqualTo(3, "at least 3 users should exist");
+        users.GetArrayLength().Should().BeGreaterThanOrEqualTo(3, "at least 3 users should exist");
     }
 
     [Fact]

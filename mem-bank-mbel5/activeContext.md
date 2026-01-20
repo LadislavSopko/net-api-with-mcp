@@ -2,59 +2,96 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [FOCUS]
-⚡phase6::RoleBasedToolFiltering{tools/list→filter-by-permissions}!
-@status::Ready-to-implement{TDDAB-v2:simplified:3-blocks}⚡
-@trigger::UX-issue{viewer-sees-unusable-tools}
-@solution::SDK-AddListToolsFilter{¬decorator-pattern}✅
+✅phase7::ToolNaming+McpContext{COMPLETE:9-blocks:131-tests}✅!
+@version::2.1.0{released}
+@status::Ready-for-next-phase
 
+✅upgrade::.NET10{9.0→10.0:complete}✅
 ✅phase5::LibraryExtraction{Zero.Mcp.Extensions→NuGet}✅
-@status::COMPLETE{v1.9.0:production-ready}
+✅phase7::ToolNaming+McpContext{COMPLETE}✅!
+⏸phase6::RoleBasedToolFiltering{paused:ready-to-resume}
 
 [RECENT]
->investigated::SDK-internals{AddListToolsFilter:exists}✅!
->discovered::SDK-filter-hook{request.User+request.Services:available}⭐⭐
->refactored::TDDAB-plan{v1→v2:4-blocks→3-blocks:~400→~110-lines}✅
->abandoned::Decorator-pattern{IMcpServer:risky+complex}
->adopted::SDK-filter{AddListToolsFilter:designed-for-this}✅
-@plan::tasks/tddab-tool-filtering-by-permissions.md{v2:simplified}
+>implemented::Phase7-TDDAB{9-blocks:all-complete}✅
+>created::ToolNamingConvention{enum:MethodOnly|ControllerPrefix}✅
+>created::ToolNameGenerator{GenerateName+GetControllerPrefix+ToSnakeCase}✅
+>created::IMcpRequestContext{IsMcpCall+GetHeader+Headers}✅
+>created::McpRequestContext{impl:path-based-fallback}✅
+>created::UseZeroMcpMarking{middleware:x-mcp-call-injection}✅
+>added::[McpServerTool(Name)]{explicit-naming-priority}✅
+>bumped::Version{2.0.0→2.1.0}✅
+>verified::NuGet-pack{Zero.Mcp.Extensions.2.1.0.nupkg}✅
 
-[CURRENT]
-@status::Phase6-Ready{TDDAB-v2:3-blocks:~110-lines}⚡
-@tests::44-total{36-core+8-viewer-role}✅
-@target::59-tests{44-existing+15-new}
-@users::6{viewer+alice+bob+carol+admin+user}
-@roles::4{Viewer:0+Member:1+Manager:2+Admin:3}
-
-[PHASE6_PLAN_V2]
-@block1::ToolAuthorizationMetadata{record+store+extractor:5-tests}
-@block2::ToolListFilter{SDK-hook+role-check:6-tests}
-@block3::IntegrationTests{end-to-end:4-tests}
-@total::~110-lines-new-code{simple+focused}
-
-[ARCHITECTURE_SIMPLIFIED]
-@startup::Scan-Authorize-attrs→store{toolName:minRole}
-@runtime::SDK-filter→check{user.role≥tool.minRole}→return-filtered
-@components::{
-  ToolAuthorizationMetadata::record{toolName+minRole}
-  ToolAuthorizationStore::dictionary-wrapper
-  ToolListFilter::static-methods{FilterByRole+GetUserRole}
-  AddListToolsFilter::SDK-built-in-hook⭐
+[PHASE7_COMPLETE]
+@feature1::ToolNamingConvention{
+  problem::GenericControllers→DuplicateToolNames
+  solution::ControllerPrefix{products_get_by_id}
+  priority::[McpServerTool(Name)]>Convention
+  default::MethodOnly{backward-compatible}
+  status::COMPLETE✅
 }
 
-[KEY_DISCOVERY]
-!sdk-filter::AddListToolsFilter{request.User:ClaimsPrincipal+request.Services:DI}⭐⭐⭐
-!no-decorator::IMcpServer-wrapping{unnecessary:SDK-provides-filter-hook}✅
-!simple-over-complex::~110-lines>~400-lines{same-result}⭐
+@feature2::IMcpRequestContext{
+  problem::NeedHeaderAccess+McpCallDetection
+  solution::Interface{IsMcpCall+GetHeader+Headers}
+  header::x-mcp-call{auto-injected:middleware}
+  lifetime::Scoped
+  limitation::MCP-SDK{HttpContext:not-flowed-to-tool-scopes}
+  workaround::Path-based-fallback{/mcp→IsMcpCall:true}
+  status::COMPLETE✅
+}
+
+[PHASE7_TDDAB_RESULTS]
+@blocks::9/9✅
+@tests::131-total{75-unit+56-E2E}✅
+@loc::~350
+@version::2.1.0✅
+
+@block1::Options{enum+defaults:4-tests}✅
+@block2::ToolNameGenerator{core-logic:7-tests}✅
+@block3::BuilderIntegration{7-tests}✅
+@block4::IMcpRequestContext{interface+impl:7-tests}✅
+@block5::Middleware{x-mcp-call:3-tests}✅
+@block6::Registration{2-tests}✅
+@block7::E2E-ToolNaming{4-tests}✅
+@block8::E2E-McpContext{4-tests}✅
+@block9::VersionBump{2.1.0+pack}✅
+
+[NEW_FILES_CREATED]
+@src::Zero.Mcp.Extensions/{
+  ToolNamingConvention.cs::enum{MethodOnly|ControllerPrefix}
+  ToolNameGenerator.cs::static{GenerateName+ToSnakeCase+GetControllerPrefix}
+  IMcpRequestContext.cs::interface
+  McpRequestContext.cs::impl{path-based-fallback}
+}
+
+@tests::Zero.Mcp.Extensions.Tests/{
+  ZeroMcpOptionsTests.cs::4-tests
+  ToolNameGeneratorTests.cs::7-tests
+  McpRequestContextTests.cs::7-tests
+  McpMiddlewareTests.cs::3-tests
+}
+
+@tests::McpPoc.Api.Tests/{
+  ToolNamingTests.cs::4-tests{E2E}
+  McpRequestContextE2ETests.cs::4-tests{E2E}
+}
 
 [DECISIONS]
-@approach::SDK-filter{¬decorator:AddListToolsFilter}✅
-@plan-version::v2{simplified:3-blocks}
-@code-reduction::~75%{400→110-lines}
-@test-count::15-new{5+6+4}
-@config::FilterToolsByPermissions{default:true}
+@naming-default::MethodOnly{backward-compatible}
+@naming-prefix::ControllerPrefix{removes-Controller-suffix+snake_case}
+@context-lifetime::Scoped
+@mcp-header::x-mcp-call{auto-injected:middleware}
+@attribute-priority::[McpServerTool(Name)]>Convention{always}
+@sdk-limitation::HttpContext{not-flowed:documented+path-fallback}
 
 [NEXT]
-?start::Block1{ToolAuthorizationMetadata+Store:5-tests}
-?then::Block2{ToolListFilter+SDK-integration:6-tests}
-?finally::Block3{Integration-tests:4-tests}
-@command::ACT{to-start-implementation}
+?phase6::RoleBasedToolFiltering{ready-to-resume}
+?phase8::AdvancedAuth{custom-requirements+conditional-policies}
+?production::Deploy{when-ready}
+
+[SDK_STATUS]
+!hack-still-needed::MarshalResult{ActionResult<T>:unwrapping}✅
+@sdk-version::0.6.0-preview.1
+@sdk-limitation::HttpContext{not-flowed-to-tool-invocation-scopes}!
+@workaround::Path-based-fallback{/mcp:StartsWith}

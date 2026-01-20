@@ -11,7 +11,7 @@
     <PackageTags>mcp;model-context-protocol;aspnetcore;api;authorization;authentication;ai;llm;tools</PackageTags>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v2.0.0: Role-based tool filtering - tools/list only returns tools the user is authorized to invoke. Professional configuration system with ZeroMcpOptions.</PackageReleaseNotes>
+    <PackageReleaseNotes>v2.1.0: Tool naming conventions (ControllerPrefix) for generic controllers with duplicate method names. IMcpRequestContext for header access and MCP call detection. Automatic x-mcp-call header injection via UseZeroMcpMarking middleware.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

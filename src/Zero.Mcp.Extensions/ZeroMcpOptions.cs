@@ -43,6 +43,18 @@ public class ZeroMcpOptions
     public bool FilterToolsByPermissions { get; set; } = true;
 
     /// <summary>
+    /// Naming convention for generated MCP tool names.
+    /// Default is MethodOnly for backward compatibility.
+    /// </summary>
+    public ToolNamingConvention NamingConvention { get; set; } = ToolNamingConvention.MethodOnly;
+
+    /// <summary>
+    /// Separator used between controller prefix and method name when using ControllerPrefix convention.
+    /// Default is "_" (underscore).
+    /// </summary>
+    public string ToolNameSeparator { get; set; } = "_";
+
+    /// <summary>
     /// Gets the effective serializer options (returns provided options or default).
     /// </summary>
     internal JsonSerializerOptions GetEffectiveSerializerOptions()

@@ -50,7 +50,7 @@ public class ToolVisibilityTests : IAsyncLifetime
     // Base tools visible to all authenticated users (no policy = null minRole)
     private static readonly string[] BaseTools = new[]
     {
-        "get_by_id", "get_all", "get_scope_id", "get_public_info"
+        "get_by_id", "get_all", "get_scope_id", "get_public_info", "get_mcp_context"
     };
 
     [Fact]

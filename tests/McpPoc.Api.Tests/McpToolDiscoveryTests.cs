@@ -28,12 +28,12 @@ public class McpToolDiscoveryTests : IAsyncLifetime
         // Act - default user is alice@example.com (Member role)
         var tools = await _mcpClient.ListToolsAsync();
 
-        // Assert - Member sees base tools + create (5 total)
-        // Base tools: get_by_id, get_all, get_scope_id, get_public_info
+        // Assert - Member sees base tools + create (6 total)
+        // Base tools: get_by_id, get_all, get_scope_id, get_public_info, get_mcp_context
         // Role-protected: create (Member+)
         // Not visible to Member: update (Manager+), promote_to_manager (Admin+)
         tools.Should().NotBeNull();
-        tools.Should().HaveCount(5, "Member should see 4 base tools + create");
+        tools.Should().HaveCount(6, "Member should see 5 base tools + create");
 
         // Verify expected tool names (SDK converts to snake_case)
         var toolNames = tools.Select(t => t.Name).ToList();
