@@ -2,17 +2,18 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [STACK]
-@runtime::.NET§9.0.300
-@framework::AspNetCore§9.0
-@protocol::MCP§0.4.0-preview.3
+@runtime::.NET§10.0.100
+@framework::AspNetCore§10.0
+@protocol::MCP§0.6.0-preview.1
 @auth::Keycloak§27.0.0{OAuth2+OIDC}
-@logging::Serilog
-@testing::xUnit+FluentAssertions+WebApplicationFactory
+@logging::Serilog§10.0.0
+@testing::xUnit+FluentAssertions§8.8.0+WebApplicationFactory
+@openapi::Scalar.AspNetCore§2.12.11{replaced:Swashbuckle}!
 
 [KEY_FILES]
 src/McpPoc.Api/
 ├─Extensions/McpServerBuilderExtensions.cs{solution:170lines}
-├─Program.cs{.WithToolsFromAssemblyUnwrappingActionResult()+RequireAuthorization()}
+├─Program.cs{.WithToolsFromAssemblyUnwrappingActionResult()+RequireAuthorization()+Scalar}
 ├─Controllers/UsersController.cs{[McpServerToolType]+[Authorize]}
 ├─Services/{IUserService+UserService}
 └─appsettings.json{Keycloak:127.0.0.1:8080}!
@@ -20,11 +21,11 @@ src/McpPoc.Api/
 tests/McpPoc.Api.Tests/
 ├─McpApiFixture.cs{on-demand-auth+cache}!
 ├─KeycloakTokenHelper.cs{client-credentials+password-grant:127.0.0.1}!
-├─McpToolDiscoveryTests.cs{5/5✓}
+├─McpToolDiscoveryTests.cs{6/6✓}
 ├─McpToolInvocationTests.cs{5/5✓}
 ├─HttpCoexistenceTests.cs{3/3✓}
 ├─ActionResultSerializationTest.cs{2/2✓}
-└─AuthenticationTests.cs{4/4✓:new}
+└─AuthenticationTests.cs{4/4✓}
 
 docker/
 ├─docker-compose.yml{keycloak+postgres}
@@ -47,7 +48,7 @@ UnwrapActionResult::{
 @keycloak::{
   realm::mcppoc-realm
   client::mcppoc-api{secret:mcppoc-api-secret}
-  users::{admin:admin123,user:user123}
+  users::{admin:admin123,user:user123,viewer:viewer123}
   flows::client_credentials+password
   url::http://127.0.0.1:8080!
 }
@@ -100,6 +101,32 @@ UnwrapActionResult::{
 }
 @run::{
   api::dotnet-run--project-src/McpPoc.Api
-  swagger::http://127.0.0.1:5001/swagger
+  scalar::http://127.0.0.1:5001/scalar{replaced:swagger}!
   mcp::http://127.0.0.1:5001/mcp
+}
+
+[PACKAGE_VERSIONS]
+@aspnetcore::{
+  Microsoft.AspNetCore.OpenApi::10.0.2
+  Microsoft.AspNetCore.Authentication.JwtBearer::10.0.2
+  Microsoft.AspNetCore.Authorization::10.0.2
+  Microsoft.AspNetCore.Mvc.Testing::10.0.2
+}
+@extensions::{
+  Microsoft.Extensions.Logging.Abstractions::10.0.2
+  Microsoft.Extensions.DependencyInjection.Abstractions::10.0.2
+}
+@logging::{
+  Serilog.AspNetCore::10.0.0
+  Serilog.Sinks.File::7.0.0
+}
+@testing::{
+  Microsoft.NET.Test.Sdk::18.0.1
+  xunit::2.9.3
+  xunit.runner.visualstudio::3.1.5
+  FluentAssertions::8.8.0
+  Moq::4.20.72
+}
+@openapi::{
+  Scalar.AspNetCore::2.12.11
 }
