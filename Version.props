@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <BuildFor>net9.0</BuildFor>
+    <BuildFor>net10.0</BuildFor>
     <MainVersion>2.0.0</MainVersion>
   </PropertyGroup>
 </Project> 

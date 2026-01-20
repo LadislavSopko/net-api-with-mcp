@@ -25,7 +25,7 @@ public class HttpCoexistenceTests
         response.StatusCode.Should().Be(HttpStatusCode.OK, "HTTP API should still work");
         var users = await response.Content.ReadFromJsonAsync<List<UserDto>>();
         users.Should().NotBeNull();
-        users!.Should().HaveCountGreaterOrEqualTo(3);
+        users!.Should().HaveCountGreaterThanOrEqualTo(3);
     }
 
     [Fact]

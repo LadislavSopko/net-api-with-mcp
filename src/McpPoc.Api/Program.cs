@@ -2,7 +2,7 @@ using McpPoc.Api.Authorization;
 using McpPoc.Api.Infrastructure;
 using McpPoc.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.OpenApi.Models;
+using Scalar.AspNetCore;
 using Serilog;
 using Zero.Mcp.Extensions;
 
@@ -21,52 +21,8 @@ builder.Host.UseSerilog();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// Configure Swagger with OAuth2
-builder.Services.AddSwaggerGen(options =>
-{
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "MCP POC API",
-        Version = "v1",
-        Description = "API with MCP tools and Keycloak authentication"
-    });
-
-    // Add OAuth2 security definition (Authorization Code with PKCE)
-    var keycloakAuthority = builder.Configuration["Keycloak:Authority"];
-    options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
-    {
-        Type = SecuritySchemeType.OAuth2,
-        Flows = new OpenApiOAuthFlows
-        {
-            AuthorizationCode = new OpenApiOAuthFlow
-            {
-                AuthorizationUrl = new Uri($"{keycloakAuthority}/protocol/openid-connect/auth"),
-                TokenUrl = new Uri($"{keycloakAuthority}/protocol/openid-connect/token"),
-                Scopes = new Dictionary<string, string>
-                {
-                    { "openid", "OpenID Connect" },
-                    { "profile", "User profile" },
-                    { "email", "User email" }
-                }
-            }
-        }
-    });
-
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "oauth2"
-                }
-            },
-            new[] { "openid", "profile", "email" }
-        }
-    });
-});
+// Configure OpenAPI (native)
+builder.Services.AddOpenApi();
 
 // Configure JWT Bearer authentication with Keycloak
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -129,13 +85,21 @@ var app = builder.Build();
 // Configure HTTP pipeline
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
+    app.MapOpenApi();
+
+    // Scalar UI with OAuth2 configuration
+    var keycloakAuthority = builder.Configuration["Keycloak:Authority"];
+    app.MapScalarApiReference(options =>
     {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "MCP POC API v1");
-        options.OAuthClientId("mcppoc-api");
-        options.OAuthAppName("MCP POC API");
-        options.OAuthUsePkce();
+        options
+            .WithTitle("MCP POC API")
+            .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient)
+            .AddAuthorizationCodeFlow("keycloak", flow =>
+            {
+                flow.ClientId = "mcppoc-api";
+                flow.AuthorizationUrl = $"{keycloakAuthority}/protocol/openid-connect/auth";
+                flow.TokenUrl = $"{keycloakAuthority}/protocol/openid-connect/token";
+            });
     });
 }
 
@@ -149,7 +113,7 @@ app.Logger.LogInformation("===========================================");
 app.Logger.LogInformation("MCP POC API");
 app.Logger.LogInformation("HTTP API: http://127.0.0.1:5001/api/users");
 app.Logger.LogInformation("MCP Endpoint: http://127.0.0.1:5001/mcp");
-app.Logger.LogInformation("Swagger: http://127.0.0.1:5001/swagger");
+app.Logger.LogInformation("Scalar UI: http://127.0.0.1:5001/scalar");
 app.Logger.LogInformation("===========================================");
 
 app.Run();
