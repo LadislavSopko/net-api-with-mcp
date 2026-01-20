@@ -8,7 +8,8 @@ using Zero.Mcp.Extensions;
 
 // Configure Serilog for file logging
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Verbose()
+    .MinimumLevel.Information()
+    .WriteTo.Console()
     .WriteTo.File("logs/mcppoc-.log", rollingInterval: RollingInterval.Day)
     .CreateLogger();
 
