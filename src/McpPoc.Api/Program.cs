@@ -104,6 +104,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseZeroMcpMarking();  // Mark MCP requests BEFORE authentication
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

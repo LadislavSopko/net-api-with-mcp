@@ -37,6 +37,12 @@ public static class McpServerBuilderExtensions
         // Register options for access in MapZeroMcp
         services.AddSingleton(options);
 
+        // Register IHttpContextAccessor if not already registered
+        services.AddHttpContextAccessor();
+
+        // Register IMcpRequestContext as Scoped
+        services.AddScoped<IMcpRequestContext, McpRequestContext>();
+
         return services
             .AddMcpServer()
             .WithHttpTransport()
@@ -73,7 +79,7 @@ public static class McpServerBuilderExtensions
 
             foreach (var method in toolMethods)
             {
-                var toolName = ConvertToSnakeCase(method.Name);
+                var toolName = ToolNameGenerator.GenerateName(method, toolType, options);
 
                 // Capture authorization metadata for this tool
                 var metadata = ToolAuthorizationMetadata.FromMethod(method, toolName);
@@ -213,20 +219,6 @@ public static class McpServerBuilderExtensions
         return ActivatorUtilities.CreateInstance(services, controllerType);
     }
 
-    /// <summary>
-    /// Converts method name to snake_case and removes Async suffix.
-    /// </summary>
-    private static string ConvertToSnakeCase(string methodName)
-    {
-        // Remove "Async" suffix if present
-        if (methodName.EndsWith("Async") && methodName.Length > 5)
-        {
-            methodName = methodName.Substring(0, methodName.Length - 5);
-        }
-
-        // Convert to snake_case using JsonNamingPolicy
-        return JsonNamingPolicy.SnakeCaseLower.ConvertName(methodName) ?? methodName;
-    }
 }
 
 /// <summary>
@@ -243,6 +235,10 @@ public class McpServerToolTypeAttribute : Attribute
 [AttributeUsage(AttributeTargets.Method)]
 public class McpServerToolAttribute : Attribute
 {
+    /// <summary>
+    /// Optional explicit name for the tool. If set, overrides the naming convention.
+    /// </summary>
+    public string? Name { get; set; }
 }
 
 /// <summary>
@@ -252,6 +248,7 @@ public static class McpEndpointExtensions
 {
     /// <summary>
     /// Maps the MCP endpoint using the configuration from ZeroMcpOptions.
+    /// Use with UseZeroMcpMarking() middleware for IMcpRequestContext support.
     /// </summary>
     /// <param name="app">The web application.</param>
     /// <param name="path">Optional path override. If not provided, uses path from ZeroMcpOptions.</param>
@@ -274,5 +271,52 @@ public static class McpEndpointExtensions
         }
 
         return builder;
+    }
+
+    /// <summary>
+    /// Adds middleware that marks MCP requests with HttpContext.Items marker and x-mcp-call header.
+    /// Call this BEFORE MapZeroMcp() in the middleware pipeline.
+    /// </summary>
+    /// <param name="app">The application builder.</param>
+    /// <param name="mcpPath">The MCP endpoint path. Default is "/mcp".</param>
+    /// <returns>The application builder for chaining.</returns>
+    public static IApplicationBuilder UseZeroMcpMarking(this IApplicationBuilder app, string mcpPath = "/mcp")
+    {
+        return app.Use(async (context, next) =>
+        {
+            // Check if this request is going to the MCP endpoint
+            if (context.Request.Path.StartsWithSegments(mcpPath, StringComparison.OrdinalIgnoreCase))
+            {
+                // Mark this as an MCP call in Items
+                context.Items[McpRequestContext.McpCallMarkerKey] = true;
+
+                // Add x-mcp-call header
+                context.Request.Headers[McpRequestContext.McpCallHeaderName] = "true";
+            }
+
+            await next();
+        });
+    }
+
+    /// <summary>
+    /// Adds MCP call marker to an endpoint (for testing purposes).
+    /// For production, use UseZeroMcpMarking() middleware instead.
+    /// </summary>
+    /// <param name="builder">The endpoint convention builder.</param>
+    /// <returns>The endpoint convention builder for chaining.</returns>
+    public static IEndpointConventionBuilder AddMcpCallMarker(this IEndpointConventionBuilder builder)
+    {
+        return builder.AddEndpointFilter(async (context, next) =>
+        {
+            var httpContext = context.HttpContext;
+
+            // Mark this as an MCP call in Items
+            httpContext.Items[McpRequestContext.McpCallMarkerKey] = true;
+
+            // Add x-mcp-call header (modifying request headers)
+            httpContext.Request.Headers[McpRequestContext.McpCallHeaderName] = "true";
+
+            return await next(context);
+        });
     }
 }
