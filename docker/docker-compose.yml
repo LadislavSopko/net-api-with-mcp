@@ -84,25 +84,17 @@ services:
   #   restart: unless-stopped
   #   environment:
   #     ASPNETCORE_ENVIRONMENT: Development
-  #     ASPNETCORE_URLS: http://+:8080
+  #     ASPNETCORE_URLS: http://+:80
   #     ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-mcppoc_db};Username=${POSTGRES_USER:-mcppoc_user};Password=${POSTGRES_PASSWORD}"
   #     Keycloak__Authority: "http://keycloak:8080/realms/${KEYCLOAK_REALM:-mcppoc-realm}"
   #     Keycloak__Audience: "${KEYCLOAK_CLIENT_ID:-mcppoc-api}"
   #   ports:
-  #     - "${API_PORT:-5001}:8080"
+  #     - "${API_PORT:-5001}:80"
   #   networks:
   #     - mcppoc_network
   #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
   #     keycloak:
   #       condition: service_healthy
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #     start_period: 30s
 
 volumes:
   mcppoc_postgres_data:

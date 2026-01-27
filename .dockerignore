@@ -60,3 +60,6 @@
 **/*.temp
 **/*.swp
 **/*.swo
+
+# Ignore global.json to use container's SDK version
+**/global.json

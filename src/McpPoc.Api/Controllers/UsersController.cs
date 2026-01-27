@@ -185,6 +185,64 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
+    /// Diagnostic endpoint to check tool registration.
+    /// </summary>
+    [HttpGet("tool-diagnostics")]
+    [AllowAnonymous]
+    public ActionResult<ToolDiagnosticsResponse> GetToolDiagnostics()
+    {
+        var assembly = typeof(UsersController).Assembly;
+        var toolTypes = assembly.GetTypes()
+            .Where(t => t.GetCustomAttributes(typeof(McpServerToolTypeAttribute), false).Any())
+            .Select(t => t.FullName ?? t.Name)
+            .ToList();
+
+        var toolMethods = new List<string>();
+        foreach (var type in assembly.GetTypes().Where(t => t.GetCustomAttributes(typeof(McpServerToolTypeAttribute), false).Any()))
+        {
+            var methods = type.GetMethods()
+                .Where(m => m.GetCustomAttributes(typeof(McpServerToolAttribute), false).Any())
+                .Select(m => $"{type.Name}.{m.Name}");
+            toolMethods.AddRange(methods);
+        }
+
+        return Ok(new ToolDiagnosticsResponse(assembly.FullName ?? "unknown", toolTypes, toolMethods));
+    }
+
+    /// <summary>
+    /// Echo all request headers - useful for testing MCP header forwarding.
+    /// </summary>
+    [HttpGet("echo-headers")]
+    [McpServerTool, Description("Returns all request headers with their values - for testing")]
+    [AllowAnonymous]
+    public ActionResult<EchoHeadersResponse> EchoHeaders()
+    {
+        var headers = new Dictionary<string, string>();
+
+        // For MCP calls, use IMcpRequestContext
+        if (_mcpContext.IsMcpCall && _mcpContext.Headers != null)
+        {
+            foreach (var header in _mcpContext.Headers)
+            {
+                headers[header.Key] = header.Value.ToString();
+            }
+        }
+        else
+        {
+            // For HTTP calls, use HttpContext directly
+            foreach (var header in Request.Headers)
+            {
+                headers[header.Key] = header.Value.ToString();
+            }
+        }
+
+        _logger.LogInformation("EchoHeaders called - IsMcpCall: {IsMcpCall}, HeaderCount: {Count}",
+            _mcpContext.IsMcpCall, headers.Count);
+
+        return Ok(new EchoHeadersResponse(_mcpContext.IsMcpCall, headers));
+    }
+
+    /// <summary>
     /// Regular HTTP endpoint WITHOUT MCP tool
     /// </summary>
     [HttpDelete("{id}")]
@@ -214,3 +272,13 @@ public record CreateUserRequest(string Name, string Email);
 /// Request for updating a user
 /// </summary>
 public record UpdateUserRequest(string Name, string Email);
+
+/// <summary>
+/// Response for EchoHeaders tool - returns all request headers
+/// </summary>
+public record EchoHeadersResponse(bool IsMcpCall, Dictionary<string, string> Headers);
+
+/// <summary>
+/// Response for tool diagnostics
+/// </summary>
+public record ToolDiagnosticsResponse(string AssemblyName, List<string> ToolTypes, List<string> ToolMethods);

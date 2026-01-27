@@ -18,6 +18,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Use Serilog
 builder.Host.UseSerilog();
 
+// Check if auth is enabled (default: true)
+var authEnabled = builder.Configuration.GetValue("Auth:Enabled", true);
+
 // Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -25,46 +28,56 @@ builder.Services.AddEndpointsApiExplorer();
 // Configure OpenAPI (native)
 builder.Services.AddOpenApi();
 
-// Configure JWT Bearer authentication with Keycloak
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        var keycloakAuthority = builder.Configuration["Keycloak:Authority"];
-
-        options.Authority = keycloakAuthority;
-        options.Audience = builder.Configuration["Keycloak:Audience"];
-        options.RequireHttpsMetadata = builder.Configuration.GetValue<bool>("Keycloak:RequireHttpsMetadata");
-
-        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+// Configure JWT Bearer authentication with Keycloak (only if auth enabled)
+if (authEnabled)
+{
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
         {
-            ValidateAudience = false,  // TODO: Configure Keycloak to add audience claim
-            ValidateIssuer = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true
-        };
+            var keycloakAuthority = builder.Configuration["Keycloak:Authority"];
 
-        options.Events = new JwtBearerEvents
-        {
-            OnAuthenticationFailed = context =>
-            {
-                context.HttpContext.RequestServices
-                    .GetRequiredService<ILogger<Program>>()
-                    .LogError(context.Exception, "Authentication failed");
-                return Task.CompletedTask;
-            },
-            OnTokenValidated = context =>
-            {
-                context.HttpContext.RequestServices
-                    .GetRequiredService<ILogger<Program>>()
-                    .LogInformation("Token validated for user: {User}",
-                        context.Principal?.Identity?.Name ?? "Unknown");
-                return Task.CompletedTask;
-            }
-        };
-    });
+            options.Authority = keycloakAuthority;
+            options.Audience = builder.Configuration["Keycloak:Audience"];
+            options.RequireHttpsMetadata = builder.Configuration.GetValue<bool>("Keycloak:RequireHttpsMetadata");
 
-builder.Services.AddAuthorization();
-builder.Services.AddMcpPocAuthorization();
+            options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+            {
+                ValidateAudience = false,  // TODO: Configure Keycloak to add audience claim
+                ValidateIssuer = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true
+            };
+
+            options.Events = new JwtBearerEvents
+            {
+                OnAuthenticationFailed = context =>
+                {
+                    context.HttpContext.RequestServices
+                        .GetRequiredService<ILogger<Program>>()
+                        .LogError(context.Exception, "Authentication failed");
+                    return Task.CompletedTask;
+                },
+                OnTokenValidated = context =>
+                {
+                    context.HttpContext.RequestServices
+                        .GetRequiredService<ILogger<Program>>()
+                        .LogInformation("Token validated for user: {User}",
+                            context.Principal?.Identity?.Name ?? "Unknown");
+                    return Task.CompletedTask;
+                }
+            };
+        });
+
+    builder.Services.AddAuthorization();
+    builder.Services.AddMcpPocAuthorization();
+}
+else
+{
+    // No-op authorization when auth disabled
+    builder.Services.AddAuthorization();
+    Log.Warning("Authentication is DISABLED - all endpoints are accessible without auth");
+}
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<UserStore>();  // HACK: In-memory persistence
 builder.Services.AddScoped<IUserService, UserService>();
@@ -76,15 +89,19 @@ builder.Services.AddScoped<IUserRoleResolver, UserRoleResolver>();
 // Configure MCP with authentication and authorization
 builder.Services.AddZeroMcpExtensions(options =>
 {
-    options.RequireAuthentication = true;  // Require auth for MCP endpoint
-    options.UseAuthorization = true;       // Use [Authorize] policies
-    options.McpEndpointPath = "/mcp";      // MCP endpoint path
+    options.RequireAuthentication = authEnabled;  // Require auth only if enabled
+    options.UseAuthorization = authEnabled;       // Use [Authorize] policies only if enabled
+    options.FilterToolsByPermissions = authEnabled;  // Only filter tools when auth enabled
+    options.McpEndpointPath = "/mcp";             // MCP endpoint path
+    options.ToolAssembly = typeof(McpPoc.Api.Controllers.UsersController).Assembly;  // Explicit assembly for Docker
 });
 
 var app = builder.Build();
 
 // Configure HTTP pipeline
-if (app.Environment.IsDevelopment())
+// Note: OpenAPI/Scalar disabled in Docker due to .NET 10 preview bug
+// Enable only for local development with ENABLE_OPENAPI=true
+if (app.Environment.IsDevelopment() && builder.Configuration.GetValue("ENABLE_OPENAPI", false))
 {
     app.MapOpenApi();
 
