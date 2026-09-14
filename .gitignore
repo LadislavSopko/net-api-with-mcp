@@ -280,4 +280,4 @@ PublishProfiles/
 # MCP configuration (contains API keys and tokens)
 .mcp.json
 .nuget-api-key
-3rdp/
+3rdp/.cvm
