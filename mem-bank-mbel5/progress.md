@@ -2,7 +2,7 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [STATUS]
-⚡phase8::UpgradeToSdk2.2.0{DEVELOP:1/9-blocks:run-20260914-1620:feature/laco/upgrade}
+⚡phase8::UpgradeToSdk2.2.0{DEVELOP:2/9-blocks:run-20260914-1620:feature/laco/upgrade}
 ✅upgrade::.NET10{9.0→10.0.100:complete+verified}✅!
 ✅phase5::COMPLETE{library-extraction:Zero.Mcp.Extensions-v2.0.0}✅
 ✅phase7::COMPLETE{ToolNaming+McpContext:v2.1.0}✅!
@@ -16,8 +16,8 @@
 [PHASE8_PLAN]{2026-09-14}
 @plan::tasks/01-upgrade-mcp-sdk-2/plan.md{9-blocks:57-tests:reviewed✓}
 ✅block01::test-stack+deps{xunit.v3§4.0.1+AwesomeAssertions§9.6.0+NSubstitute§6.2.0+deps:unit77+E2E56}✅
-⚡block02::ToolMetadataBuilder{7-tests:NEXT}
-?block03::SDK-2.2.0+SDK-attributes+WithRequestFilters{7-tests}
+✅block02::ToolMetadataBuilder{7-tests:unit84+E2E56}✅
+⚡block03::SDK-2.2.0+SDK-attributes+WithRequestFilters{7-tests}
 ?block04::ToolCreateOptionsFactory{12-tests}
 ?block05::AddAuthorizationFilters{delete-custom-auth:8-tests}
 ?block06::ToolsListTimeToLive{ttlMs+cacheScope:6-tests}
