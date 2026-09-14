@@ -126,4 +126,18 @@ public class McpToolDiscoveryTests : IAsyncLifetime
         body.Should().Contain("\"ttlMs\":300000");
         body.Should().Contain("\"cacheScope\":\"private\"");
     }
+
+    [Fact]
+    public async Task Should_ExposeOutputSchemaOfUser_WhenOutputSchemaTypeIsSet()
+    {
+        // Arrange - UsersController.GetById carries [McpServerTool(Name = "UserGetById", OutputSchemaType = typeof(User))]
+        var tools = await _mcpClient.ListToolsAsync();
+        var tool = tools.Should().ContainSingle(t => t.Name == "UserGetById").Subject;
+
+        // Assert - the SDK derives outputSchema from OutputSchemaType (snake_case serializer => "id", "name")
+        tool.ProtocolTool.OutputSchema.Should().NotBeNull();
+        var properties = tool.ProtocolTool.OutputSchema!.Value.GetProperty("properties");
+        properties.TryGetProperty("id", out _).Should().BeTrue();
+        properties.TryGetProperty("name", out _).Should().BeTrue();
+    }
 }

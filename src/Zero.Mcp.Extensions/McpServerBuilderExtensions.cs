@@ -45,7 +45,7 @@ public static class McpServerBuilderExtensions
 
         var mcpBuilder = services
             .AddMcpServer()
-            .WithHttpTransport()
+            .WithHttpTransport(transport => transport.SessionMode = options.SessionMode)
             .WithToolsFromAssemblyUnwrappingActionResult(options);
 
         // Authorization is delegated to the SDK: [Authorize]/[AllowAnonymous] found in the tool metadata are

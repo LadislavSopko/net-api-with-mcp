@@ -6,14 +6,10 @@ namespace McpPoc.Api.Tests;
 /// <summary>
 /// E2E tests for IMcpRequestContext.
 ///
-/// LIMITATION: The MCP SDK creates internal scopes for tool invocations where
-/// HttpContext is not properly flowed. This means IsMcpCall detection via
-/// HttpContext.Items or Request.Path doesn't work during MCP tool calls.
-///
-/// The IMcpRequestContext works correctly in:
-/// - Regular ASP.NET Core controllers accessed via HTTP
-/// - Middleware pipeline
-/// - Unit tests with mocked HttpContextAccessor
+/// Under MCP SDK 2.2.0 stateless Streamable HTTP every tools/call runs inside its own HTTP request with the
+/// request's execution context and RequestServices, so IHttpContextAccessor sees the marker set by
+/// UseZeroMcpMarking and IsMcpCall is true inside tools. (Earlier versions of this file documented the
+/// opposite; that was a test-side snake_case deserialization mistake, not an SDK limitation.)
 /// </summary>
 [Collection("McpApi")]
 public class McpRequestContextE2ETests : IAsyncLifetime
@@ -74,7 +70,7 @@ public class McpRequestContextE2ETests : IAsyncLifetime
         // Act - call the MCP context diagnostic tool
         var result = await _mcpClient.CallToolAsync("get_mcp_context");
 
-        // Assert - should return a valid response (even if IsMcpCall is false due to SDK limitation)
+        // Assert - should return a valid response
         result.Should().NotBeNull();
         result.Content.Should().NotBeEmpty();
 
@@ -86,8 +82,6 @@ public class McpRequestContextE2ETests : IAsyncLifetime
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         contextInfo.Should().NotBeNull();
-        // Note: IsMcpCall may be false due to MCP SDK not flowing HttpContext to tool scopes
-        // This is a known limitation documented in the test class
     }
 
     [Fact]
@@ -112,4 +106,23 @@ public class McpRequestContextE2ETests : IAsyncLifetime
 
     // Record to deserialize the response
     private record McpContextInfo(bool IsMcpCall, string? XMcpCallHeader, int HeaderCount);
+
+    [Fact]
+    public async Task Should_ReportIsMcpCallTrue_WhenInvokedOverStatelessTransport()
+    {
+        // SDK 2.2.0 stateless Streamable HTTP: every tools/call runs inside its own HTTP request, so
+        // IHttpContextAccessor sees the marker set by UseZeroMcpMarking and the x-mcp-call header.
+        var result = await _mcpClient.CallToolAsync("get_mcp_context");
+
+        result.IsError.Should().NotBe(true);
+        var content = result.Content.First().Should().BeOfType<TextContentBlock>().Subject;
+        // The demo serializes tool payloads in snake_case (is_mcp_call); case-insensitivity alone does not match it.
+        var contextInfo = JsonSerializer.Deserialize<McpContextInfo>(
+            content.Text!,
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+
+        contextInfo.Should().NotBeNull();
+        contextInfo!.IsMcpCall.Should().BeTrue("the tool runs in the HTTP request marked by UseZeroMcpMarking");
+        contextInfo.XMcpCallHeader.Should().Be("true");
+    }
 }

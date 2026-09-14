@@ -126,4 +126,19 @@ public class McpToolInvocationTests : IAsyncLifetime
         result.Should().NotBeNull();
         result.IsError.Should().NotBe(true, "DI should work - tool should execute successfully");
     }
+
+    [Fact]
+    public async Task Should_ReturnUserJson_WhenGetByIdInvoked()
+    {
+        // ActionResult<User> is still unwrapped by MarshalResult under SDK 2.2.0: the text content is the bare user JSON
+        var result = await _mcpClient.CallToolAsync("UserGetById", new Dictionary<string, object?> { ["id"] = 1 });
+
+        result.IsError.Should().NotBe(true);
+        var text = result.Content.First().Should().BeOfType<ModelContextProtocol.Protocol.TextContentBlock>().Subject.Text!;
+        using var doc = System.Text.Json.JsonDocument.Parse(text);
+        doc.RootElement.GetProperty("id").GetInt32().Should().Be(1);
+        doc.RootElement.GetProperty("name").GetString().Should().Be("Alice Smith");
+        doc.RootElement.TryGetProperty("value", out _).Should().BeFalse("ActionResult<T> wrapper must not leak into the payload");
+        doc.RootElement.TryGetProperty("result", out _).Should().BeFalse("ActionResult<T> wrapper must not leak into the payload");
+    }
 }

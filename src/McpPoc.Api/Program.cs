@@ -3,6 +3,7 @@ using McpPoc.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Scalar.AspNetCore;
 using Serilog;
+using ModelContextProtocol.AspNetCore;
 using Zero.Mcp.Extensions;
 
 // Configure Serilog for file logging
@@ -88,6 +89,7 @@ builder.Services.AddZeroMcpExtensions(options =>
     options.RequireAuthentication = authEnabled;  // Require auth only if enabled
     options.UseAuthorization = authEnabled;       // SDK authorization filters enforce [Authorize] policies only if enabled
     options.ToolsListTimeToLive = TimeSpan.FromMinutes(5);  // tools/list cache hint (ttlMs + cacheScope)
+    options.SessionMode = builder.Configuration.GetValue("Mcp:SessionMode", HttpServerSessionMode.Stateless);  // Stateless default
     options.McpEndpointPath = "/mcp";             // MCP endpoint path
     options.ToolAssembly = typeof(McpPoc.Api.Controllers.UsersController).Assembly;  // Explicit assembly for Docker
 });

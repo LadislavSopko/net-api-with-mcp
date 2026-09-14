@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using ModelContextProtocol.AspNetCore;
 
 namespace Zero.Mcp.Extensions;
 
@@ -36,6 +37,12 @@ public class ZeroMcpOptions
     /// If null, uses default snake_case_lower naming policy.
     /// </summary>
     public JsonSerializerOptions? SerializerOptions { get; set; }
+
+    /// <summary>
+    /// Streamable HTTP session mode passed to the MCP SDK transport. Default is Stateless (the SDK 2.x default
+    /// for the 2026-07-28 protocol revision): no Mcp-Session-Id, every request self-contained, load-balancer friendly.
+    /// </summary>
+    public HttpServerSessionMode SessionMode { get; set; } = HttpServerSessionMode.Stateless;
 
     /// <summary>
     /// When set, tools/list responses carry the MCP cache hints: ttlMs = this value and cacheScope = private when

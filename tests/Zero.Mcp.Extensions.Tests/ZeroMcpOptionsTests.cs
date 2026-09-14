@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using ModelContextProtocol.AspNetCore;
 using Xunit;
 
 namespace Zero.Mcp.Extensions.Tests;
@@ -56,5 +57,12 @@ public class ZeroMcpOptionsTests
     {
         // Removed in 3.0.0: the SDK authorization filters always filter tools/list when UseAuthorization is true.
         typeof(ZeroMcpOptions).GetProperty("FilterToolsByPermissions").Should().BeNull();
+    }
+
+    [Fact]
+    public void Should_DefaultSessionModeToStateless()
+    {
+        // SDK 2.2.0 default for Streamable HTTP (2026-07-28 revision, SEP-2567)
+        new ZeroMcpOptions().SessionMode.Should().Be(HttpServerSessionMode.Stateless);
     }
 }

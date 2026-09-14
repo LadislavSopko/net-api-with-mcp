@@ -40,7 +40,7 @@ public class UsersController : ControllerBase
     /// TEST: Regular HTTP endpoint + MCP tool
     /// </summary>
     [HttpGet("{id}")]
-    [McpServerTool(Name = "UserGetById"), Description("Gets a user by their ID")]  // ← TESTING THIS!
+    [McpServerTool(Name = "UserGetById", UseStructuredContent = true, OutputSchemaType = typeof(User)), Description("Gets a user by their ID")]  // ← TESTING THIS!
     public async Task<ActionResult<User>> GetById(int id)
     {
         _logger.LogInformation("GetById called with id: {Id} call done by mcp: {isMcp}", id, _mcpContext.IsMcpCall);
