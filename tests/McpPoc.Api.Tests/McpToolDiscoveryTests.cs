@@ -11,13 +11,13 @@ public class McpToolDiscoveryTests : IAsyncLifetime
         _fixture = fixture;
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         var httpClient = await _fixture.GetAuthenticatedClientAsync();
         _mcpClient = new McpClientHelper(httpClient);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _mcpClient.DisposeAsync();
     }
@@ -29,15 +29,15 @@ public class McpToolDiscoveryTests : IAsyncLifetime
         var tools = await _mcpClient.ListToolsAsync();
 
         // Assert - Member sees base tools + create (6 total)
-        // Base tools: get_by_id, get_all, get_scope_id, get_public_info, get_mcp_context
+        // Base tools: UserGetById, get_all, get_scope_id, get_public_info, get_mcp_context, echo_headers
         // Role-protected: create (Member+)
         // Not visible to Member: update (Manager+), promote_to_manager (Admin+)
         tools.Should().NotBeNull();
-        tools.Should().HaveCount(6, "Member should see 5 base tools + create");
+        tools.Should().HaveCount(7, "Member should see 6 base tools + create");
 
         // Verify expected tool names (SDK converts to snake_case)
         var toolNames = tools.Select(t => t.Name).ToList();
-        toolNames.Should().Contain("get_by_id");
+        toolNames.Should().Contain("UserGetById");
         toolNames.Should().Contain("get_all");
         toolNames.Should().Contain("create");
         toolNames.Should().Contain("get_scope_id");
@@ -56,7 +56,7 @@ public class McpToolDiscoveryTests : IAsyncLifetime
 
         // Assert - SDK converts method names to snake_case
         var getByIdTool = tools
-            .Should().ContainSingle(t => t.Name == "get_by_id")
+            .Should().ContainSingle(t => t.Name == "UserGetById")
             .Subject;
 
         getByIdTool.Description.Should().Contain("Gets a user by their ID");

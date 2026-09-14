@@ -13,7 +13,7 @@ public class McpToolInvocationTests : IAsyncLifetime
         _fixture = fixture;
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         // Reset data to seed state for test isolation
         _fixture.ResetUserStore();
@@ -23,7 +23,7 @@ public class McpToolInvocationTests : IAsyncLifetime
         _mcpClient = new McpClientHelper(httpClient);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _mcpClient.DisposeAsync();
     }
@@ -38,7 +38,7 @@ public class McpToolInvocationTests : IAsyncLifetime
         };
 
         // Act
-        var result = await _mcpClient.CallToolAsync("get_by_id", arguments);
+        var result = await _mcpClient.CallToolAsync("UserGetById", arguments);
 
         // Assert
         result.Should().NotBeNull();
@@ -105,7 +105,7 @@ public class McpToolInvocationTests : IAsyncLifetime
         };
 
         // Act
-        var result = await _mcpClient.CallToolAsync("get_by_id", arguments);
+        var result = await _mcpClient.CallToolAsync("UserGetById", arguments);
 
         // Assert
         result.Should().NotBeNull();

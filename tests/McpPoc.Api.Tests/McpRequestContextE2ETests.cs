@@ -26,13 +26,13 @@ public class McpRequestContextE2ETests : IAsyncLifetime
         _fixture = fixture;
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         var httpClient = await _fixture.GetAuthenticatedClientAsync();
         _mcpClient = new McpClientHelper(httpClient);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _mcpClient.DisposeAsync();
     }

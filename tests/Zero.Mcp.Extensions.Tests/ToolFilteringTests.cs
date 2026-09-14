@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using System.Security.Claims;
 using Xunit;
 

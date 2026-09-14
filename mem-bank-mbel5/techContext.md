@@ -3,12 +3,12 @@
 
 [STACK]{current:2026-09-14}
 @runtime::.NET§10.0.100{sdk-installed:10.0.401:global.json-pinned}
-@framework::AspNetCore§10.0.2{→10.0.12:phase8}
+@framework::AspNetCore§10.0.12✅
 @protocol::MCP§0.6.0-preview.1{→2.2.0:phase8}!
 @auth::Keycloak§25.0.2{docker-image}{OAuth2+OIDC}
 @logging::Serilog§10.0.0
-@testing::xUnit§2.9.3+FluentAssertions§8.8.0{commercial-license!}+Moq§4.20.72{→xunit.v3§4.0.1+AwesomeAssertions§9.6.0+NSubstitute§6.2.0:phase8}
-@openapi::Scalar.AspNetCore§2.12.11{→2.17.3:phase8}
+@testing::xUnit.v3§4.0.1+AwesomeAssertions§9.6.0+NSubstitute§6.2.0+Test.Sdk§18.10.0✅
+@openapi::Scalar.AspNetCore§2.17.3✅
 
 [DEV_TOOLING]{2026-09-14}
 @ai-agent::.ai-agent{submodule:LadislavSopko/ai-agent-lite§2.22.1:.claude/*→symlinks}
@@ -16,8 +16,12 @@
 @lint::sgconfig.yml+.editorconfig+Directory.Build.props{analyzers:latest-recommended:TreatWarningsAsErrors:false-TEMP}
 @lint-astgrep::NOT-installed{layer-2-skipped}
 @secrets::git-crypt{.00-secrets/:.mcp.json(symlinked-to-root)+.nuget-api-key:runbook:docs/git-encryption.md}!
-@3rdp::csharp-sdk{gitlink-160000:no-.gitmodules:v0.6.0-preview.1:in-.slnx:fails-restore-independently}
+@test-framework::xunit.v3{namespace:Xunit|AwesomeAssertions|NSubstitute:IAsyncLifetime→ValueTask:OutputHelper∈Xunit:runner∈json-config}
+@test-runner::Microsoft.Testing.Platform{global.json-config:Exe+GenerateProgramFile=false:csproj-UseMicrosoftTestingPlatformRunner:NO-nologo}
+@3rdp::csharp-sdk{gitlink-160000:v2.2.0✅:in-.slnx:fails-restore-independently}
 @sdk-source-ref::scratchpad/sdk220{clone-v2.2.0:session-only}
+@cvm::.mcp.json{CVM_SANDBOX_PATHS:project-root:exec-id:run-20260914-1620}
+@cvm-gitignore::.cvm/{auto-generated:session-cache}
 
 [KEY_FILES]
 src/McpPoc.Api/
@@ -37,7 +41,7 @@ tests/McpPoc.Api.Tests/
 └─AuthenticationTests.cs{4/4✓}
 
 docker/
-├─docker-compose.yml{keycloak+postgres}
+├─docker-compose.yml{keycloak:8080+postgres:15432}{POSTGRES_PORT=15432:host-5432-taken}
 └─keycloak/mcppoc-realm.json{127.0.0.1-support}!
 
 [SOLUTION]
@@ -89,6 +93,13 @@ UnwrapActionResult::{
 ✓create::mcp__poc__create(name,email)+Bearer-required
 
 [CRITICAL_PATTERNS]
+!test-stack-traps::AwesomeAssertions{namespace:NOT-FluentAssertions}
+!test-stack-traps::xunit.v3-IAsyncLifetime{returns:ValueTask¬Task}
+!test-stack-traps::ITestOutputHelper{location:Xunit¬Xunit.Abstractions}
+!test-stack-traps::test-runner{config-in:global.json:NOT-dotnet.config}
+!test-stack-traps::csproj-props{OutputType:Exe+UseMicrosoftTestingPlatformRunner:true+GenerateProgramFile:false}
+!test-stack-traps::dotnet-test-args{NEVER--nologo:exit-5-"Opzione-sconosciuta"}
+!test-stack-traps::NSubstitute{all-args-matchers:Arg.Any<object?>()¬raw-null}
 !new-ValueTask(result)→null{broken}
 !ValueTask.FromResult(result)→value{works}
 !ValidateAudience:true→fail{Keycloak:azp¬aud}

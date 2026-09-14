@@ -1,5 +1,4 @@
 using System.Text.Json;
-using FluentAssertions;
 using ModelContextProtocol.Protocol;
 
 namespace McpPoc.Api.Tests;
@@ -18,7 +17,7 @@ public class PolicyAuthorizationTests : IAsyncLifetime
         _fixture = fixture;
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         // Reset data to seed state for test isolation
         _fixture.ResetUserStore();
@@ -37,7 +36,7 @@ public class PolicyAuthorizationTests : IAsyncLifetime
         _adminClient = new McpClientHelper(adminHttp);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _viewerClient.DisposeAsync();
         await _memberClient.DisposeAsync();
@@ -211,7 +210,7 @@ public class PolicyAuthorizationTests : IAsyncLifetime
         };
 
         // Act
-        var result = await _viewerClient.CallToolAsync("get_by_id", args);
+        var result = await _viewerClient.CallToolAsync("UserGetById", args);
 
         // Assert
         result.Should().NotBeNull();

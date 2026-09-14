@@ -11,21 +11,21 @@
 @version::2.1.0{released}→?3.0.0{target}
 @status::Phase8-Upgrade{PLAN-approved:DEVELOP-not-started}
 
-⚡phase8::UpgradeToSdk2.2.0{plan-approved:0/9-blocks}
+⚡phase8::UpgradeToSdk2.2.0{DEVELOP:1/9-blocks:run-20260914-1620}
+✅block01::migrate-test-stack-and-deps{COMPLETE:xunit.v3+AwesomeAssertions+NSubstitute}✅
 ✅phase7::ToolNaming+McpContext{COMPLETE:9-blocks:131-tests}✅
 ✅upgrade::.NET10{9.0→10.0:complete}✅
 ✅phase5::LibraryExtraction{Zero.Mcp.Extensions→NuGet}✅
 ✗phase6::RoleBasedToolFiltering{SUPERSEDED:SDK-AddAuthorizationFilters-covers-it}
 
 [SESSION_2026-09-14]
->added::.ai-agent{submodule:ai-agent-lite-v2.22.1:setup.ps1-run}✅
->added::git-crypt{.00-secrets/:.mcp.json+.nuget-api-key:encrypted}✅{key-in-password-manager!}
->ran::j-setup{j-settings.md+sgconfig.yml+.editorconfig+lint-props}✅
->staged::lint-gate{TreatWarningsAsErrors:false:TODO(lint-debt):~36-findings}⚠
->researched::Ecosystem{SDK-2.2.0+spec-2026-07-28+deps+competitors}✅
->ran::j-new-feature{01-upgrade-mcp-sdk-2:LISTEN→ANALYZE→PROPOSE→PLAN}✅
->verified::SDK-2.2.0-source{scratchpad-clone:signatures-confirmed}✅
->commits::c32ac12{WIP-j-setup}+3a7e018{plan}{pushed}✅
+>completed::block01{test-stack:xunit.v3§4.0.1+AwesomeAssertions§9.6.0+NSubstitute§6.2.0}✅
+>upgraded::deps{aspnetcore§10.0.12+Scalar§2.17.3+SourceLink§10.0.401+TestSdk§18.10.0:vulnerable-clean}✅
+>verified::test-counts{unit:77✅+E2E:56✅:tool-names:9-tools}✅
+>verified::lint{error-severity-EXIT0:IDE0005-cleared:TreatWarningsAsErrors:false}✅
+>verified::docker{keycloak:8080:postgres:15432}✅
+>verified::3rdp-sdk{gitlink-v2.2.0:signature-extraction-OK}✅
+>staged::cvm-exec{id:run-20260914-1620:block-01-complete}✅
 
 [PHASE8_DECISIONS]{user-approved:2026-09-14}
 @sdk::ModelContextProtocol§2.2.0{0.6.0-preview.1→2.2.0}
@@ -44,8 +44,8 @@
 @lint::close-debt-in-block-08{TreatWarningsAsErrors:true}
 
 [PHASE8_BLOCKS]
-?01::migrate-test-stack-and-deps
-?02::tool-metadata-builder
+✅01::migrate-test-stack-and-deps{COMPLETE}✅
+⚡02::tool-metadata-builder{NEXT}
 ?03::upgrade-sdk-and-adopt-sdk-attributes
 ?04::tool-create-options-factory
 ?05::replace-custom-auth-with-sdk-filters
@@ -69,7 +69,7 @@
 @nuget::Zero.Mcp.Extensions{2.0.0+2.1.0:743-dl:0-issues:0-PRs}
 
 [NEXT]
-!next::j-develop{block-01:needs-docker-keycloak-up}
+!next::j-develop{block-02-tool-metadata-builder:7-tests:docker-keycloak-up}
 ?then::j-close{merge-direct→main:publish-nuget.sh}
 ?later::git-crypt.key{delete-from-root-after-saving}
 ?later::ast-grep{install-for-lint-layer-2}

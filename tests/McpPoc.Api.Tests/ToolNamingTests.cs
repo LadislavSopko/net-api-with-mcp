@@ -15,13 +15,13 @@ public class ToolNamingTests : IAsyncLifetime
         _fixture = fixture;
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         var httpClient = await _fixture.GetAuthenticatedClientAsync();
         _mcpClient = new McpClientHelper(httpClient);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _mcpClient.DisposeAsync();
     }
@@ -36,7 +36,7 @@ public class ToolNamingTests : IAsyncLifetime
         var toolNames = tools.Select(t => t.Name).ToList();
 
         // Verify method names are converted to snake_case (not prefixed with controller)
-        toolNames.Should().Contain("get_by_id", "GetById should become get_by_id");
+        toolNames.Should().Contain("UserGetById", "GetById carries an explicit Name that always wins over the convention");
         toolNames.Should().Contain("get_all", "GetAll should become get_all");
         toolNames.Should().Contain("create", "Create should become create");
 
@@ -66,7 +66,7 @@ public class ToolNamingTests : IAsyncLifetime
         var tools = await _mcpClient.ListToolsAsync();
 
         // Assert - tools should have descriptions from [Description] attribute
-        var getByIdTool = tools.FirstOrDefault(t => t.Name == "get_by_id");
+        var getByIdTool = tools.FirstOrDefault(t => t.Name == "UserGetById");
         getByIdTool.Should().NotBeNull();
         getByIdTool!.Description.Should().NotBeNullOrEmpty("Tools should have descriptions");
         getByIdTool.Description.Should().Contain("user", "Description should be meaningful");

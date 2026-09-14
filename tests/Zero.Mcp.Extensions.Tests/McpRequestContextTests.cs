@@ -1,6 +1,6 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Http;
-using Moq;
+using NSubstitute;
 using Xunit;
 
 namespace Zero.Mcp.Extensions.Tests;
@@ -12,10 +12,10 @@ public class McpRequestContextTests
     {
         // Arrange
         var httpContext = new DefaultHttpContext();
-        var accessor = new Mock<IHttpContextAccessor>();
-        accessor.Setup(a => a.HttpContext).Returns(httpContext);
+        var accessor = Substitute.For<IHttpContextAccessor>();
+        accessor.HttpContext.Returns(httpContext);
 
-        var context = new McpRequestContext(accessor.Object);
+        var context = new McpRequestContext(accessor);
 
         // Act & Assert
         context.IsMcpCall.Should().BeFalse();
@@ -28,10 +28,10 @@ public class McpRequestContextTests
         var httpContext = new DefaultHttpContext();
         httpContext.Items[McpRequestContext.McpCallMarkerKey] = true;
 
-        var accessor = new Mock<IHttpContextAccessor>();
-        accessor.Setup(a => a.HttpContext).Returns(httpContext);
+        var accessor = Substitute.For<IHttpContextAccessor>();
+        accessor.HttpContext.Returns(httpContext);
 
-        var context = new McpRequestContext(accessor.Object);
+        var context = new McpRequestContext(accessor);
 
         // Act & Assert
         context.IsMcpCall.Should().BeTrue();
@@ -45,10 +45,10 @@ public class McpRequestContextTests
         httpContext.Request.Headers["X-Custom-Header"] = "custom-value";
         // Note: No MCP marker set
 
-        var accessor = new Mock<IHttpContextAccessor>();
-        accessor.Setup(a => a.HttpContext).Returns(httpContext);
+        var accessor = Substitute.For<IHttpContextAccessor>();
+        accessor.HttpContext.Returns(httpContext);
 
-        var context = new McpRequestContext(accessor.Object);
+        var context = new McpRequestContext(accessor);
 
         // Act
         var value = context.GetHeader("X-Custom-Header");
@@ -65,10 +65,10 @@ public class McpRequestContextTests
         httpContext.Items[McpRequestContext.McpCallMarkerKey] = true;
         httpContext.Request.Headers["X-Custom-Header"] = "custom-value";
 
-        var accessor = new Mock<IHttpContextAccessor>();
-        accessor.Setup(a => a.HttpContext).Returns(httpContext);
+        var accessor = Substitute.For<IHttpContextAccessor>();
+        accessor.HttpContext.Returns(httpContext);
 
-        var context = new McpRequestContext(accessor.Object);
+        var context = new McpRequestContext(accessor);
 
         // Act
         var value = context.GetHeader("X-Custom-Header");
@@ -85,10 +85,10 @@ public class McpRequestContextTests
         httpContext.Request.Headers["X-Custom-Header"] = "custom-value";
         // Note: No MCP marker set
 
-        var accessor = new Mock<IHttpContextAccessor>();
-        accessor.Setup(a => a.HttpContext).Returns(httpContext);
+        var accessor = Substitute.For<IHttpContextAccessor>();
+        accessor.HttpContext.Returns(httpContext);
 
-        var context = new McpRequestContext(accessor.Object);
+        var context = new McpRequestContext(accessor);
 
         // Act
         var headers = context.Headers;
@@ -105,10 +105,10 @@ public class McpRequestContextTests
         httpContext.Items[McpRequestContext.McpCallMarkerKey] = true;
         httpContext.Request.Headers["X-Custom-Header"] = "custom-value";
 
-        var accessor = new Mock<IHttpContextAccessor>();
-        accessor.Setup(a => a.HttpContext).Returns(httpContext);
+        var accessor = Substitute.For<IHttpContextAccessor>();
+        accessor.HttpContext.Returns(httpContext);
 
-        var context = new McpRequestContext(accessor.Object);
+        var context = new McpRequestContext(accessor);
 
         // Act
         var headers = context.Headers;
@@ -122,10 +122,10 @@ public class McpRequestContextTests
     public void IsMcpCall_ReturnsFalse_WhenHttpContextIsNull()
     {
         // Arrange
-        var accessor = new Mock<IHttpContextAccessor>();
-        accessor.Setup(a => a.HttpContext).Returns((HttpContext?)null);
+        var accessor = Substitute.For<IHttpContextAccessor>();
+        accessor.HttpContext.Returns((HttpContext?)null);
 
-        var context = new McpRequestContext(accessor.Object);
+        var context = new McpRequestContext(accessor);
 
         // Act & Assert
         context.IsMcpCall.Should().BeFalse();

@@ -285,3 +285,6 @@ PublishProfiles/
 # .00-secrets/ = git-crypt (tracked, encrypted). Overrides ALL rules above.
 !.00-secrets/**
 git-crypt.key
+
+# CVM runtime state
+.cvm/

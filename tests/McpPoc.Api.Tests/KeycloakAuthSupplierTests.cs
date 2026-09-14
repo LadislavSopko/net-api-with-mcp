@@ -1,12 +1,9 @@
-using FluentAssertions;
-using Zero.Mcp.Extensions;
 using McpPoc.Api.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using System.Security.Claims;
-using Xunit;
 
 namespace McpPoc.Api.Tests;
 
@@ -19,8 +16,8 @@ public class KeycloakAuthSupplierTests
         var httpContextAccessor = CreateHttpContextAccessor(isAuthenticated: true);
         var supplier = new KeycloakAuthSupplier(
             httpContextAccessor,
-            Mock.Of<IAuthorizationService>(),
-            Mock.Of<ILogger<KeycloakAuthSupplier>>());
+            Substitute.For<IAuthorizationService>(),
+            Substitute.For<ILogger<KeycloakAuthSupplier>>());
 
         // Act
         var result = await supplier.CheckAuthenticatedAsync();
@@ -36,8 +33,8 @@ public class KeycloakAuthSupplierTests
         var httpContextAccessor = CreateHttpContextAccessor(isAuthenticated: false);
         var supplier = new KeycloakAuthSupplier(
             httpContextAccessor,
-            Mock.Of<IAuthorizationService>(),
-            Mock.Of<ILogger<KeycloakAuthSupplier>>());
+            Substitute.For<IAuthorizationService>(),
+            Substitute.For<ILogger<KeycloakAuthSupplier>>());
 
         // Act
         var result = await supplier.CheckAuthenticatedAsync();
@@ -51,15 +48,13 @@ public class KeycloakAuthSupplierTests
     {
         // Arrange
         var httpContextAccessor = CreateHttpContextAccessor(isAuthenticated: true);
-        var mockAuthService = new Mock<IAuthorizationService>();
-        mockAuthService
-            .Setup(x => x.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), null, "RequireAdmin"))
-            .ReturnsAsync(AuthorizationResult.Success());
+        var mockAuthService = Substitute.For<IAuthorizationService>();
+        mockAuthService.AuthorizeAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<object?>(), Arg.Is("RequireAdmin")).Returns(AuthorizationResult.Success());
 
         var supplier = new KeycloakAuthSupplier(
             httpContextAccessor,
-            mockAuthService.Object,
-            Mock.Of<ILogger<KeycloakAuthSupplier>>());
+            mockAuthService,
+            Substitute.For<ILogger<KeycloakAuthSupplier>>());
 
         var attribute = new AuthorizeAttribute { Policy = "RequireAdmin" };
 
@@ -75,15 +70,13 @@ public class KeycloakAuthSupplierTests
     {
         // Arrange
         var httpContextAccessor = CreateHttpContextAccessor(isAuthenticated: true);
-        var mockAuthService = new Mock<IAuthorizationService>();
-        mockAuthService
-            .Setup(x => x.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), null, "RequireAdmin"))
-            .ReturnsAsync(AuthorizationResult.Failed());
+        var mockAuthService = Substitute.For<IAuthorizationService>();
+        mockAuthService.AuthorizeAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<object?>(), Arg.Is("RequireAdmin")).Returns(AuthorizationResult.Failed());
 
         var supplier = new KeycloakAuthSupplier(
             httpContextAccessor,
-            mockAuthService.Object,
-            Mock.Of<ILogger<KeycloakAuthSupplier>>());
+            mockAuthService,
+            Substitute.For<ILogger<KeycloakAuthSupplier>>());
 
         var attribute = new AuthorizeAttribute { Policy = "RequireAdmin" };
 
@@ -103,8 +96,8 @@ public class KeycloakAuthSupplierTests
         var principal = new ClaimsPrincipal(identity);
         var httpContext = new DefaultHttpContext { User = principal };
 
-        var accessor = new Mock<IHttpContextAccessor>();
-        accessor.Setup(x => x.HttpContext).Returns(httpContext);
-        return accessor.Object;
+        var accessor = Substitute.For<IHttpContextAccessor>();
+        accessor.HttpContext.Returns(httpContext);
+        return accessor;
     }
 }

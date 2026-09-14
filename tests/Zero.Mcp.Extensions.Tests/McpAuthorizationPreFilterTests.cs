@@ -1,7 +1,7 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using Xunit;
 
 namespace Zero.Mcp.Extensions.Tests;
@@ -12,8 +12,8 @@ public class McpAuthorizationPreFilterTests
     public async Task ShouldAllowExecution_When_NoAuthorizeAttribute()
     {
         // Arrange
-        var mockSupplier = new Mock<IAuthForMcpSupplier>();
-        var filter = new McpAuthorizationPreFilter(mockSupplier.Object, Mock.Of<ILogger>());
+        var mockSupplier = Substitute.For<IAuthForMcpSupplier>();
+        var filter = new McpAuthorizationPreFilter(mockSupplier, Substitute.For<ILogger>());
         var methodInfo = typeof(TestController).GetMethod(nameof(TestController.PublicMethod))!;
 
         // Act
@@ -21,16 +21,16 @@ public class McpAuthorizationPreFilterTests
 
         // Assert
         allowed.Should().BeTrue();
-        mockSupplier.Verify(x => x.CheckAuthenticatedAsync(), Times.Never);
+        await mockSupplier.DidNotReceive().CheckAuthenticatedAsync();
     }
 
     [Fact]
     public async Task ShouldCheckAuthentication_When_AuthorizeAttribute_WithoutPolicy()
     {
         // Arrange
-        var mockSupplier = new Mock<IAuthForMcpSupplier>();
-        mockSupplier.Setup(x => x.CheckAuthenticatedAsync()).ReturnsAsync(true);
-        var filter = new McpAuthorizationPreFilter(mockSupplier.Object, Mock.Of<ILogger>());
+        var mockSupplier = Substitute.For<IAuthForMcpSupplier>();
+        mockSupplier.CheckAuthenticatedAsync().Returns(true);
+        var filter = new McpAuthorizationPreFilter(mockSupplier, Substitute.For<ILogger>());
         var methodInfo = typeof(TestController).GetMethod(nameof(TestController.AuthenticatedMethod))!;
 
         // Act
@@ -38,18 +38,18 @@ public class McpAuthorizationPreFilterTests
 
         // Assert
         allowed.Should().BeTrue();
-        mockSupplier.Verify(x => x.CheckAuthenticatedAsync(), Times.Once);
-        mockSupplier.Verify(x => x.CheckPolicyAsync(It.IsAny<AuthorizeAttribute>()), Times.Never);
+        await mockSupplier.Received(1).CheckAuthenticatedAsync();
+        await mockSupplier.DidNotReceive().CheckPolicyAsync(Arg.Any<AuthorizeAttribute>());
     }
 
     [Fact]
     public async Task ShouldCheckPolicy_When_AuthorizeAttribute_WithPolicy()
     {
         // Arrange
-        var mockSupplier = new Mock<IAuthForMcpSupplier>();
-        mockSupplier.Setup(x => x.CheckAuthenticatedAsync()).ReturnsAsync(true);
-        mockSupplier.Setup(x => x.CheckPolicyAsync(It.IsAny<AuthorizeAttribute>())).ReturnsAsync(true);
-        var filter = new McpAuthorizationPreFilter(mockSupplier.Object, Mock.Of<ILogger>());
+        var mockSupplier = Substitute.For<IAuthForMcpSupplier>();
+        mockSupplier.CheckAuthenticatedAsync().Returns(true);
+        mockSupplier.CheckPolicyAsync(Arg.Any<AuthorizeAttribute>()).Returns(true);
+        var filter = new McpAuthorizationPreFilter(mockSupplier, Substitute.For<ILogger>());
         var methodInfo = typeof(TestController).GetMethod(nameof(TestController.PolicyMethod))!;
 
         // Act
@@ -57,18 +57,17 @@ public class McpAuthorizationPreFilterTests
 
         // Assert
         allowed.Should().BeTrue();
-        mockSupplier.Verify(x => x.CheckAuthenticatedAsync(), Times.Once);
-        mockSupplier.Verify(x => x.CheckPolicyAsync(
-            It.Is<AuthorizeAttribute>(a => a.Policy == "RequireAdmin")), Times.Once);
+        await mockSupplier.Received(1).CheckAuthenticatedAsync();
+        await mockSupplier.Received(1).CheckPolicyAsync(Arg.Is<AuthorizeAttribute>(a => a.Policy == "RequireAdmin"));
     }
 
     [Fact]
     public async Task ShouldDenyExecution_When_NotAuthenticated()
     {
         // Arrange
-        var mockSupplier = new Mock<IAuthForMcpSupplier>();
-        mockSupplier.Setup(x => x.CheckAuthenticatedAsync()).ReturnsAsync(false);
-        var filter = new McpAuthorizationPreFilter(mockSupplier.Object, Mock.Of<ILogger>());
+        var mockSupplier = Substitute.For<IAuthForMcpSupplier>();
+        mockSupplier.CheckAuthenticatedAsync().Returns(false);
+        var filter = new McpAuthorizationPreFilter(mockSupplier, Substitute.For<ILogger>());
         var methodInfo = typeof(TestController).GetMethod(nameof(TestController.AuthenticatedMethod))!;
 
         // Act
@@ -82,8 +81,8 @@ public class McpAuthorizationPreFilterTests
     public async Task ShouldAllowExecution_When_AllowAnonymous_OverridesClassAuthorize()
     {
         // Arrange
-        var mockSupplier = new Mock<IAuthForMcpSupplier>();
-        var filter = new McpAuthorizationPreFilter(mockSupplier.Object, Mock.Of<ILogger>());
+        var mockSupplier = Substitute.For<IAuthForMcpSupplier>();
+        var filter = new McpAuthorizationPreFilter(mockSupplier, Substitute.For<ILogger>());
         var methodInfo = typeof(AuthorizedController).GetMethod(nameof(AuthorizedController.PublicMethod))!;
 
         // Act
@@ -91,18 +90,18 @@ public class McpAuthorizationPreFilterTests
 
         // Assert
         allowed.Should().BeTrue();
-        mockSupplier.Verify(x => x.CheckAuthenticatedAsync(), Times.Never);
+        await mockSupplier.DidNotReceive().CheckAuthenticatedAsync();
     }
 
     [Fact]
     public async Task ShouldCheckAllPolicies_When_MultipleAuthorizeAttributes()
     {
         // Arrange - SECURITY FIX: Test for multiple [Authorize] attributes
-        var mockSupplier = new Mock<IAuthForMcpSupplier>();
-        mockSupplier.Setup(x => x.CheckAuthenticatedAsync()).ReturnsAsync(true);
-        mockSupplier.Setup(x => x.CheckPolicyAsync(It.Is<AuthorizeAttribute>(a => a.Policy == "PolicyA"))).ReturnsAsync(true);
-        mockSupplier.Setup(x => x.CheckPolicyAsync(It.Is<AuthorizeAttribute>(a => a.Policy == "PolicyB"))).ReturnsAsync(true);
-        var filter = new McpAuthorizationPreFilter(mockSupplier.Object, Mock.Of<ILogger>());
+        var mockSupplier = Substitute.For<IAuthForMcpSupplier>();
+        mockSupplier.CheckAuthenticatedAsync().Returns(true);
+        mockSupplier.CheckPolicyAsync(Arg.Is<AuthorizeAttribute>(a => a.Policy == "PolicyA")).Returns(true);
+        mockSupplier.CheckPolicyAsync(Arg.Is<AuthorizeAttribute>(a => a.Policy == "PolicyB")).Returns(true);
+        var filter = new McpAuthorizationPreFilter(mockSupplier, Substitute.For<ILogger>());
         var methodInfo = typeof(TestController).GetMethod(nameof(TestController.MultiPolicyMethod))!;
 
         // Act
@@ -110,20 +109,20 @@ public class McpAuthorizationPreFilterTests
 
         // Assert
         allowed.Should().BeTrue();
-        mockSupplier.Verify(x => x.CheckAuthenticatedAsync(), Times.Once);
-        mockSupplier.Verify(x => x.CheckPolicyAsync(It.Is<AuthorizeAttribute>(a => a.Policy == "PolicyA")), Times.Once);
-        mockSupplier.Verify(x => x.CheckPolicyAsync(It.Is<AuthorizeAttribute>(a => a.Policy == "PolicyB")), Times.Once);
+        await mockSupplier.Received(1).CheckAuthenticatedAsync();
+        await mockSupplier.Received(1).CheckPolicyAsync(Arg.Is<AuthorizeAttribute>(a => a.Policy == "PolicyA"));
+        await mockSupplier.Received(1).CheckPolicyAsync(Arg.Is<AuthorizeAttribute>(a => a.Policy == "PolicyB"));
     }
 
     [Fact]
     public async Task ShouldDenyExecution_When_OneOfMultiplePoliciesFails()
     {
         // Arrange - ALL policies must pass
-        var mockSupplier = new Mock<IAuthForMcpSupplier>();
-        mockSupplier.Setup(x => x.CheckAuthenticatedAsync()).ReturnsAsync(true);
-        mockSupplier.Setup(x => x.CheckPolicyAsync(It.Is<AuthorizeAttribute>(a => a.Policy == "PolicyA"))).ReturnsAsync(true);
-        mockSupplier.Setup(x => x.CheckPolicyAsync(It.Is<AuthorizeAttribute>(a => a.Policy == "PolicyB"))).ReturnsAsync(false);
-        var filter = new McpAuthorizationPreFilter(mockSupplier.Object, Mock.Of<ILogger>());
+        var mockSupplier = Substitute.For<IAuthForMcpSupplier>();
+        mockSupplier.CheckAuthenticatedAsync().Returns(true);
+        mockSupplier.CheckPolicyAsync(Arg.Is<AuthorizeAttribute>(a => a.Policy == "PolicyA")).Returns(true);
+        mockSupplier.CheckPolicyAsync(Arg.Is<AuthorizeAttribute>(a => a.Policy == "PolicyB")).Returns(false);
+        var filter = new McpAuthorizationPreFilter(mockSupplier, Substitute.For<ILogger>());
         var methodInfo = typeof(TestController).GetMethod(nameof(TestController.MultiPolicyMethod))!;
 
         // Act

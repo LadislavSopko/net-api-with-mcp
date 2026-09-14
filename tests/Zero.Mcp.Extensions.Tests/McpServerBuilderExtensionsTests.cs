@@ -1,8 +1,7 @@
-using FluentAssertions;
-using Microsoft.AspNetCore.Mvc;
+using AwesomeAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Server;
-using Moq;
+using NSubstitute;
 using System.Reflection;
 using Xunit;
 
@@ -16,7 +15,7 @@ public class McpServerBuilderExtensionsTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton(Mock.Of<IAuthForMcpSupplier>());
+        services.AddSingleton(Substitute.For<IAuthForMcpSupplier>());
 
         // Act
         services.AddZeroMcpExtensions();
@@ -32,7 +31,7 @@ public class McpServerBuilderExtensionsTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton(Mock.Of<IAuthForMcpSupplier>());
+        services.AddSingleton(Substitute.For<IAuthForMcpSupplier>());
 
         // Act
         services.AddZeroMcpExtensions(options =>
@@ -80,7 +79,7 @@ public class McpServerBuilderExtensionsTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton(Mock.Of<IAuthForMcpSupplier>());
+        services.AddSingleton(Substitute.For<IAuthForMcpSupplier>());
 
         // Act
         services.AddZeroMcpExtensions(options =>
@@ -105,7 +104,7 @@ public class McpServerBuilderExtensionsTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton(Mock.Of<IAuthForMcpSupplier>());
+        services.AddSingleton(Substitute.For<IAuthForMcpSupplier>());
 
         // Act
         services.AddZeroMcpExtensions(options =>
@@ -129,7 +128,7 @@ public class McpServerBuilderExtensionsTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton(Mock.Of<IAuthForMcpSupplier>());
+        services.AddSingleton(Substitute.For<IAuthForMcpSupplier>());
 
         // Act
         services.AddZeroMcpExtensions(options =>
@@ -153,7 +152,7 @@ public class McpServerBuilderExtensionsTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton(Mock.Of<IAuthForMcpSupplier>());
+        services.AddSingleton(Substitute.For<IAuthForMcpSupplier>());
 
         // Act
         services.AddZeroMcpExtensions();
@@ -170,7 +169,7 @@ public class McpServerBuilderExtensionsTests
         // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton(Mock.Of<IAuthForMcpSupplier>());
+        services.AddSingleton(Substitute.For<IAuthForMcpSupplier>());
 
         // Act
         services.AddZeroMcpExtensions();

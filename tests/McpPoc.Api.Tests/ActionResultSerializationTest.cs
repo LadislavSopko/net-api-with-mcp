@@ -1,8 +1,5 @@
 using System.Text.Json;
-using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
-using Xunit;
-using Xunit.Abstractions;
 
 namespace McpPoc.Api.Tests;
 

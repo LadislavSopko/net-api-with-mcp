@@ -1,5 +1,4 @@
-using System.Reflection;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace Zero.Mcp.Extensions.Tests;

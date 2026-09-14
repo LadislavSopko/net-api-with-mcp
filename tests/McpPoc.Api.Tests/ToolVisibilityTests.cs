@@ -1,6 +1,3 @@
-using FluentAssertions;
-using Xunit;
-
 namespace McpPoc.Api.Tests;
 
 /// <summary>
@@ -21,7 +18,7 @@ public class ToolVisibilityTests : IAsyncLifetime
         _fixture = fixture;
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         // Reset data to seed state for test isolation
         _fixture.ResetUserStore();
@@ -39,7 +36,7 @@ public class ToolVisibilityTests : IAsyncLifetime
         _adminClient = new McpClientHelper(adminHttp);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _viewerClient.DisposeAsync();
         await _memberClient.DisposeAsync();
@@ -50,7 +47,7 @@ public class ToolVisibilityTests : IAsyncLifetime
     // Base tools visible to all authenticated users (no policy = null minRole)
     private static readonly string[] BaseTools = new[]
     {
-        "get_by_id", "get_all", "get_scope_id", "get_public_info", "get_mcp_context"
+        "UserGetById", "get_all", "get_scope_id", "get_public_info", "get_mcp_context", "echo_headers"
     };
 
     [Fact]
@@ -98,7 +95,7 @@ public class ToolVisibilityTests : IAsyncLifetime
         var tools = await _adminClient.ListToolsAsync();
         var toolNames = tools.Select(t => t.Name).ToArray();
 
-        // Assert - Admin (role 3) should see all 7 tools
+        // Assert - Admin (role 3) should see all 9 tools
         var expected = BaseTools.Concat(new[] { "create", "update", "promote_to_manager" }).ToArray();
         toolNames.Should().BeEquivalentTo(expected,
             "Admin should see all tools");

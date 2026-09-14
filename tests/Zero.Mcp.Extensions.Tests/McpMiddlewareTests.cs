@@ -1,11 +1,11 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Moq;
+using NSubstitute;
 using Xunit;
 
 namespace Zero.Mcp.Extensions.Tests;
@@ -88,7 +88,7 @@ public class McpMiddlewareTests
                     .ConfigureServices(services =>
                     {
                         services.AddRouting();
-                        services.AddSingleton(Mock.Of<IAuthForMcpSupplier>());
+                        services.AddSingleton(Substitute.For<IAuthForMcpSupplier>());
                         services.AddLogging();
                         services.AddSingleton(new ZeroMcpOptions { RequireAuthentication = false });
                     })
