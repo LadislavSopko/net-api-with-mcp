@@ -79,3 +79,10 @@ HTTPClient→/api/users{[Authorize]}→JWTValidation→AspNetCore→ControllerMe
 }
 @cache::TokenCache{Dictionary<user,token>}
 @benefit::NoConstructorDelay+Flexible+Fast
+
+[ASYNC_PATTERNS_2026-09]{knowledge}
+@valuetask::constructor-trap{new-ValueTask<object?>(result)→NULL:broken}
+@valuetask::correct{ValueTask.FromResult(result)→value:preserves:WORKS✓}
+@context::SDK-filters-async{2.x-sync-over-async:.GetAwaiter().GetResult()-gone:historical-workaround-no-longer-needed}
+@marshalresult::dead-code-found{Task/ValueTask-branches-in-UnwrapAsync:DEAD:proof:Microsoft.Extensions.AI-10.8.3-awaits-before-invoke→ActionResult<T>-direct:harmless-kept:candidate-cleanup}
+@usage::when{marshalling-task-results-from-async-methods:prefer-ValueTask.FromResult-over-new-ValueTask}

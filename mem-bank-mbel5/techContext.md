@@ -87,6 +87,26 @@ UnwrapActionResult::{
   url::http://127.0.0.1:8080!
 }
 
+[MCP_JSON_CONFIG]{2026-09-14}
+@symlink::.mcp.json→.00-secrets/.mcp.json{committed:root-symlink}
+@sandbox-root::CVM_SANDBOX_PATHS:project-root
+@servers::{
+  cvm{name,description,command::node,args}
+  poc{url::http://127.0.0.1:5001/mcp:token::Keycloak-admin-password-grant}
+  poc-manager{url::http://127.0.0.1:5001/mcp:user::bob@example.com:pass::bob123}
+  poc-member{url::http://127.0.0.1:5001/mcp:user::alice@example.com:pass::alice123}
+  poc-viewer{url::http://127.0.0.1:5001/mcp:user::viewer:pass::viewer123}
+}
+@keycloak-token-flow::POST{url::http://127.0.0.1:8080/realms/mcppoc-realm/protocol/openid-connect/token:client_id::mcppoc-api:grant_type::password:username/password→Bearer}
+@token-ttl::60-minutes{regenerate-required:workflow-reminder-needed}
+⚠get-token.sh{CRLF-line-endings:fails-Python-subprocess:works-bash-direct}
+
+[DEMO_SERVICE_STARTUP]{2026-09-14}
+@detached::Start-Process-dotnet{project:src/McpPoc.Api:args::run:--no-build:--no-launch-profile:--urls-http://127.0.0.1:5001}
+@log::.cvm/outputs/poc-service.log
+@note::LOCKS-Zero.Mcp.Extensions.dll→MSB3021-builds-fail:stop-McpPoc.Api.exe-before-building
+@health::probe-/api/users{returns:401-without-token:no-/health-endpoint}
+
 [TOOLS_LIVE]{v3.0.0}
 ✓get_all::mcp__poc__get_all()+Bearer-required
 ✓get_by_id::mcp__poc__get_by_id(id)+Bearer-required

@@ -78,10 +78,18 @@
 @keycloak::MCP-guide{CIMD-experimental-26.6:no-RFC8707→ValidateAudience:false-still-needed}
 @nuget::Zero.Mcp.Extensions{2.0.0+2.1.0:743-dl:0-issues:0-PRs}
 
+[POST_PHASE8_2026-09-14]{SESSION-COMPLETE}
+>docs::3-files-rewritten{MCP-COMPLETE-INTEGRATION-GUIDE:3570-lines-v1→v3:MCP-AUTHORIZATION-COMPLETE-GUIDE:SDK-native-authz-deep-dive+single-"What-Changed-3.0.0"-section:USERS-AND-PERMISSIONS:9-tools+per-role-visibility:PAT-AUTHENTICATION-DESIGN}✓
+>mcp-json::created{symlink:root→.00-secrets/.mcp.json:cvm-server-entry+FOUR-poc-servers:poc{admin/admin123:9-tools}+poc-manager{bob@example.com/bob123:8-tools}+poc-member{alice@example.com/alice123:7-tools}+poc-viewer{viewer/viewer123:6-tools}:all→http://127.0.0.1:5001/mcp:Keycloak-password-grant-tokens}✓
+>demo-service::detached{Start-Process-dotnet-run:src/McpPoc.Api:--no-build:--no-launch-profile:--urls-http://127.0.0.1:5001:log-.cvm/outputs/poc-service.log:LOCKS-Zero.Mcp.Extensions.dll→builds-fail-MSB3021-until-stopped}✓
+>verification::verified-mcp-server{get_mcp_context:is_mcp_call-true✓:UserGetById/get_all/get_public_info-bare-payloads✓:create+promote_to_manager-as-admin✓:unknown-id→tool-error✓:per-role-tools/list-9/8/7/6✓}✓
+>async-investigation::dead-code{MarshalResult.UnwrapAsync-Task/ValueTask-branches-2025-10-30:DEAD-CODE:Microsoft.Extensions.AI-10.8.3-awaits-Task/ValueTask-before-marshaller→ActionResult<T>-direct:kept-harmless:candidate-cleanup}✓
+
 [NEXT]
 ?then::j-close{run-full-gate:push-feature-branch:merge→main:publish-nuget.sh→https://www.nuget.org/packages/Zero.Mcp.Extensions}
-?later::mcp-json-token{bearer-expired-Jan-2026:refresh-via-get-token.sh}
-?later::docs-follow-up{MCP-AUTHORIZATION-COMPLETE-GUIDE+USERS-AND-PERMISSIONS:describe-v3-auth}
+?followup::mcp-json-token{bearer-expires-60min:regenerate-POST-http://127.0.0.1:8080/realms/mcppoc-realm/protocol/openid-connect/token:client_id=mcppoc-api:grant_type=password}
+?followup::get-token.sh{CRLF-line-endings-issue:fails-from-Python-subprocess:works-bash-direct}⚠
+?followup::cvm-mcp-reconnect{after-.mcp.json-edits→/mcp-required}
 
 [SDK_STATUS]
 !hack-still-needed::MarshalResult{ActionResult<T>:unwrapping:confirmed-on-2.2.0-source}✅
