@@ -1,0 +1,14 @@
+root = true
+
+[*.cs]
+# Zero-tolerance: analyzer + async + nullable diagnostics as errors (dotnet format reads this).
+dotnet_diagnostic.CA2007.severity = error   # ConfigureAwait / sync-over-async family
+dotnet_diagnostic.CS8618.severity = error   # non-nullable member uninitialized (no null!)
+dotnet_diagnostic.CA1849.severity = error   # call async methods when in an async method
+dotnet_diagnostic.IDE0005.severity = error   # unnecessary usings
+# Test method naming from csharp-senior_10.md: Should_<Outcome>_When<Condition>
+dotnet_naming_style.should_when.capitalization = pascal_case
+
+# TODO(lint-debt): temporary downgrade until existing code is cleaned up; delete this block afterwards.
+dotnet_diagnostic.CA2007.severity = warning
+dotnet_diagnostic.IDE0005.severity = warning

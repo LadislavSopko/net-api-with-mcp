@@ -1,0 +1,7 @@
+# ast-grep config template — copied to a consumer project root as `sgconfig.yml`.
+# `csharp` is expanded per detected language at generation time (block 17); a monorepo
+# gets one ruleDir line per component language. `_shared` applies to every project.
+# ast-grep reads `ruleDirs` and applies every rule whose `language` matches a scanned file.
+ruleDirs:
+  - .claude/lint-rules/_shared/ast-grep
+  - .claude/lint-rules/csharp/ast-grep
