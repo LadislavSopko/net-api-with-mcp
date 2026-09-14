@@ -1,5 +1,6 @@
 {
   "port": 3003,
-  "defaultPathFormat": "WSL",
-  "disabledTools": []
+  "defaultPathFormat": "Windows",
+  "disabledTools": [],
+  "autoStart": false
 }

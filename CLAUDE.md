@@ -46,3 +46,14 @@ The Memory Bank is Claude's ONLY connection to the project between sessions. Wit
 - Claude MUST read mem-bank-mbel5/README.md first, then ALL Memory Bank files at start of EVERY task
 - Memory Bank is the single source of truth - overrides any other documentation
 - See mem-bank-mbel5/README.md for complete Memory Bank documentation
+
+## Secrets (git-crypt)
+
+Secrets live in `.00-secrets/`, transparently encrypted with git-crypt: plaintext in your working
+tree, encrypted in git. Put EVERY secret there — nothing secret goes elsewhere (only exceptions:
+personal/per-developer files and the git-crypt key itself).
+
+- New machine / fresh clone: run `git-crypt unlock <key>` (key from your password manager) BEFORE
+  building or running anything — otherwise `.00-secrets/` files are unreadable (still encrypted).
+- The git-crypt key is the ONLY backup → keep it in a password manager.
+- Runbook: `docs/git-encryption.md` · non-violable rules: `docs/SECURITY.md`.

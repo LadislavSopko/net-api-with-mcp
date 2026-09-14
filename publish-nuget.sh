@@ -5,7 +5,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-API_KEY_FILE="$SCRIPT_DIR/.nuget-api-key"
+API_KEY_FILE="$SCRIPT_DIR/.00-secrets/.nuget-api-key"
 NUPKG_DIR="$SCRIPT_DIR/nupkg"
 PROJECT="$SCRIPT_DIR/src/Zero.Mcp.Extensions/Zero.Mcp.Extensions.csproj"
 

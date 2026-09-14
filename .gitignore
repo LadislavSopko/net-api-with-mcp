@@ -281,3 +281,7 @@ PublishProfiles/
 .mcp.json
 .nuget-api-key
 3rdp/.cvm
+
+# .00-secrets/ = git-crypt (tracked, encrypted). Overrides ALL rules above.
+!.00-secrets/**
+git-crypt.key

@@ -1,0 +1,2 @@
+.00-secrets/** filter=git-crypt diff=git-crypt
+.00-secrets/README.md !filter !diff
