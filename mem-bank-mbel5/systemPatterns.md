@@ -25,7 +25,15 @@ HTTPClient→/api/users{[Authorize]}→JWTValidation→AspNetCore→ControllerMe
 @returnTypes::ActionResult<T>{wrappedResponse}
 @auth::JWTBearer{ValidateAudience:false:Keycloak-azp}!
 
-[SECURITY_ARCHITECTURE]
+[PHASE8_TARGET_ARCHITECTURE]{planned:not-implemented}
+@registration::Scan[McpServerToolType]{SDK-attr}→AIFunctionFactory{MarshalResult:unwrap}→McpServerTool.Create(fn,ToolCreateOptionsFactory{Metadata:ToolMetadataBuilder})
+@authz::SDK-AddAuthorizationFilters(){[Authorize]/[AllowAnonymous]-from-Metadata→tools/list-filtered+tools/call-forbidden}
+@authz-off::UseAuthorization:false→Metadata-without-IAuthorizeData+no-filters
+@cache::ToolsListTimeToLive→ListToolsResult{TimeToLive+CacheScope:Private|Public}
+@transport::Stateless-default{per-request-HttpContext}
+@removed::IAuthForMcpSupplier+McpAuthorizationPreFilter+ToolListFilter+IUserRoleResolver+ToolAuthorizationMetadata+own-attributes
+
+[SECURITY_ARCHITECTURE]{current:v2.1.0}
 @layer1::EndpointAuth{
   MapMcp("/mcp").RequireAuthorization()
   →AllRequests:authenticated

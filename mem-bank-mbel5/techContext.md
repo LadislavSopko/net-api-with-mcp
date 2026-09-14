@@ -1,14 +1,23 @@
 §MBEL:5.0
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
-[STACK]
-@runtime::.NET§10.0.100
-@framework::AspNetCore§10.0
-@protocol::MCP§0.6.0-preview.1
-@auth::Keycloak§27.0.0{OAuth2+OIDC}
+[STACK]{current:2026-09-14}
+@runtime::.NET§10.0.100{sdk-installed:10.0.401:global.json-pinned}
+@framework::AspNetCore§10.0.2{→10.0.12:phase8}
+@protocol::MCP§0.6.0-preview.1{→2.2.0:phase8}!
+@auth::Keycloak§25.0.2{docker-image}{OAuth2+OIDC}
 @logging::Serilog§10.0.0
-@testing::xUnit+FluentAssertions§8.8.0+WebApplicationFactory
-@openapi::Scalar.AspNetCore§2.12.11{replaced:Swashbuckle}!
+@testing::xUnit§2.9.3+FluentAssertions§8.8.0{commercial-license!}+Moq§4.20.72{→xunit.v3§4.0.1+AwesomeAssertions§9.6.0+NSubstitute§6.2.0:phase8}
+@openapi::Scalar.AspNetCore§2.12.11{→2.17.3:phase8}
+
+[DEV_TOOLING]{2026-09-14}
+@ai-agent::.ai-agent{submodule:LadislavSopko/ai-agent-lite§2.22.1:.claude/*→symlinks}
+@junior-workflow::j-settings.md{tddab+csharp-overlay+net10-mindset+vs-mcp+xmp4}
+@lint::sgconfig.yml+.editorconfig+Directory.Build.props{analyzers:latest-recommended:TreatWarningsAsErrors:false-TEMP}
+@lint-astgrep::NOT-installed{layer-2-skipped}
+@secrets::git-crypt{.00-secrets/:.mcp.json(symlinked-to-root)+.nuget-api-key:runbook:docs/git-encryption.md}!
+@3rdp::csharp-sdk{gitlink-160000:no-.gitmodules:v0.6.0-preview.1:in-.slnx:fails-restore-independently}
+@sdk-source-ref::scratchpad/sdk220{clone-v2.2.0:session-only}
 
 [KEY_FILES]
 src/McpPoc.Api/
