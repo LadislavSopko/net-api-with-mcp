@@ -2,6 +2,11 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [FOCUS]
+@state::PLAN
+@feature::01-upgrade-mcp-sdk-2
+@branch::feature/laco/upgrade
+@task-notes::tasks/01-upgrade-mcp-sdk-2/notes.md
+@junior-workflow::active{j-settings.md:2026-09-14}
 ✅phase7::ToolNaming+McpContext{COMPLETE:9-blocks:131-tests}✅!
 @version::2.1.0{released}
 @status::Ready-for-next-phase
