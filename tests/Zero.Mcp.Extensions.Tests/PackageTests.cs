@@ -9,7 +9,7 @@ public class PackageTests
     public void Package_Should_HaveVersion()
     {
         // Arrange
-        var assembly = typeof(IAuthForMcpSupplier).Assembly;
+        var assembly = typeof(ZeroMcpOptions).Assembly;
         var version = assembly.GetName().Version;
 
         // Assert
@@ -21,13 +21,12 @@ public class PackageTests
     public void Package_Should_HavePublicTypes()
     {
         // Arrange
-        var assembly = typeof(IAuthForMcpSupplier).Assembly;
+        var assembly = typeof(ZeroMcpOptions).Assembly;
         var publicTypes = assembly.GetTypes()
             .Where(t => t.IsPublic && !t.IsNested)
             .ToList();
 
-        // Assert - Core interfaces and attributes
-        publicTypes.Should().Contain(t => t.Name == "IAuthForMcpSupplier");
+        // Assert - Core entry points
         publicTypes.Should().Contain(t => t.Name == "McpServerBuilderExtensions");
         // Attributes come from the SDK (ModelContextProtocol.Server) since 3.0.0 — no own copies shipped
         publicTypes.Should().NotContain(t => t.Name == "McpServerToolTypeAttribute");
@@ -50,5 +49,17 @@ public class PackageTests
         options.McpEndpointPath.Should().Be("/mcp");
         options.ToolAssembly.Should().BeNull();
         options.SerializerOptions.Should().BeNull();
+    }
+
+    [Fact]
+    public void Should_NotShipCustomAuthorizationTypes_WhenAuthorizationIsSdkDriven()
+    {
+        // Removed in 3.0.0: authorization is delegated to the MCP SDK AddAuthorizationFilters()
+        var assembly = typeof(ZeroMcpOptions).Assembly;
+
+        foreach (var removed in new[] { "IAuthForMcpSupplier", "McpAuthorizationPreFilter", "IUserRoleResolver", "ToolListFilter", "ToolAuthorizationMetadata", "IToolAuthorizationStore", "ToolAuthorizationStore" })
+        {
+            assembly.GetType($"Zero.Mcp.Extensions.{removed}").Should().BeNull($"{removed} was replaced by the SDK authorization filters");
+        }
     }
 }

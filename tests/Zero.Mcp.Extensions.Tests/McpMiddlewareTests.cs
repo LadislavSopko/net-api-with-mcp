@@ -88,7 +88,6 @@ public class McpMiddlewareTests
                     .ConfigureServices(services =>
                     {
                         services.AddRouting();
-                        services.AddSingleton(Substitute.For<IAuthForMcpSupplier>());
                         services.AddLogging();
                         services.AddSingleton(new ZeroMcpOptions { RequireAuthentication = false });
                     })

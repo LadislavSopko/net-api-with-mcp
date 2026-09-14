@@ -1,5 +1,4 @@
 using McpPoc.Api.Authorization;
-using McpPoc.Api.Infrastructure;
 using McpPoc.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Scalar.AspNetCore;
@@ -83,15 +82,11 @@ builder.Services.AddSingleton<UserStore>();  // HACK: In-memory persistence
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IScopedRequestTracker, ScopedRequestTracker>();
 
-builder.Services.AddScoped<IAuthForMcpSupplier, KeycloakAuthSupplier>();
-builder.Services.AddScoped<IUserRoleResolver, UserRoleResolver>();
-
 // Configure MCP with authentication and authorization
 builder.Services.AddZeroMcpExtensions(options =>
 {
     options.RequireAuthentication = authEnabled;  // Require auth only if enabled
-    options.UseAuthorization = authEnabled;       // Use [Authorize] policies only if enabled
-    options.FilterToolsByPermissions = authEnabled;  // Only filter tools when auth enabled
+    options.UseAuthorization = authEnabled;       // SDK authorization filters enforce [Authorize] policies only if enabled
     options.McpEndpointPath = "/mcp";             // MCP endpoint path
     options.ToolAssembly = typeof(McpPoc.Api.Controllers.UsersController).Assembly;  // Explicit assembly for Docker
 });

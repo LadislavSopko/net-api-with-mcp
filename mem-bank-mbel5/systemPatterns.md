@@ -25,13 +25,14 @@ HTTPClient→/api/users{[Authorize]}→JWTValidation→AspNetCore→ControllerMe
 @returnTypes::ActionResult<T>{wrappedResponse}
 @auth::JWTBearer{ValidateAudience:false:Keycloak-azp}!
 
-[PHASE8_TARGET_ARCHITECTURE]{planned:not-implemented}
+[PHASE8_ARCHITECTURE]{BLOCK05-IMPLEMENTED:authorization}
 @registration::Scan[McpServerToolType]{SDK-attr}→AIFunctionFactory{MarshalResult:unwrap}→McpServerTool.Create(fn,ToolCreateOptionsFactory{Metadata:ToolMetadataBuilder})
-@authz::SDK-AddAuthorizationFilters(){[Authorize]/[AllowAnonymous]-from-Metadata→tools/list-filtered+tools/call-forbidden}
-@authz-off::UseAuthorization:false→Metadata-without-IAuthorizeData+no-filters
-@cache::ToolsListTimeToLive→ListToolsResult{TimeToLive+CacheScope:Private|Public}
+@authz::SDK-AddAuthorizationFilters(){reads-Metadata:[Authorize]/[AllowAnonymous]+class+method-attrs→IAuthorizationService→tools/list-filtered+tools/call→McpProtocolException"Access-forbidden"}✅
+@authz-off::UseAuthorization:false→no-auth-metadata+no-filters-registered
+@cache::ToolsListTimeToLive→ListToolsResult{TimeToLive+CacheScope:Private|Public}(block-06-pending)
 @transport::Stateless-default{per-request-HttpContext}
-@removed::IAuthForMcpSupplier+McpAuthorizationPreFilter+ToolListFilter+IUserRoleResolver+ToolAuthorizationMetadata+own-attributes
+@removed::IAuthForMcpSupplier+McpAuthorizationPreFilter+ToolListFilter+IUserRoleResolver+ToolAuthorizationMetadata+own-attributes✅
+@library-files::9{IMcpRequestContext+MarshalResult+McpRequestContext+McpServerBuilderExtensions+ToolCreateOptionsFactory+ToolMetadataBuilder+ToolNameGenerator+ToolNamingConvention+ZeroMcpOptions}
 
 [SECURITY_ARCHITECTURE]{current:v2.1.0}
 @layer1::EndpointAuth{

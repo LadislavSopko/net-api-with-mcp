@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 
 namespace McpPoc.Api.Tests;
@@ -106,13 +107,13 @@ public class PolicyAuthorizationTests : IAsyncLifetime
             }
         };
 
-        // Act
-        var result = await _memberClient.CallToolAsync("update", args);
+        // Act - the SDK authorization filter rejects the call in the request pipeline (JSON-RPC error),
+        // which the SDK client surfaces as a thrown McpProtocolException instead of a CallToolResult.
+        Func<Task> act = () => _memberClient.CallToolAsync("update", args);
 
         // Assert
-        result.Should().NotBeNull();
-        result.IsError.Should().Be(true, "Member should NOT be able to update users - authorization should block this");
-        result.Content.Should().NotBeEmpty("error response should contain error details");
+        await act.Should().ThrowAsync<McpProtocolException>("Member should NOT be able to update users - authorization should block this")
+            .WithMessage("*Access forbidden*");
     }
 
     [Fact]
@@ -146,13 +147,13 @@ public class PolicyAuthorizationTests : IAsyncLifetime
             ["id"] = 1
         };
 
-        // Act
-        var result = await _managerClient.CallToolAsync("promote_to_manager", args);
+        // Act - the SDK authorization filter rejects the call in the request pipeline (JSON-RPC error),
+        // which the SDK client surfaces as a thrown McpProtocolException instead of a CallToolResult.
+        Func<Task> act = () => _managerClient.CallToolAsync("promote_to_manager", args);
 
         // Assert
-        result.Should().NotBeNull();
-        result.IsError.Should().Be(true, "Manager should NOT be able to promote users - authorization should block this");
-        result.Content.Should().NotBeEmpty("error response should contain error details");
+        await act.Should().ThrowAsync<McpProtocolException>("Manager should NOT be able to promote users - authorization should block this")
+            .WithMessage("*Access forbidden*");
     }
 
     [Fact]
@@ -164,13 +165,13 @@ public class PolicyAuthorizationTests : IAsyncLifetime
             ["id"] = 1
         };
 
-        // Act
-        var result = await _memberClient.CallToolAsync("promote_to_manager", args);
+        // Act - the SDK authorization filter rejects the call in the request pipeline (JSON-RPC error),
+        // which the SDK client surfaces as a thrown McpProtocolException instead of a CallToolResult.
+        Func<Task> act = () => _memberClient.CallToolAsync("promote_to_manager", args);
 
         // Assert
-        result.Should().NotBeNull();
-        result.IsError.Should().Be(true, "Member should NOT be able to promote users - authorization should block this");
-        result.Content.Should().NotBeEmpty("error response should contain error details");
+        await act.Should().ThrowAsync<McpProtocolException>("Member should NOT be able to promote users - authorization should block this")
+            .WithMessage("*Access forbidden*");
     }
 
     [Fact]
@@ -231,13 +232,13 @@ public class PolicyAuthorizationTests : IAsyncLifetime
             }
         };
 
-        // Act
-        var result = await _viewerClient.CallToolAsync("create", args);
+        // Act - the SDK authorization filter rejects the call in the request pipeline (JSON-RPC error),
+        // which the SDK client surfaces as a thrown McpProtocolException instead of a CallToolResult.
+        Func<Task> act = () => _viewerClient.CallToolAsync("create", args);
 
         // Assert
-        result.Should().NotBeNull();
-        result.IsError.Should().Be(true, "Viewer should NOT be able to create users - authorization should block this");
-        result.Content.Should().NotBeEmpty("error response should contain error details");
+        await act.Should().ThrowAsync<McpProtocolException>("Viewer should NOT be able to create users - authorization should block this")
+            .WithMessage("*Access forbidden*");
     }
 
     [Fact]
@@ -254,13 +255,13 @@ public class PolicyAuthorizationTests : IAsyncLifetime
             }
         };
 
-        // Act
-        var result = await _viewerClient.CallToolAsync("update", args);
+        // Act - the SDK authorization filter rejects the call in the request pipeline (JSON-RPC error),
+        // which the SDK client surfaces as a thrown McpProtocolException instead of a CallToolResult.
+        Func<Task> act = () => _viewerClient.CallToolAsync("update", args);
 
         // Assert
-        result.Should().NotBeNull();
-        result.IsError.Should().Be(true, "Viewer should NOT be able to update users - authorization should block this");
-        result.Content.Should().NotBeEmpty("error response should contain error details");
+        await act.Should().ThrowAsync<McpProtocolException>("Viewer should NOT be able to update users - authorization should block this")
+            .WithMessage("*Access forbidden*");
     }
 
     [Fact]
@@ -272,12 +273,26 @@ public class PolicyAuthorizationTests : IAsyncLifetime
             ["id"] = 1
         };
 
+        // Act - the SDK authorization filter rejects the call in the request pipeline (JSON-RPC error),
+        // which the SDK client surfaces as a thrown McpProtocolException instead of a CallToolResult.
+        Func<Task> act = () => _viewerClient.CallToolAsync("promote_to_manager", args);
+
+        // Assert
+        await act.Should().ThrowAsync<McpProtocolException>("Viewer should NOT be able to promote users - authorization should block this")
+            .WithMessage("*Access forbidden*");
+    }
+
+    [Fact]
+    public async Task Should_AllowPublicInfo_WhenUserIsViewer()
+    {
+        // Arrange - [AllowAnonymous] tool on an [Authorize] controller: every authenticated role may call it
+
         // Act
-        var result = await _viewerClient.CallToolAsync("promote_to_manager", args);
+        var result = await _viewerClient.CallToolAsync("get_public_info");
 
         // Assert
         result.Should().NotBeNull();
-        result.IsError.Should().Be(true, "Viewer should NOT be able to promote users - authorization should block this");
-        result.Content.Should().NotBeEmpty("error response should contain error details");
+        result.IsError.Should().NotBe(true, "[AllowAnonymous] overrides the class-level [Authorize]");
+        result.Content.Should().NotBeEmpty();
     }
 }

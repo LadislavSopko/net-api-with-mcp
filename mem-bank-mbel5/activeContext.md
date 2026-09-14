@@ -11,7 +11,7 @@
 @version::2.1.0{released}→?3.0.0{target}
 @status::Phase8-Upgrade{PLAN-approved:DEVELOP-not-started}
 
-⚡phase8::UpgradeToSdk2.2.0{DEVELOP:4/9-blocks:run-20260914-1620}
+⚡phase8::UpgradeToSdk2.2.0{DEVELOP:5/9-blocks:run-20260914-1620}
 ✅block01::migrate-test-stack-and-deps{COMPLETE:xunit.v3+AwesomeAssertions+NSubstitute}✅
 ✅phase7::ToolNaming+McpContext{COMPLETE:9-blocks:131-tests}✅
 ✅upgrade::.NET10{9.0→10.0:complete}✅
@@ -26,6 +26,7 @@
 >verified::docker{keycloak:8080:postgres:15432}✅
 >verified::3rdp-sdk{gitlink-v2.2.0:signature-extraction-OK}✅
 >staged::cvm-exec{id:run-20260914-1620:block-02-complete}✅
+>completed::block05{SDK-AddAuthorizationFilters:deleted-9-auth-classes:kept-MarshalResult:tests-unit90+E2E53}✅
 
 [PHASE8_DECISIONS]{user-approved:2026-09-14}
 @sdk::ModelContextProtocol§2.2.0{0.6.0-preview.1→2.2.0}
@@ -48,8 +49,8 @@
 ✅02::tool-metadata-builder{COMPLETE:ToolMetadataBuilder.cs:internal-static:Build(MethodInfo,includeAuthorization)→[MethodInfo,class-attrs,method-attrs]:strips-IAuthorizeData/IAllowAnonymous-when-false:7-tests}✅
 ✅03::upgrade-sdk-and-adopt-sdk-attributes{COMPLETE:ModelContextProtocol*→2.2.0:own-McpServerToolType/McpServerTool-attributes-DELETED:scanner+ToolNameGenerator-read-ModelContextProtocol.Server.*:tools/list-filter-via-WithRequestFilters(f=>f.AddListToolsFilter):custom-auth-STILL-present-until-block-05:8-tests}✅
 ✅04::tool-create-options-factory{COMPLETE:ToolCreateOptionsFactory.cs:internal-static:Create(MethodInfo,IServiceProvider,JsonSerializerOptions,includeAuthorization)→McpServerToolCreateOptions{Title+hints-only-when-non-default+UseStructuredContent+OutputSchema(AIJsonUtilities.CreateJsonSchema)+Icons+Description+Metadata}:wired-in-both-registration-paths-with-includeAuthorization:false-LITERAL(SDK-guard-filters-would-throw-before-block-05):13-tests}✅
-⚡05::replace-custom-auth-with-sdk-filters{NEXT}
-?06::tools-list-cache-hints
+✅05::replace-custom-auth-with-sdk-filters{COMPLETE:AddAuthorizationFilters()-via-SDK:delete-IAuthForMcpSupplier/PreFilter/ToolListFilter/IUserRoleResolver:SDK-reading-[Authorize]/policies-from-Metadata:tools/list-filtered+tools/call→McpProtocolException:unit90+E2E53:CA2007×12+CA1310×4+IDE0005×4-remaining}✅
+⚡06::tools-list-cache-hints{ttlMs+cacheScope:Private|Public:NEXT}
 ?07::stateless-and-output-schema-e2e
 ?08::close-lint-debt-and-enable-gate
 ?09::release-3-0-0
@@ -69,7 +70,7 @@
 @nuget::Zero.Mcp.Extensions{2.0.0+2.1.0:743-dl:0-issues:0-PRs}
 
 [NEXT]
-!next::j-cvm-exec-plan{block-05-replace-custom-auth-with-sdk-filters:AddAuthorizationFilters+delete-IAuthForMcpSupplier/PreFilter/ToolListFilter/IUserRoleResolver+flip-includeAuthorization→options.UseAuthorization:8-tests:docker-keycloak-up}
+!next::block-06-tools-list-cache-hints{ToolsListTimeToLive+CacheScope:Private|Public:ListToolsResult:6-tests:docker-keycloak-up}
 ?then::j-close{merge-direct→main:publish-nuget.sh}
 ?later::git-crypt.key{delete-from-root-after-saving}
 ?later::ast-grep{install-for-lint-layer-2}

@@ -14,8 +14,10 @@ public class ZeroMcpOptions
     public bool RequireAuthentication { get; set; } = true;
 
     /// <summary>
-    /// Whether to use authorization policies (requires IAuthForMcpSupplier). Default is true.
-    /// When false, [Authorize] attributes are ignored.
+    /// When true, [Authorize]/[AllowAnonymous] on controllers are enforced by the MCP SDK authorization filters
+    /// (tools/list is filtered per user and unauthorized tools/call is rejected); requires the host to call
+    /// AddAuthorization(). When false, no authorization metadata is attached to tools and the filters are not
+    /// registered, so every tool is listed and callable. Default is true.
     /// </summary>
     public bool UseAuthorization { get; set; } = true;
 
@@ -34,13 +36,6 @@ public class ZeroMcpOptions
     /// If null, uses default snake_case_lower naming policy.
     /// </summary>
     public JsonSerializerOptions? SerializerOptions { get; set; }
-
-    /// <summary>
-    /// Filter tools/list response based on user permissions.
-    /// When true, users only see tools they are authorized to invoke.
-    /// Default is true.
-    /// </summary>
-    public bool FilterToolsByPermissions { get; set; } = true;
 
     /// <summary>
     /// Naming convention for generated MCP tool names.

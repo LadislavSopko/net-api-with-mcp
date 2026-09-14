@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using ModelContextProtocol;
+using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
@@ -43,16 +43,25 @@ public static class McpServerBuilderExtensions
         // Register IMcpRequestContext as Scoped
         services.AddScoped<IMcpRequestContext, McpRequestContext>();
 
-        return services
+        var mcpBuilder = services
             .AddMcpServer()
             .WithHttpTransport()
             .WithToolsFromAssemblyUnwrappingActionResult(options);
+
+        // Authorization is delegated to the SDK: [Authorize]/[AllowAnonymous] found in the tool metadata are
+        // evaluated through the host's IAuthorizationService for both tools/list and tools/call.
+        if (options.UseAuthorization)
+        {
+            mcpBuilder.AddAuthorizationFilters();
+        }
+
+        return mcpBuilder;
     }
 
     /// <summary>
     /// Scans the assembly for controllers with the SDK [McpServerToolType] attribute and registers methods
-    /// with the SDK [McpServerTool] attribute (ModelContextProtocol.Server) as MCP tools, unwrapping ActionResult&lt;T&gt; responses and
-    /// performing pre-filter authorization checks.
+    /// with the SDK [McpServerTool] attribute (ModelContextProtocol.Server) as MCP tools, unwrapping ActionResult&lt;T&gt; responses.
+    /// Authorization metadata is attached to each tool for the SDK authorization filters.
     /// </summary>
     private static IMcpServerBuilder WithToolsFromAssemblyUnwrappingActionResult(
         this IMcpServerBuilder builder,
@@ -60,10 +69,6 @@ public static class McpServerBuilderExtensions
     {
         var toolAssembly = options.ToolAssembly!;
         var serializerOptions = options.GetEffectiveSerializerOptions();
-
-        // Create authorization metadata store
-        var authStore = new ToolAuthorizationStore();
-        builder.Services.AddSingleton<IToolAuthorizationStore>(authStore);
 
         // Find all types with [McpServerToolType]
         var toolTypes = toolAssembly.GetTypes()
@@ -81,10 +86,6 @@ public static class McpServerBuilderExtensions
             {
                 var toolName = ToolNameGenerator.GenerateName(method, toolType, options);
 
-                // Capture authorization metadata for this tool
-                var metadata = ToolAuthorizationMetadata.FromMethod(method, toolName);
-                authStore.Register(toolName, metadata);
-
                 if (method.IsStatic)
                 {
                     // Static method with custom marshaller
@@ -99,15 +100,13 @@ public static class McpServerBuilderExtensions
                                 MarshalResult = async (result, resultType, ct) => await MarshalResult.UnwrapAsync(result),
                                 SerializerOptions = serializerOptions
                             });
-                        // includeAuthorization stays false until AddAuthorizationFilters() is wired (block 05):
-                        // the SDK guard filters throw on [Authorize] metadata without the authorization filters.
                         return McpServerTool.Create(aiFunction,
-                            ToolCreateOptionsFactory.Create(method, services, serializerOptions, includeAuthorization: false));
+                            ToolCreateOptionsFactory.Create(method, services, serializerOptions, options.UseAuthorization));
                     });
                 }
                 else
                 {
-                    // Instance method - capture MethodInfo for pre-filter authorization
+                    // Instance method - controller resolved through DI per invocation
                     var methodCopy = method; // Capture in closure
                     var toolNameCopy = toolName; // Capture in closure
 
@@ -115,7 +114,7 @@ public static class McpServerBuilderExtensions
                     {
                         var aiFunction = AIFunctionFactory.Create(
                             methodCopy,
-                            args => CreateControllerWithPreFilter(args.Services!, toolType, methodCopy, options),
+                            args => ActivatorUtilities.CreateInstance(args.Services!, toolType),
                             new AIFunctionFactoryOptions
                             {
                                 Name = toolNameCopy,
@@ -124,92 +123,14 @@ public static class McpServerBuilderExtensions
                             });
 
                         return McpServerTool.Create(aiFunction,
-                            ToolCreateOptionsFactory.Create(methodCopy, services, serializerOptions, includeAuthorization: false));
+                            ToolCreateOptionsFactory.Create(methodCopy, services, serializerOptions, options.UseAuthorization));
                     });
                 }
             }
         }
 
-        // Add tools/list filter if enabled (SDK 2.x: filters are registered through WithRequestFilters)
-        if (options.FilterToolsByPermissions)
-        {
-            builder.WithRequestFilters(filters => filters.AddListToolsFilter(next => async (context, cancellationToken) =>
-            {
-                var result = await next(context, cancellationToken).ConfigureAwait(false);
-
-                // store must be registered if filtering is enabled
-                var store = context.Services?.GetRequiredService<IToolAuthorizationStore>();
-                // IUserRoleResolver is optional but if not present it will not filter based on claims
-                var roleResolver = context.Services?.GetService<IUserRoleResolver>();
-
-                // Try IUserRoleResolver first (application-provided), fall back to claim-based
-                int? userRole = roleResolver is not null && context.User is not null
-                    ? await roleResolver.GetUserRoleAsync(context.User).ConfigureAwait(false)
-                    : ToolListFilter.GetUserRole(context.User);
-
-                var authorizedToolNames = ToolListFilter.FilterByRole(
-                    result.Tools.Select(t => t.Name),
-                    userRole,
-                    store).ToHashSet(StringComparer.Ordinal);
-
-                result.Tools = result.Tools.Where(t => authorizedToolNames.Contains(t.Name)).ToList();
-                return result;
-            }));
-        }
-
         return builder;
     }
-
-    /// <summary>
-    /// Creates a controller instance with pre-filter authorization check using IAuthForMcpSupplier.
-    /// </summary>
-    private static object CreateControllerWithPreFilter(
-        IServiceProvider services,
-        Type controllerType,
-        MethodInfo method,
-        ZeroMcpOptions options)
-    {
-        var loggerFactory = services.GetRequiredService<ILoggerFactory>();
-        var logger = loggerFactory.CreateLogger(typeof(McpAuthorizationPreFilter));
-
-        // Skip authorization if disabled in options
-        if (!options.UseAuthorization)
-        {
-            logger.LogTrace("Authorization disabled in options, skipping check for: {Method}", method.Name);
-            return ActivatorUtilities.CreateInstance(services, controllerType);
-        }
-
-        // Get auth supplier (required when UseAuthorization is true)
-        var authSupplier = services.GetService<IAuthForMcpSupplier>();
-        if (authSupplier == null)
-        {
-            logger.LogError("UseAuthorization is true but IAuthForMcpSupplier is not registered");
-            throw new InvalidOperationException(
-                "UseAuthorization is true but IAuthForMcpSupplier is not registered. " +
-                "Either register IAuthForMcpSupplier or set UseAuthorization to false in ZeroMcpOptions.");
-        }
-
-        // Perform pre-filter authorization check
-        var preFilter = new McpAuthorizationPreFilter(authSupplier, logger);
-        var isAuthorized = preFilter.CheckAuthorizationAsync(method).GetAwaiter().GetResult();
-
-        if (!isAuthorized)
-        {
-            logger.LogWarning(
-                "Authorization failed for MCP tool: {Method} on {Controller}",
-                method.Name,
-                controllerType.Name);
-
-            throw new UnauthorizedAccessException(
-                $"Authorization failed for MCP tool: {method.Name}");
-        }
-
-        logger.LogTrace("Authorization successful for MCP tool: {Method}", method.Name);
-
-        // Authorization passed - create controller instance
-        return ActivatorUtilities.CreateInstance(services, controllerType);
-    }
-
 }
 
 /// <summary>

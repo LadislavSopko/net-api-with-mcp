@@ -50,4 +50,11 @@ public class ZeroMcpOptionsTests
         // Assert
         options.ToolNameSeparator.Should().Be("-");
     }
+
+    [Fact]
+    public void Should_NotExposeFilterToolsByPermissions_WhenAuthorizationIsSdkDriven()
+    {
+        // Removed in 3.0.0: the SDK authorization filters always filter tools/list when UseAuthorization is true.
+        typeof(ZeroMcpOptions).GetProperty("FilterToolsByPermissions").Should().BeNull();
+    }
 }
