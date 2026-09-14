@@ -7,13 +7,13 @@
 @protocol::MCP§2.2.0{ModelContextProtocol+Core+AspNetCore:since-phase8-block-03:stateless-default}✅
 @auth::Keycloak§25.0.2{docker-image}{OAuth2+OIDC}
 @logging::Serilog§10.0.0
-@testing::xUnit.v3§4.0.1+AwesomeAssertions§9.6.0+NSubstitute§6.2.0+Test.Sdk§18.10.0✅
+@testing::xUnit.v3§4.0.1+AwesomeAssertions§9.6.0+NSubstitute§6.2.0+Test.Sdk§18.10.0{158-tests:unit99+E2E59}✅
 @openapi::Scalar.AspNetCore§2.17.3✅
 
 [DEV_TOOLING]{2026-09-14}
 @ai-agent::.ai-agent{submodule:LadislavSopko/ai-agent-lite§2.22.1:.claude/*→symlinks}
 @junior-workflow::j-settings.md{tddab+csharp-overlay+net10-mindset+vs-mcp+xmp4}
-@lint::sgconfig.yml+.editorconfig+Directory.Build.props{analyzers:latest-recommended:TreatWarningsAsErrors:TRUE-since-phase8-block-08:CA2007/CS8618/CA1849/IDE0005=error:[tests/**.cs]CA1707/CA1822/CA2007=none-by-design:GenerateDocumentationFile=true+NoWarn-CS1591-outside-library:ast-grep-not-installed→skip-exit-3}✅
+@lint::sgconfig.yml+.editorconfig+Directory.Build.props{analyzers:latest-recommended:TreatWarningsAsErrors:TRUE:0-warnings-all-4-projects:CA2007/CS8618/CA1849/IDE0005=error:[tests/**.cs]CA1707/CA1822/CA2007=none-by-design:GenerateDocumentationFile=true+NoWarn-CS1591-outside-library:dotnet-format-exit-0:ast-grep-not-installed→skip-exit-3}✅
 @lint-astgrep::NOT-installed{layer-2-skipped}
 @secrets::git-crypt{.00-secrets/:.mcp.json(symlinked-to-root)+.nuget-api-key:runbook:docs/git-encryption.md}!
 @test-framework::xunit.v3{namespace:Xunit|AwesomeAssertions|NSubstitute:IAsyncLifetime→ValueTask:OutputHelper∈Xunit:runner∈json-config}
@@ -87,10 +87,12 @@ UnwrapActionResult::{
   url::http://127.0.0.1:8080!
 }
 
-[TOOLS_LIVE]
+[TOOLS_LIVE]{v3.0.0}
 ✓get_all::mcp__poc__get_all()+Bearer-required
 ✓get_by_id::mcp__poc__get_by_id(id)+Bearer-required
 ✓create::mcp__poc__create(name,email)+Bearer-required
+→protocol::ModelContextProtocol§2.2.0
+→lib::Zero.Mcp.Extensions§3.0.0{NuGet:released}
 
 [CRITICAL_PATTERNS]
 !test-stack-traps::AwesomeAssertions{namespace:NOT-FluentAssertions}

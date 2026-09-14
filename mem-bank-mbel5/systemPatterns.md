@@ -1,11 +1,12 @@
 §MBEL:5.0
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
-[ARCHITECTURE]
+[ARCHITECTURE]{v3.0.0}
 @pattern::MinimalAPI+Controllers+MCPServer+OAuth2
 @style::LayeredArchitecture{Controllers→Services→Data}
 @transport::HTTPServer{AspNetCore+MCPEndpoint}
 @security::HybridAuthorization{endpoint+metadata}
+@sdk::ModelContextProtocol§2.2.0{stateless-default}
 
 [COMPONENTS]
 @model::User{Id+Name+Email+CreatedAt}
@@ -29,10 +30,10 @@ HTTPClient→/api/users{[Authorize]}→JWTValidation→AspNetCore→ControllerMe
 @registration::Scan[McpServerToolType]{SDK-attr}→AIFunctionFactory{MarshalResult:unwrap}→McpServerTool.Create(fn,ToolCreateOptionsFactory{Metadata:ToolMetadataBuilder})
 @authz::SDK-AddAuthorizationFilters(){reads-Metadata:[Authorize]/[AllowAnonymous]+class+method-attrs→IAuthorizationService→tools/list-filtered+tools/call→McpProtocolException"Access-forbidden"}✅
 @authz-off::UseAuthorization:false→no-auth-metadata+no-filters-registered
-@cache::ToolsListTimeToLive→ListToolsResult{TimeToLive+CacheScope:Private|Public}(block-06-pending)
-@transport::Stateless-default{per-request-HttpContext}
+@cache::ToolsListTimeToLive→ListToolsResult{TimeToLive+CacheScope:Private|Public}✅
+@transport::Stateless-default{per-request-HttpContext}✅
 @removed::IAuthForMcpSupplier+McpAuthorizationPreFilter+ToolListFilter+IUserRoleResolver+ToolAuthorizationMetadata+own-attributes✅
-@library-files::9{IMcpRequestContext+MarshalResult+McpRequestContext+McpServerBuilderExtensions+ToolCreateOptionsFactory+ToolMetadataBuilder+ToolNameGenerator+ToolNamingConvention+ZeroMcpOptions}
+@library-files::9{IMcpRequestContext+MarshalResult+McpRequestContext+McpServerBuilderExtensions+ToolCreateOptionsFactory+ToolMetadataBuilder+ToolNameGenerator+ToolNamingConvention+ToolsListCacheHintFilter+ZeroMcpOptions}✅
 
 [SECURITY_ARCHITECTURE]{current:v2.1.0}
 @layer1::EndpointAuth{

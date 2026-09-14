@@ -2,13 +2,13 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [STATUS]
-⚡phase8::UpgradeToSdk2.2.0{DEVELOP:8/9-blocks:run-20260914-1620:feature/laco/upgrade}
+✅phase8::UpgradeToSdk2.2.0{COMPLETE:9/9-blocks:TEST:feature/laco/upgrade}✅
 ✅upgrade::.NET10{9.0→10.0.100:complete+verified}✅!
 ✅phase5::COMPLETE{library-extraction:Zero.Mcp.Extensions-v2.0.0}✅
 ✅phase7::COMPLETE{ToolNaming+McpContext:v2.1.0}✅!
 ✗phase6::RoleBasedToolFiltering{SUPERSEDED←SDK-AddAuthorizationFilters}
-@tests::131/131{100%}✅{75-unit+56-E2E}
-@version::2.1.0✅→?3.0.0
+@tests::158/158{100%}✅{99-unit+59-E2E}
+@version::3.0.0✅
 @lint-gate::STRICT{TreatWarningsAsErrors:true:0-warnings:closed-phase8-block-08}✅
 @security-audit::NU1903{Microsoft.OpenApi-2.0.0-high+SourceLink-10.0.102-moderate}→fixed-in-phase8-block-01
 @infra::.ai-agent-submodule+git-crypt(.00-secrets/)+j-settings.md✅
@@ -23,15 +23,15 @@
 ✅block06::ToolsListTimeToLive{ttlMs+cacheScope:Private|Public:6-tests:unit95+E2E54}✅
 ✅block07::Stateless+OutputSchemaType-E2E{6-tests:unit96+E2E59:IsMcpCall-true-under-stateless}✅
 ✅block08::lint-debt+TreatWarningsAsErrors:true{unit96+E2E59:0-warnings-4-projects}✅
-⚡block09::v3.0.0{README+CHANGELOG+pack:3-tests:NEXT}
+✅block09::release-3-0-0{Version-3-0-0:README-rewrite:CHANGELOG-added:PackageTests-updated:unit99+E2E59}✅
 
 [METRICS]
-@tests::131/131{100%:ALL-PASSING}✅!
+@tests::158/158{100%:ALL-PASSING}✅!
 @coverage::{
-  75×Zero.Mcp.Extensions.Tests✓
-  56×McpPoc.Api.Tests✓
+  99×Zero.Mcp.Extensions.Tests✓
+  59×McpPoc.Api.Tests✓
 }
-@library::Zero.Mcp.Extensions{v2.1.0:.NET10}✅
+@library::Zero.Mcp.Extensions{v3.0.0:.NET10}✅
 @framework::.NET§10.0.100{LTS:3-years}✅
 @openapi::Scalar§2.12.11{modern-UI}✅
 

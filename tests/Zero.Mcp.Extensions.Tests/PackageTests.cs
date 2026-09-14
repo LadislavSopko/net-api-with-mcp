@@ -62,4 +62,43 @@ public class PackageTests
             assembly.GetType($"Zero.Mcp.Extensions.{removed}").Should().BeNull($"{removed} was replaced by the SDK authorization filters");
         }
     }
+
+    [Fact]
+    public void Should_HaveVersion3_WhenPacked()
+    {
+        typeof(ZeroMcpOptions).Assembly.GetName().Version!.Major.Should().Be(3, "3.0.0 is a breaking release (SDK 2.2.0, SDK-native authorization)");
+    }
+
+    [Fact]
+    public void Should_DependOnSdk2_WhenPacked()
+    {
+        var sdkCore = typeof(ModelContextProtocol.Server.McpServerTool).Assembly.GetName();
+
+        sdkCore.Name.Should().Be("ModelContextProtocol.Core");
+        sdkCore.Version!.Major.Should().Be(2, "the library targets ModelContextProtocol 2.2.0");
+    }
+
+    [Fact]
+    public void Should_DocumentSdkNativeAuthorization_WhenReadingReadme()
+    {
+        var readme = File.ReadAllText(FindRepoFile("README.md"));
+
+        readme.Should().Contain("using ModelContextProtocol.Server;");
+        readme.Should().Contain("AddAuthorization(");
+        readme.Should().Contain("AddZeroMcpExtensions");
+        readme.Should().Contain("MapZeroMcp()");
+        readme.Should().NotContain("IAuthForMcpSupplier", "the custom auth supplier was removed in 3.0.0");
+        readme.Should().NotContain("IUserRoleResolver", "the custom role resolver was removed in 3.0.0");
+    }
+
+    private static string FindRepoFile(string name)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, name)))
+        {
+            dir = dir.Parent;
+        }
+
+        return dir is null ? throw new FileNotFoundException(name) : Path.Combine(dir.FullName, name);
+    }
 }

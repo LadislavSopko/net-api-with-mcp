@@ -7,11 +7,11 @@
 
     <!-- NuGet metadata (inherits from Directory.Build.props) -->
     <PackageId>Zero.Mcp.Extensions</PackageId>
-    <Description>Enables ASP.NET Core API controllers to function as MCP (Model Context Protocol) server tools with flexible authorization support. Turn your existing controllers into MCP tools with simple attributes. Includes role-based tool visibility filtering.</Description>
+    <Description>Turns ASP.NET Core API controllers into MCP (Model Context Protocol) server tools using the official MCP C# SDK attributes, with ActionResult&lt;T&gt; unwrapping. Authorization follows your controllers: [Authorize], policies and [AllowAnonymous] are enforced by the SDK authorization filters for tools/list and tools/call.</Description>
     <PackageTags>mcp;model-context-protocol;aspnetcore;api;authorization;authentication;ai;llm;tools</PackageTags>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v2.1.0: Tool naming conventions (ControllerPrefix) for generic controllers with duplicate method names. IMcpRequestContext for header access and MCP call detection. Automatic x-mcp-call header injection via UseZeroMcpMarking middleware.</PackageReleaseNotes>
+    <PackageReleaseNotes>v3.0.0 (breaking): built on ModelContextProtocol 2.2.0; SDK attributes replace the library's own; custom auth supplier/role resolver removed in favour of SDK AddAuthorizationFilters(); FilterToolsByPermissions removed; new ToolsListTimeToLive cache hints, SessionMode (stateless default), Title/hints/IconSource/UseStructuredContent/OutputSchemaType passthrough. See CHANGELOG.md for migration steps.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

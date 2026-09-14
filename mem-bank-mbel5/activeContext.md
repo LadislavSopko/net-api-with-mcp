@@ -2,18 +2,27 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [FOCUS]
-@state::PLAN{approved:ready-for-j-develop}
+@state::TEST{phase8-complete:9/9-blocks:next-j-close}
 @feature::01-upgrade-mcp-sdk-2
 @branch::feature/laco/upgrade
 @task-notes::tasks/01-upgrade-mcp-sdk-2/notes.md
 @task-plan::tasks/01-upgrade-mcp-sdk-2/plan.md{9-blocks:57-red-lines:j-review-plan✓:cvm-parsePlan✓}
 @junior-workflow::active{j-settings.md:2026-09-14}
-@version::2.1.0{released}→?3.0.0{target}
-@status::Phase8-Upgrade{PLAN-approved:DEVELOP-not-started}
+@version::3.0.0{released-block-09}✅
+@status::Phase8-Upgrade{COMPLETE:9/9-blocks:TEST}
 
-⚡phase8::UpgradeToSdk2.2.0{DEVELOP:8/9-blocks:run-20260914-1620}
+✅phase8::UpgradeToSdk2.2.0{COMPLETE:9/9-blocks:TEST-next-j-close}✅
 ✅block01::migrate-test-stack-and-deps{COMPLETE:xunit.v3+AwesomeAssertions+NSubstitute}✅
+✅block02::tool-metadata-builder{COMPLETE:ToolMetadataBuilder.cs}✅
+✅block03::upgrade-sdk-2.2.0{COMPLETE:ModelContextProtocol§2.2.0}✅
+✅block04::tool-create-options-factory{COMPLETE:ToolCreateOptionsFactory.cs}✅
+✅block05::sdk-authorization-filters{COMPLETE:SDK-AddAuthorizationFilters}✅
+✅block06::tools-list-cache-hints{COMPLETE:ToolsListTimeToLive}✅
+✅block07::stateless-output-schema{COMPLETE:SessionMode+OutputSchemaType}✅
+✅block08::lint-gate-strict{COMPLETE:TreatWarningsAsErrors:true}✅
+✅block09::release-3-0-0{COMPLETE:Version-3-0-0:README-rewrite:CHANGELOG-created:PackageTests-updated}✅
 ✅phase7::ToolNaming+McpContext{COMPLETE:9-blocks:131-tests}✅
+✅phase8::SDK-2.2.0-Upgrade{COMPLETE:9-blocks:158-tests}✅
 ✅upgrade::.NET10{9.0→10.0:complete}✅
 ✅phase5::LibraryExtraction{Zero.Mcp.Extensions→NuGet}✅
 ✗phase6::RoleBasedToolFiltering{SUPERSEDED:SDK-AddAuthorizationFilters-covers-it}
@@ -46,14 +55,14 @@
 
 [PHASE8_BLOCKS]
 ✅01::migrate-test-stack-and-deps{COMPLETE}✅
-✅02::tool-metadata-builder{COMPLETE:ToolMetadataBuilder.cs:internal-static:Build(MethodInfo,includeAuthorization)→[MethodInfo,class-attrs,method-attrs]:strips-IAuthorizeData/IAllowAnonymous-when-false:7-tests}✅
-✅03::upgrade-sdk-and-adopt-sdk-attributes{COMPLETE:ModelContextProtocol*→2.2.0:own-McpServerToolType/McpServerTool-attributes-DELETED:scanner+ToolNameGenerator-read-ModelContextProtocol.Server.*:tools/list-filter-via-WithRequestFilters(f=>f.AddListToolsFilter):custom-auth-STILL-present-until-block-05:8-tests}✅
-✅04::tool-create-options-factory{COMPLETE:ToolCreateOptionsFactory.cs:internal-static:Create(MethodInfo,IServiceProvider,JsonSerializerOptions,includeAuthorization)→McpServerToolCreateOptions{Title+hints-only-when-non-default+UseStructuredContent+OutputSchema(AIJsonUtilities.CreateJsonSchema)+Icons+Description+Metadata}:wired-in-both-registration-paths-with-includeAuthorization:false-LITERAL(SDK-guard-filters-would-throw-before-block-05):13-tests}✅
-✅05::replace-custom-auth-with-sdk-filters{COMPLETE:AddAuthorizationFilters()-via-SDK:delete-IAuthForMcpSupplier/PreFilter/ToolListFilter/IUserRoleResolver:SDK-reading-[Authorize]/policies-from-Metadata:tools/list-filtered+tools/call→McpProtocolException:unit90+E2E53:CA2007×12+CA1310×4+IDE0005×4-remaining}✅
-✅06::tools-list-cache-hints{COMPLETE:ZeroMcpOptions.ToolsListTimeToLive(TimeSpan?:default-null):ToolsListCacheHintFilter.cs(internal:Apply+Stamp):registered-LAST-via-WithRequestFilters-after-AddAuthorizationFilters:cacheScope=private-when-UseAuthorization-else-public:wire=ttlMs+cacheScope:demo=5min:6-tests}✅
-✅07::stateless-and-output-schema-e2e{COMPLETE:ZeroMcpOptions.SessionMode(HttpServerSessionMode:default-Stateless)→WithHttpTransport(o=>o.SessionMode):demo-config-key=Mcp:SessionMode:GetById=[McpServerTool(Name=UserGetById,UseStructuredContent=true,OutputSchemaType=typeof(User))]:outputSchema-emitted-ONLY-with-UseStructuredContent=true(SDK-CreateOutputSchema):IsMcpCall=TRUE-inside-tools-under-stateless(old-limitation-was-a-test-bug:snake_case-deserialization):TransportModeTests(stateless-no-Mcp-Session-Id+stateful-issues-Mcp-Session-Id):6-tests}✅
-✅08::close-lint-debt-and-enable-gate{COMPLETE:Directory.Build.props=TreatWarningsAsErrors:true+WarningsNotAsErrors-removed:.editorconfig-TODO-block-removed+[tests/**.cs]-section(CA1707/CA1822/CA2007=none:by-design):library=ConfigureAwait+StringComparison.Ordinal+usings:demo=Infrastructure/Log.cs(27-LoggerMessage-methods:AppLog-alias-in-Program.cs)+ConfigureAwait+CA1305-InvariantCulture+CA1860:tests=sealed-fixtures+TestContext.Current.CancellationToken+cached-JsonSerializerOptions+McpApiCollectionDefinition-rename:GenerateDocumentationFile=true+NoWarn-CS1591-in-demo+tests:j-settings-@lint-debt=none}✅
-⚡09::release-3-0-0{NEXT}
+✅02::tool-metadata-builder{COMPLETE:ToolMetadataBuilder.cs:7-tests}✅
+✅03::upgrade-sdk-2.2.0-sdk-attributes{COMPLETE:ModelContextProtocol→2.2.0:8-tests}✅
+✅04::tool-create-options-factory{COMPLETE:ToolCreateOptionsFactory.cs:13-tests}✅
+✅05::replace-auth-with-sdk-filters{COMPLETE:AddAuthorizationFilters:unit90+E2E53}✅
+✅06::tools-list-cache-hints{COMPLETE:ToolsListTimeToLive+CacheScope:6-tests}✅
+✅07::stateless-output-schema-e2e{COMPLETE:SessionMode+OutputSchemaType:6-tests}✅
+✅08::close-lint-debt-enable-gate{COMPLETE:TreatWarningsAsErrors:true:0-warnings:unit96+E2E59}✅
+✅09::release-3-0-0{COMPLETE:Version-3-0-0:README+CHANGELOG+PackageTests:unit99+E2E59}✅
 
 [SDK_2.2.0_FACTS]{verified-on-source}
 @filters::WithRequestFilters(f=>f.AddListToolsFilter|AddCallToolFilter){AddXxxFilter-on-builder:REMOVED}
@@ -70,10 +79,9 @@
 @nuget::Zero.Mcp.Extensions{2.0.0+2.1.0:743-dl:0-issues:0-PRs}
 
 [NEXT]
-!next::block-09-release-3-0-0{Version.props=3.0.0:README-rewrite(SDK-attrs+AddAuthorization+migration-from-2.x):CHANGELOG.md:PackageTests(Version.Major==3+SDK-2-dependency+README-grep):MB-final:3-tests}
-?then::j-close{merge-direct→main:publish-nuget.sh}
-?later::git-crypt.key{delete-from-root-after-saving}
-?later::ast-grep{install-for-lint-layer-2}
+?then::j-close{run-full-gate:push-feature-branch:merge→main:publish-nuget.sh→https://www.nuget.org/packages/Zero.Mcp.Extensions}
+?later::mcp-json-token{bearer-expired-Jan-2026:refresh-via-get-token.sh}
+?later::docs-follow-up{MCP-AUTHORIZATION-COMPLETE-GUIDE+USERS-AND-PERMISSIONS:describe-v3-auth}
 
 [SDK_STATUS]
 !hack-still-needed::MarshalResult{ActionResult<T>:unwrapping:confirmed-on-2.2.0-source}✅

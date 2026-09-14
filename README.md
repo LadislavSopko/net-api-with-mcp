@@ -3,7 +3,9 @@
 [![NuGet](https://img.shields.io/nuget/v/Zero.Mcp.Extensions.svg)](https://www.nuget.org/packages/Zero.Mcp.Extensions/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-Turn your ASP.NET Core API controllers into **MCP (Model Context Protocol)** tools with simple attributes. Includes role-based authorization and tool visibility filtering.
+Turn your ASP.NET Core API controllers into **MCP (Model Context Protocol)** tools with the official SDK attributes. Authorization follows the controllers' own `[Authorize]` rules: the MCP SDK filters `tools/list` per user and rejects unauthorized `tools/call`.
+
+Built on the official [MCP C# SDK](https://github.com/modelcontextprotocol/csharp-sdk) **2.2.0** (Streamable HTTP, stateless by default). Version **3.0.0** is a breaking release: see [Migration from 2.x](#migration-from-2x) and [CHANGELOG.md](CHANGELOG.md).
 
 ## What's Inside
 
@@ -14,11 +16,13 @@ Turn your ASP.NET Core API controllers into **MCP (Model Context Protocol)** too
 
 ## Features
 
-- **Attribute-based tool registration** - Mark controllers with `[McpServerToolType]` and methods with `[McpServerTool]`
-- **ActionResult unwrapping** - Automatic conversion of `ActionResult<T>` responses
-- **Authorization integration** - Full support for `[Authorize]` policies and `[AllowAnonymous]`
-- **Role-based tool filtering** - `tools/list` only returns tools the user can invoke
-- **Keycloak integration** - JWT authentication with role mapping
+- **Attribute-based tool registration** - Mark controllers with the SDK `[McpServerToolType]` and methods with `[McpServerTool]` (`ModelContextProtocol.Server`); `Name`, `Title`, `ReadOnly`/`Destructive`/`Idempotent`/`OpenWorld` hints, `IconSource`, `UseStructuredContent` and `OutputSchemaType` all flow to the client
+- **ActionResult unwrapping** - Automatic conversion of `ActionResult<T>` responses (the SDK alone does not do this)
+- **SDK-native authorization** - `[Authorize]`, policies and `[AllowAnonymous]` on your controllers are enforced by the MCP SDK authorization filters through your `IAuthorizationService`: `tools/list` shows only what the caller may invoke and `tools/call` on anything else is rejected with `Access forbidden`
+- **Cache hints** - optional `ttlMs` / `cacheScope` on `tools/list` (`ToolsListTimeToLive`)
+- **Stateless Streamable HTTP** - no session header by default; `SessionMode` switches to stateful when needed
+- **Request context** - `IMcpRequestContext` tells a controller whether it was invoked over MCP or HTTP
+- **Keycloak demo** - JWT authentication with realm roles mapped to policies
 
 ## Quick Start
 
@@ -31,14 +35,16 @@ dotnet add package Zero.Mcp.Extensions
 ### 1. Attribute Your Controllers
 
 ```csharp
+using ModelContextProtocol.Server;   // SDK attributes (no Zero.Mcp.Extensions attribute types since 3.0.0)
+
 [ApiController]
 [Route("api/[controller]")]
 [McpServerToolType]  // Enable MCP for this controller
-[Authorize]
+[Authorize]          // Enforced for MCP calls too
 public class UsersController : ControllerBase
 {
     [HttpGet("{id}")]
-    [McpServerTool]  // Expose as MCP tool
+    [McpServerTool(Name = "UserGetById", UseStructuredContent = true, OutputSchemaType = typeof(User))]
     [Description("Gets a user by ID")]
     public async Task<ActionResult<User>> GetById(int id) { ... }
 
@@ -54,36 +60,52 @@ public class UsersController : ControllerBase
 
 ```csharp
 // Program.cs
-builder.Services.AddScoped<IAuthForMcpSupplier, YourAuthSupplier>();
-builder.Services.AddScoped<IUserRoleResolver, YourRoleResolver>();
+builder.Services.AddAuthentication(...).AddJwtBearer(...);
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("RequireMember", p => p.RequireRole("member", "manager", "admin"));
+});
 
 builder.Services.AddZeroMcpExtensions(options =>
 {
-    options.RequireAuthentication = true;
-    options.UseAuthorization = true;
-    options.FilterToolsByPermissions = true;  // Hide unauthorized tools
+    options.RequireAuthentication = true;   // /mcp needs a valid bearer token
+    options.UseAuthorization = true;        // SDK filters enforce [Authorize]/[AllowAnonymous]/policies
     options.McpEndpointPath = "/mcp";
+    options.ToolsListTimeToLive = TimeSpan.FromMinutes(5);   // optional cache hint
 });
 ```
 
 ### 3. Map the Endpoint
 
 ```csharp
+app.UseZeroMcpMarking();   // optional: enables IMcpRequestContext
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapZeroMcp();
 ```
 
 That's it! Your API now speaks MCP at `/mcp`.
 
-## Role-Based Tool Filtering
+## Authorization Follows Your Endpoints
 
-Users only see tools they're authorized to use:
+There is nothing MCP-specific to configure. The library attaches each controller's `[Authorize]`, policy and `[AllowAnonymous]` attributes to the generated tool, and the MCP SDK's `AddAuthorizationFilters()` evaluates them with the same `IAuthorizationService` your HTTP endpoints use:
 
-| User Role | Visible Tools |
+| User Role | Visible / callable tools in the demo |
 |-----------|---------------|
-| Viewer | `get_by_id`, `get_all` (read-only) |
+| Viewer | `UserGetById`, `get_all`, `get_scope_id`, `get_public_info`, `get_mcp_context`, `echo_headers` |
 | Member | Above + `create` |
 | Manager | Above + `update` |
-| Admin | All tools including `promote_to_manager` |
+| Admin | All 9, including `promote_to_manager` |
+
+A `tools/call` on a hidden tool returns a JSON-RPC error (`Access forbidden: This tool requires authorization.`). Set `UseAuthorization = false` to expose every tool without checks (the demo does this when `Auth:Enabled=false`).
+
+## Migration from 2.x
+
+1. Replace `using Zero.Mcp.Extensions;` for the attributes with `using ModelContextProtocol.Server;`: the library no longer ships its own `McpServerToolType`/`McpServerTool` attributes.
+2. Delete your custom MCP auth supplier and role resolver implementations and their registrations; call `builder.Services.AddAuthorization(...)` with your policies instead.
+3. Remove `options.FilterToolsByPermissions`: filtering is always on when `UseAuthorization` is true.
+4. Optional: `options.ToolsListTimeToLive` (cache hints), `options.SessionMode` (default `Stateless`), `OutputSchemaType`/`UseStructuredContent` on tools.
+5. Tests: the SDK client now throws `McpProtocolException` for forbidden calls instead of returning `IsError = true`.
 
 ## Running the Demo
 
@@ -151,11 +173,14 @@ builder.Services.AddZeroMcpExtensions(options =>
     // Require JWT authentication (default: true)
     options.RequireAuthentication = true;
 
-    // Enforce [Authorize] policies (default: true)
+    // Let the MCP SDK enforce [Authorize]/[AllowAnonymous]/policies from your controllers (default: true)
     options.UseAuthorization = true;
 
-    // Filter tools/list by user permissions (default: true)
-    options.FilterToolsByPermissions = true;
+    // tools/list cache hints: ttlMs + cacheScope (private when UseAuthorization) (default: null = none)
+    options.ToolsListTimeToLive = TimeSpan.FromMinutes(5);
+
+    // Streamable HTTP session mode (default: Stateless)
+    options.SessionMode = HttpServerSessionMode.Stateless;
 
     // MCP endpoint path (default: "/mcp")
     options.McpEndpointPath = "/mcp";
