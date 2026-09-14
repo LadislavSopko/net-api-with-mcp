@@ -2,7 +2,7 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [STATUS]
-⚡phase8::UpgradeToSdk2.2.0{DEVELOP:3/9-blocks:run-20260914-1620:feature/laco/upgrade}
+⚡phase8::UpgradeToSdk2.2.0{DEVELOP:4/9-blocks:run-20260914-1620:feature/laco/upgrade}
 ✅upgrade::.NET10{9.0→10.0.100:complete+verified}✅!
 ✅phase5::COMPLETE{library-extraction:Zero.Mcp.Extensions-v2.0.0}✅
 ✅phase7::COMPLETE{ToolNaming+McpContext:v2.1.0}✅!
@@ -18,8 +18,8 @@
 ✅block01::test-stack+deps{xunit.v3§4.0.1+AwesomeAssertions§9.6.0+NSubstitute§6.2.0+deps:unit77+E2E56}✅
 ✅block02::ToolMetadataBuilder{7-tests:unit84+E2E56}✅
 ✅block03::SDK-2.2.0+SDK-attributes+WithRequestFilters{8-tests:unit92+E2E56}✅
-?block04::ToolCreateOptionsFactory{12-tests}
-?block05::AddAuthorizationFilters{delete-custom-auth:8-tests}
+✅block04::ToolCreateOptionsFactory{13-tests:unit105+E2E56:includeAuthorization:false-until-block-05}✅
+⚡block05::AddAuthorizationFilters{delete-custom-auth:8-tests:NEXT}
 ?block06::ToolsListTimeToLive{ttlMs+cacheScope:6-tests}
 ?block07::Stateless+OutputSchemaType-E2E{6-tests}
 ?block08::lint-debt+TreatWarningsAsErrors:true{3-tests}

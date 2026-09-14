@@ -99,7 +99,10 @@ public static class McpServerBuilderExtensions
                                 MarshalResult = async (result, resultType, ct) => await MarshalResult.UnwrapAsync(result),
                                 SerializerOptions = serializerOptions
                             });
-                        return McpServerTool.Create(aiFunction, new McpServerToolCreateOptions { Services = services });
+                        // includeAuthorization stays false until AddAuthorizationFilters() is wired (block 05):
+                        // the SDK guard filters throw on [Authorize] metadata without the authorization filters.
+                        return McpServerTool.Create(aiFunction,
+                            ToolCreateOptionsFactory.Create(method, services, serializerOptions, includeAuthorization: false));
                     });
                 }
                 else
@@ -120,10 +123,8 @@ public static class McpServerBuilderExtensions
                                 SerializerOptions = serializerOptions
                             });
 
-                        return McpServerTool.Create(aiFunction, new McpServerToolCreateOptions
-                        {
-                            Services = services
-                        });
+                        return McpServerTool.Create(aiFunction,
+                            ToolCreateOptionsFactory.Create(methodCopy, services, serializerOptions, includeAuthorization: false));
                     });
                 }
             }

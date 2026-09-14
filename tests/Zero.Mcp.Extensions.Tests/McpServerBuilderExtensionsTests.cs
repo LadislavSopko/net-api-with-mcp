@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using AwesomeAssertions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Server;
@@ -240,6 +242,34 @@ public class McpServerBuilderExtensionsTests
         assembly.GetType("Zero.Mcp.Extensions.McpServerToolTypeAttribute").Should().BeNull();
     }
 
+    [Fact]
+    public void Should_AttachMetadataWithoutAuthorization_WhenToolsRegistered()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Substitute.For<IAuthForMcpSupplier>());
+
+        services.AddZeroMcpExtensions(options =>
+        {
+            options.ToolAssembly = typeof(SdkScanFixture).Assembly;
+            options.UseAuthorization = true;
+        });
+        var provider = services.BuildServiceProvider();
+
+        var fixtureTools = provider.GetServices<McpServerTool>()
+            .Where(t => t.ProtocolTool.Name.StartsWith("sdk_tool_", StringComparison.Ordinal))
+            .ToList();
+
+        fixtureTools.Should().HaveCount(3);
+        foreach (var tool in fixtureTools)
+        {
+            tool.Metadata[0].Should().BeAssignableTo<MethodInfo>().Which.Name.Should().StartWith("SdkTool");
+            tool.Metadata.Should().Contain(m => m is DescriptionAttribute);
+            // Until block 05 registers AddAuthorizationFilters(), no IAuthorizeData may reach the SDK guard filters.
+            tool.Metadata.Should().NotContain(m => m is IAuthorizeData);
+        }
+    }
+
     private static MethodInfo CreateMockMethod(string name)
     {
         // Return a method from AsyncMethodTestController if it exists, otherwise use reflection
@@ -301,16 +331,17 @@ internal class ExplicitNameTestController
 }
 
 // Fixture decorated with the official SDK attributes (ModelContextProtocol.Server) for scanning tests.
+[Authorize]
 [McpServerToolType]
 internal class SdkScanFixture
 {
-    [McpServerTool]
+    [McpServerTool, Description("one")]
     public static string SdkToolOne() => "1";
 
-    [McpServerTool]
+    [McpServerTool, Description("two")]
     public static string SdkToolTwo() => "2";
 
-    [McpServerTool]
+    [McpServerTool, Description("three")]
     public static string SdkToolThree() => "3";
 
     public static string NotATool() => "x";
