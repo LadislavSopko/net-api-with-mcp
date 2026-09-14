@@ -55,6 +55,13 @@ public static class McpServerBuilderExtensions
             mcpBuilder.AddAuthorizationFilters();
         }
 
+        // Cache hints are stamped LAST so they wrap the per-user list produced by the authorization filter.
+        if (options.ToolsListTimeToLive is not null)
+        {
+            mcpBuilder.WithRequestFilters(filters => filters.AddListToolsFilter(next =>
+                ToolsListCacheHintFilter.Apply(next, options.ToolsListTimeToLive, options.UseAuthorization)));
+        }
+
         return mcpBuilder;
     }
 

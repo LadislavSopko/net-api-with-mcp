@@ -38,6 +38,12 @@ public class ZeroMcpOptions
     public JsonSerializerOptions? SerializerOptions { get; set; }
 
     /// <summary>
+    /// When set, tools/list responses carry the MCP cache hints: ttlMs = this value and cacheScope = private when
+    /// UseAuthorization is true (the list varies per user) or public otherwise. Default is null (no hints).
+    /// </summary>
+    public TimeSpan? ToolsListTimeToLive { get; set; }
+
+    /// <summary>
     /// Naming convention for generated MCP tool names.
     /// Default is MethodOnly for backward compatibility.
     /// </summary>

@@ -87,6 +87,7 @@ builder.Services.AddZeroMcpExtensions(options =>
 {
     options.RequireAuthentication = authEnabled;  // Require auth only if enabled
     options.UseAuthorization = authEnabled;       // SDK authorization filters enforce [Authorize] policies only if enabled
+    options.ToolsListTimeToLive = TimeSpan.FromMinutes(5);  // tools/list cache hint (ttlMs + cacheScope)
     options.McpEndpointPath = "/mcp";             // MCP endpoint path
     options.ToolAssembly = typeof(McpPoc.Api.Controllers.UsersController).Assembly;  // Explicit assembly for Docker
 });

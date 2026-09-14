@@ -102,4 +102,28 @@ public class McpToolDiscoveryTests : IAsyncLifetime
             .Should().NotContain(t => t.Name.Contains("delete", StringComparison.OrdinalIgnoreCase),
                 "Delete endpoint should NOT have [McpServerTool] attribute");
     }
+
+    [Fact]
+    public async Task Should_ReturnTtlAndPrivateScope_WhenConfigured()
+    {
+        // Arrange - demo Program.cs configures ToolsListTimeToLive = 5 minutes; authorization is on => private scope.
+        // Raw JSON-RPC so the wire-level hint names (ttlMs / cacheScope) are asserted, not the SDK client's view.
+        var http = await _fixture.GetAuthenticatedClientAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/mcp")
+        {
+            Content = new StringContent("""{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""", System.Text.Encoding.UTF8, "application/json")
+        };
+        request.Headers.Accept.ParseAdd("application/json");
+        request.Headers.Accept.ParseAdd("text/event-stream");
+        request.Headers.Add("MCP-Protocol-Version", "2025-11-25");
+
+        // Act
+        using var response = await http.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        response.IsSuccessStatusCode.Should().BeTrue(body);
+        body.Should().Contain("\"ttlMs\":300000");
+        body.Should().Contain("\"cacheScope\":\"private\"");
+    }
 }
