@@ -6,7 +6,9 @@
 Repo `D:\Projekty\AI_Works\net-api-with-mcp` (solution `net-api-with-mcp.slnx`, .NET 10, C# latest, central package management in `Directory.Packages.props`, shared props in `Directory.Build.props`, version in `Version.props` via `MainVersion`).
 Two shipped projects and two test projects:
 - `src/Zero.Mcp.Extensions/` — NuGet library. Scans an assembly for ASP.NET Core controllers marked with an `McpServerToolType` attribute and exposes methods marked with an `McpServerTool` attribute as MCP tools, unwrapping `ActionResult<T>` return values (`MarshalResult.cs`), generating tool names (`ToolNameGenerator.cs`, `ToolNamingConvention.cs` MethodOnly|ControllerPrefix), exposing `IMcpRequestContext`/`McpRequestContext` (detects MCP calls via `HttpContext.Items` marker set by `UseZeroMcpMarking` middleware, fallback path prefix `/mcp`), and configured through `ZeroMcpOptions` (`RequireAuthentication`, `UseAuthorization`, `McpEndpointPath`, `ToolAssembly`, `SerializerOptions`, `NamingConvention`, `ToolNameSeparator`). Entry points: `services.AddZeroMcpExtensions(options => ...)` and `app.MapZeroMcp()` in `McpServerBuilderExtensions.cs`.
-- `src/McpPoc.Api/` — demo API: `Controllers/UsersController.cs` (tools GetById, GetAll, Create [RequireMember], Update [RequireManager], PromoteToManager [RequireAdmin], GetScopeId, GetPublicInfo [AllowAnonymous], GetMcpContext), Keycloak JWT bearer auth (`Program.cs`), policies in `Authorization/AuthorizationServiceExtensions.cs` + `PolicyNames.cs` (RequireMember/RequireManager/RequireAdmin built on realm roles), Serilog, Scalar. Config flag `Auth:Enabled` (default true) switches auth off entirely.
+- `src/McpPoc.Api/` — demo API: `Controllers/UsersController.cs` (class-level `[Authorize]`, 9 tools: GetById with explicit `Name = "UserGetById"`, GetAll, Create [RequireMember], Update [RequireManager], PromoteToManager [RequireAdmin], GetScopeId, GetPublicInfo [AllowAnonymous], GetMcpContext, EchoHeaders [AllowAnonymous]), Keycloak JWT bearer auth (`Program.cs`), policies in `Authorization/AuthorizationServiceExtensions.cs` + `PolicyNames.cs` (RequireMember/RequireManager/RequireAdmin built on realm roles), Serilog, Scalar. Config flag `Auth:Enabled` (default true) switches auth off entirely.
+  Real MCP tool names (MethodOnly convention, explicit attribute name always wins — `ToolNameGenerator.cs`): `UserGetById`, `get_all`, `create`, `update`, `promote_to_manager`, `get_scope_id`, `get_public_info`, `get_mcp_context`, `echo_headers`. Visibility per role: viewer = 6 base tools (`UserGetById`, `get_all`, `get_scope_id`, `get_public_info`, `get_mcp_context`, `echo_headers`), member +`create` (7), manager +`update` (8), admin all 9. The E2E files written before v2.1.0 still assert `get_by_id` and omit `echo_headers`; block 01 corrects them. Measured baseline on 2026-09-14 before any block: E2E 45/56 green, the 11 red ones are exactly ToolVisibilityTests (4), ToolNamingTests (2), McpToolInvocationTests (2), McpToolDiscoveryTests (2), PolicyAuthorizationTests.Should_AllowRead_WhenUserIsViewer — all caused by `get_by_id` / missing `echo_headers`.
+- Docker: `docker compose -f docker/docker-compose.yml up -d` (Keycloak on 8080). If host port 5432 is taken by another Postgres, start with `POSTGRES_PORT=15432 docker compose -f docker/docker-compose.yml up -d` — Keycloak reaches Postgres over the compose network, the host port is irrelevant for the tests.
 - `tests/Zero.Mcp.Extensions.Tests/` — unit tests for the library.
 - `tests/McpPoc.Api.Tests/` — E2E tests using `WebApplicationFactory<Program>` + `McpClientHelper.cs` + `KeycloakTokenHelper.cs` (needs docker Keycloak on http://127.0.0.1:8080, realm mcppoc-realm, users admin/admin123 etc.; start with `docker compose -f docker/docker-compose.yml up -d`). Regression net: `PolicyAuthorizationTests`, `ToolVisibilityTests`, `McpToolInvocationTests`, `McpToolDiscoveryTests`, `McpRequestContextE2ETests`, `ToolNamingTests`, `DIScopingTests`, `AuthenticationTests`, `HttpAuthorizationTests`, `ActionResultSerializationTest`.
 - `3rdp/csharp-sdk/` — vendored git checkout of the official MCP C# SDK, included in the .slnx for reading only (no ProjectReference from our projects). Currently at v0.6.0-preview.1; will be moved to tag v2.2.0.
@@ -46,7 +48,8 @@ The RED tests are the Moq → NSubstitute rewrites: they must compile against NS
 - test: `KeycloakAuthSupplierTests` rewritten with NSubstitute for `IHttpContextAccessor` and `IAuthorizationService`, same assertions
 - test: `McpRequestContextTests.IsMcpCall_ReturnsFalse_WhenHttpContextIsNull` uses `Substitute.For<IHttpContextAccessor>()` returning null `HttpContext`
 - test: a new `tests/Zero.Mcp.Extensions.Tests/TestStackSmokeTests.cs` with `Should_RunUnderXunitV3_WhenExecuted` asserting `typeof(FactAttribute).Assembly.GetName().Name == "xunit.v3.core"` and `Should_UseAwesomeAssertions_WhenAsserting` asserting `typeof(FluentAssertions.AssertionExtensions).Assembly.GetName().Name == "AwesomeAssertions"`
-- test: full suite (unit + E2E with Keycloak up) passes under `dotnet test` with the xunit.v3 runner, same 131 green tests plus the 2 smoke tests
+- test: E2E expectations corrected to the real tool names of the mission: `"get_by_id"` → `"UserGetById"` in `tests/McpPoc.Api.Tests/McpToolDiscoveryTests.cs`, `McpToolInvocationTests.cs`, `PolicyAuthorizationTests.cs`, `ToolNamingTests.cs`, `ToolVisibilityTests.cs`; `"echo_headers"` added to `ToolVisibilityTests.BaseTools` (viewer 6, member 7, manager 8, admin 9) and `McpToolDiscoveryTests` member count becomes 7
+- test: full suite (unit + E2E with Keycloak up) passes under `dotnet test` with the xunit.v3 runner — every previously existing test green after the expectation fixes, plus the 2 smoke tests
 </red>
 
 ### Implementation
@@ -72,7 +75,8 @@ The RED tests are the Moq → NSubstitute rewrites: they must compile against NS
 <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
 <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.12" />
 ```
-Both test csproj: replace `xunit` → `xunit.v3`, `FluentAssertions` → `AwesomeAssertions`, `Moq` → `NSubstitute`; keep `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio`. Add `<OutputType>Exe</OutputType>` (required by xunit.v3) and `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>`.
+Both test csproj: replace `xunit` → `xunit.v3`, `FluentAssertions` → `AwesomeAssertions`, `Moq` → `NSubstitute`; keep `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio`. Add `<OutputType>Exe</OutputType>` (required by xunit.v3), `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` and `<GenerateProgramFile>false</GenerateProgramFile>` (xunit.v3 supplies the entry point; Microsoft.NET.Test.Sdk must not generate a second `Program`, otherwise CS0017).
+E2E expectation fixes (stale since v2.1.0 gave `GetById` the explicit name and added `EchoHeaders`): replace the string `"get_by_id"` with `"UserGetById"` in the five files listed in the red section; `ToolVisibilityTests.BaseTools = ["UserGetById", "get_all", "get_scope_id", "get_public_info", "get_mcp_context", "echo_headers"]`; `McpToolDiscoveryTests` member assertion `HaveCount(7, "Member should see 6 base tools + create")`.
 `global.json`: `{ "sdk": { "version": "10.0.100", "rollForward": "latestFeature" } }`.
 NSubstitute pattern used in rewrites:
 ```csharp
@@ -88,7 +92,7 @@ If the SDK bump of the vendored folder makes `dotnet build` of the whole .slnx f
 <success>
 - [ ] No reference to `Moq`, `FluentAssertions` package, or `xunit` v2 packages remains in csproj/props (`using FluentAssertions;` namespace stays)
 - [ ] `TestStackSmokeTests` both green
-- [ ] Previously green tests (131) still green, E2E included with Keycloak running
+- [ ] Every pre-existing test green after the tool-name expectation fixes, E2E included with Keycloak running (`docker compose -f docker/docker-compose.yml up -d`)
 - [ ] `dotnet list package --vulnerable` reports no high-severity package for src/ and tests/ except the MCP SDK line (handled in block 03)
 - [ ] `3rdp/csharp-sdk` is at tag v2.2.0
 - [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
@@ -154,7 +158,7 @@ Files: `Directory.Packages.props`, `src/Zero.Mcp.Extensions/McpServerBuilderExte
 - test: ToolNameGeneratorTests.Should_UseConvention_WhenSdkAttributeNameIsNull — `[McpServerTool]` without Name → snake_case method name (MethodOnly) or `users_get_by_id` (ControllerPrefix)
 - test: McpServerBuilderExtensionsTests.Should_RegisterOneMcpServerToolPerAttributedMethod_WhenScanningSdkAttributes — assembly with a `[McpServerToolType]` class having 3 `[McpServerTool]` methods (SDK attributes) registers 3 `McpServerTool` singletons
 - test: McpServerBuilderExtensionsTests.Should_IgnoreMethods_WhenSdkToolAttributeIsMissing
-- test: McpServerBuilderExtensionsTests.Should_RegisterListToolsFilter_WhenFilterToolsByPermissionsIsTrue — after `AddZeroMcpExtensions`, resolving `IOptions<McpServerOptions>` yields `Value.Filters.Request.ListToolsFilters.Count >= 1`
+- test: McpServerBuilderExtensionsTests.Should_RegisterListToolsFilter_WhenFilterToolsByPermissionsIsTrue — after `AddZeroMcpExtensions(o => o.FilterToolsByPermissions = true)`, resolving `IOptions<McpServerOptions>` yields `Value.Filters.Request.ListToolsFilters.Count == 2` (the SDK's own list-guard filter installed by `WithHttpTransport` plus ours); with `FilterToolsByPermissions = false` the count is exactly 1 (a bare `>= 1` would never fail because the SDK guard is always present)
 - test: the library has no type named `Zero.Mcp.Extensions.McpServerToolAttribute` or `Zero.Mcp.Extensions.McpServerToolTypeAttribute` (`typeof(ZeroMcpOptions).Assembly.GetType("Zero.Mcp.Extensions.McpServerToolAttribute").Should().BeNull()`)
 - test: E2E regression net (ToolNamingTests, McpToolDiscoveryTests, McpToolInvocationTests, PolicyAuthorizationTests, ToolVisibilityTests) unchanged and green
 </red>
@@ -201,6 +205,7 @@ Compile guard: `CallToolResult`/`ListToolsResult` construction uses `Tools = [..
 
 <intro>
 The AIFunction overload of `McpServerTool.Create` ignores attributes, so the library must derive `Title`, `Destructive`, `Idempotent`, `OpenWorld`, `ReadOnly`, `UseStructuredContent`, `OutputSchema` (from `OutputSchemaType`), `Icons` (from `IconSource`) and `Description` itself, plus `Metadata` from block 02. Mirrors the SDK's internal `AIFunctionMcpServerTool.DeriveOptions`. Depends on blocks 02 and 03.
+Ordering constraint: in THIS block the factory is wired with `includeAuthorization: false` (constant). SDK 2.2.0 `WithHttpTransport` installs guard filters (`AuthorizationFilterSetup.CheckListToolsFilter`, `AuthorizationCallToolFilterGuardSetup`) that throw `InvalidOperationException` on `tools/list` and `tools/call` whenever a tool's `Metadata` carries `IAuthorizeData` without `IAllowAnonymous` and `AddAuthorizationFilters()` was never called. `UsersController` has a class-level `[Authorize]`, so attaching authorization metadata before block 05 registers the SDK filters would break every E2E call. Block 05 flips the argument to `options.UseAuthorization`.
 Files: new `src/Zero.Mcp.Extensions/ToolCreateOptionsFactory.cs`, new `tests/Zero.Mcp.Extensions.Tests/ToolCreateOptionsFactoryTests.cs`, `src/Zero.Mcp.Extensions/McpServerBuilderExtensions.cs` (use the factory in both static and instance registration paths).
 </intro>
 
@@ -217,6 +222,7 @@ Files: new `src/Zero.Mcp.Extensions/ToolCreateOptionsFactory.cs`, new `tests/Zer
 - test: Should_UseSdkMetadataLayout_WhenBuilt — `Metadata![0]` is the MethodInfo and contains the class `[Authorize]`
 - test: Should_StripAuthorizationMetadata_WhenIncludeAuthorizationIsFalse
 - test: Should_SetServicesAndSerializerOptions_WhenProvided
+- test: McpServerBuilderExtensionsTests.Should_AttachMetadataWithoutAuthorization_WhenToolsRegistered — after `AddZeroMcpExtensions(o => o.UseAuthorization = true)` every registered `McpServerTool.Metadata` has the `MethodInfo` first, contains the `[Description]` attribute, and contains no `IAuthorizeData` (the SDK guard filters stay silent until block 05)
 </red>
 
 ### Implementation
@@ -253,11 +259,12 @@ internal static class ToolCreateOptionsFactory
     }
 }
 ```
-`McpServerBuilderExtensions`: both registration lambdas become `McpServerTool.Create(aiFunction, ToolCreateOptionsFactory.Create(method, services, serializerOptions, options.UseAuthorization))`. `AIJsonUtilities` is in `Microsoft.Extensions.AI` (already transitively referenced). Assert schema with `options.OutputSchema!.Value.GetProperty("properties").TryGetProperty("id", out _).Should().BeTrue()`.
+`McpServerBuilderExtensions`: both registration lambdas become `McpServerTool.Create(aiFunction, ToolCreateOptionsFactory.Create(method, services, serializerOptions, includeAuthorization: false))` — the literal `false` is intentional in this block (see intro); block 05 replaces it with `options.UseAuthorization`. `AIJsonUtilities` is in `Microsoft.Extensions.AI` (already transitively referenced). Assert schema with `options.OutputSchema!.Value.GetProperty("properties").TryGetProperty("id", out _).Should().BeTrue()`.
 
 <success>
-- [ ] All 12 tests green
-- [ ] E2E `McpToolDiscoveryTests` still green and tool descriptions unchanged
+- [ ] All 13 tests green
+- [ ] No registered `McpServerTool.Metadata` contains `IAuthorizeData` after this block (SDK guard filters must not fire)
+- [ ] E2E `McpToolDiscoveryTests`, `McpToolInvocationTests`, `PolicyAuthorizationTests` still green (Keycloak up) and tool descriptions unchanged
 - [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
@@ -266,19 +273,19 @@ internal static class ToolCreateOptionsFactory
 ## TDDAB-5: Replace custom authorization with SDK AddAuthorizationFilters
 
 <intro>
-Deletes the custom authorization layer and wires `builder.AddAuthorizationFilters()` when `UseAuthorization` is true. Controller instances are now created without a pre-filter; `[Authorize]`/`[AllowAnonymous]` are enforced by the SDK from the metadata attached in block 04. Removes `FilterToolsByPermissions` (the SDK filter always applies when authorization is on). Demo loses `KeycloakAuthSupplier`, `UserRoleResolver` and their registrations. Depends on block 04.
+Deletes the custom authorization layer and wires `builder.AddAuthorizationFilters()` when `UseAuthorization` is true. Controller instances are now created without a pre-filter; `[Authorize]`/`[AllowAnonymous]` are enforced by the SDK from the metadata produced by the block 04 factory, whose `includeAuthorization` argument switches in this block from the literal `false` to `options.UseAuthorization`. Removes `FilterToolsByPermissions` (the SDK filter always applies when authorization is on). Demo loses `KeycloakAuthSupplier`, `UserRoleResolver` and their registrations. Depends on block 04.
 Files: DELETE `src/Zero.Mcp.Extensions/IAuthForMcpSupplier.cs`, `McpAuthorizationPreFilter.cs`, `ToolAuthorizationMetadata.cs`, `ToolListFilter.cs`; DELETE `src/McpPoc.Api/Infrastructure/KeycloakAuthSupplier.cs`, `src/McpPoc.Api/Infrastructure/UserRoleResolver.cs`; DELETE `tests/Zero.Mcp.Extensions.Tests/IAuthForMcpSupplierTests.cs`, `McpAuthorizationPreFilterTests.cs`, `ToolAuthorizationMetadataTests.cs`, `ToolFilteringTests.cs`, `tests/McpPoc.Api.Tests/KeycloakAuthSupplierTests.cs`; MODIFY `src/Zero.Mcp.Extensions/McpServerBuilderExtensions.cs`, `ZeroMcpOptions.cs`, `src/McpPoc.Api/Program.cs`, `tests/Zero.Mcp.Extensions.Tests/McpServerBuilderExtensionsTests.cs`, `McpMiddlewareTests.cs`, `ZeroMcpOptionsTests.cs`, `PackageTests.cs`.
 </intro>
 
 <red>
-- test: McpServerBuilderExtensionsTests.Should_RegisterSdkAuthorizationFilters_WhenUseAuthorizationIsTrue — after `AddZeroMcpExtensions(o => o.UseAuthorization = true)` plus `services.AddAuthorization()`, resolving `IOptions<McpServerOptions>` yields `Filters.Request.CallToolFilters.Count >= 1` and `ListToolsFilters.Count >= 1`
+- test: McpServerBuilderExtensionsTests.Should_RegisterSdkAuthorizationFilters_WhenUseAuthorizationIsTrue — after `AddZeroMcpExtensions(o => o.UseAuthorization = true)` plus `services.AddAuthorization()`, resolving `IOptions<McpServerOptions>` yields `Filters.Request.CallToolFilters.Count == 1` (SDK ordinary call-tool authorization checkpoint) and `ListToolsFilters.Count == 2` (SDK authorization list filter + SDK list guard); with `UseAuthorization = false` the counts are 0 and 1
 - test: McpServerBuilderExtensionsTests.Should_NotAttachAuthorizationMetadata_WhenUseAuthorizationIsFalse — every registered `McpServerTool.Metadata` contains no `IAuthorizeData`
 - test: McpServerBuilderExtensionsTests.Should_AttachAuthorizationMetadata_WhenUseAuthorizationIsTrue — a tool for `[Authorize(Policy="RequireMember")]` method has metadata with that policy
 - test: McpServerBuilderExtensionsTests.Should_CreateControllerThroughDI_WhenToolInvoked — `ActivatorUtilities` path still resolves constructor dependencies (a fake `IUserService` substitute is injected)
 - test: ZeroMcpOptionsTests: `FilterToolsByPermissions` property no longer exists (reflection assert `typeof(ZeroMcpOptions).GetProperty("FilterToolsByPermissions").Should().BeNull()`)
 - test: the library assembly exposes none of: `IAuthForMcpSupplier`, `IUserRoleResolver`, `ToolListFilter`, `ToolAuthorizationMetadata`, `IToolAuthorizationStore` (reflection asserts in PackageTests)
-- test: E2E PolicyAuthorizationTests — admin can call all tools; member can call Create but `tools/call` Update returns a JSON-RPC error whose message contains "Access forbidden"; viewer calling Create gets the same error; viewer calling GetPublicInfo (`[AllowAnonymous]`) succeeds
-- test: E2E ToolVisibilityTests — `tools/list` for viewer returns exactly the 5 base tools (get_by_id, get_all, get_scope_id, get_public_info, get_mcp_context), for member adds create, for manager adds update, for admin includes all 8 (the `/mcp` endpoint itself still requires a valid bearer token via `RequireAuthentication`, so there is no unauthenticated list case)
+- test: E2E PolicyAuthorizationTests — admin can call all tools; member can call `create` but `tools/call` `update` is rejected by the SDK filter with a JSON-RPC error, which the SDK client surfaces as a thrown `McpProtocolException` whose message contains "Access forbidden" (no `CallToolResult` is returned); viewer calling `create` gets the same exception; viewer calling `get_public_info` (`[AllowAnonymous]`) succeeds
+- test: E2E ToolVisibilityTests — `tools/list` for viewer returns exactly the 6 base tools (UserGetById, get_all, get_scope_id, get_public_info, get_mcp_context, echo_headers), for member adds create (7), for manager adds update (8), for admin includes all 9 (the `/mcp` endpoint itself still requires a valid bearer token via `RequireAuthentication`, so there is no unauthenticated list case)
 </red>
 
 ### Implementation
@@ -292,19 +299,24 @@ if (options.UseAuthorization)
     mcpBuilder.AddAuthorizationFilters();
 return mcpBuilder;
 ```
-`WithToolsFromAssemblyUnwrappingActionResult`: remove `ToolAuthorizationStore` creation, the list filter block, and `CreateControllerWithPreFilter`; the instance path becomes
+`WithToolsFromAssemblyUnwrappingActionResult`: remove `ToolAuthorizationStore` creation, the list filter block, and `CreateControllerWithPreFilter`; both registration paths now call `ToolCreateOptionsFactory.Create(method, services, serializerOptions, options.UseAuthorization)` (was the literal `false` from block 04); the instance path becomes
 ```csharp
 AIFunctionFactory.Create(method,
     args => ActivatorUtilities.CreateInstance(args.Services!, toolType),
     new AIFunctionFactoryOptions { Name = toolName, MarshalResult = static async (r, _, _) => await MarshalResult.UnwrapAsync(r).ConfigureAwait(false), SerializerOptions = serializerOptions });
 ```
 `Program.cs`: delete the `AddScoped<IAuthForMcpSupplier,...>` and `AddScoped<IUserRoleResolver,...>` lines and the `FilterToolsByPermissions` assignment. Keep `AddMcpPocAuthorization()` (policies) and `builder.Services.AddAuthorization()` in both branches.
-E2E error assertion: `McpClientHelper` call returns the JSON-RPC error; assert `error.Message.Should().Contain("Access forbidden")` (previously `UnauthorizedAccessException` text) — update the expected strings in `PolicyAuthorizationTests`.
+E2E error assertion: the custom pre-filter used to throw inside the tool, which the SDK turned into a `CallToolResult { IsError = true }`; the SDK authorization filter instead throws `McpProtocolException("Access forbidden: This tool requires authorization.", McpErrorCode.InvalidRequest)` in the request pipeline, so the server answers with a JSON-RPC error and `McpClient.CallToolAsync` (called unwrapped by `McpClientHelper.CallToolAsync`) throws `ModelContextProtocol.McpProtocolException` on the client. Rewrite the forbidden cases in `tests/McpPoc.Api.Tests/PolicyAuthorizationTests.cs` (Member→update, Manager→promote_to_manager, Member→promote_to_manager, Viewer→create) as:
+```csharp
+Func<Task> act = () => _memberClient.CallToolAsync("update", args);
+await act.Should().ThrowAsync<McpProtocolException>().WithMessage("*Access forbidden*");
+```
+The allowed cases keep `result.IsError.Should().NotBe(true)`.
 
 <success>
 - [ ] The four library files and two demo files are deleted; library public surface reduced accordingly
 - [ ] Unit tests green; E2E PolicyAuthorizationTests + ToolVisibilityTests green with Keycloak
-- [ ] `Auth:Enabled=false` run of the demo lists and invokes every tool without a token (manual check: `dotnet run --project src/McpPoc.Api` with `Auth__Enabled=false`, `tools/list` returns all 8 tools)
+- [ ] `Auth:Enabled=false` run of the demo lists and invokes every tool without a token (manual check: `dotnet run --project src/McpPoc.Api` with `Auth__Enabled=false`, `tools/list` returns all 9 tools)
 - [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
@@ -347,7 +359,7 @@ internal static class ToolsListCacheHintFilter
 if (options.ToolsListTimeToLive is not null)
     mcpBuilder.WithRequestFilters(f => f.AddListToolsFilter(next => ToolsListCacheHintFilter.Apply(next, options.ToolsListTimeToLive, options.UseAuthorization)));
 ```
-The pure part is extracted as `internal static void Stamp(ListToolsResult result, TimeSpan? ttl, bool useAuthorization)` and `Apply` calls it after `next`. Unit tests target `Stamp` with `new ListToolsResult { Tools = [new Tool { Name = "a" }] }`; the "calls next exactly once" test targets `Apply` with a counting `next` lambda and a context obtained from a real `McpServer` created over an in-memory `Pipe` transport (`McpServer.Create(new StreamServerTransport(...))`). `Apply` is also covered end-to-end. Demo `Program.cs`: `options.ToolsListTimeToLive = TimeSpan.FromMinutes(5);`.
+The pure part is extracted as `internal static void Stamp(ListToolsResult result, TimeSpan? ttl, bool useAuthorization)` and `Apply` calls it after `next`. Unit tests target `Stamp` with `new ListToolsResult { Tools = [new Tool { Name = "a" }] }`; the "calls next exactly once" test targets `Apply` with a counting `next` lambda and a context obtained from a real `McpServer` created over an in-memory `Pipe` transport: `var server = McpServer.Create(new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()), new McpServerOptions());` then `new RequestContext<ListToolsRequestParams>(server, new JsonRpcRequest { Method = "tools/list" })` — note `serverOptions` is a required parameter of `McpServer.Create` in 2.2.0 (`Create(ITransport transport, McpServerOptions serverOptions, ILoggerFactory? = null, IServiceProvider? = null)`). `Apply` is also covered end-to-end. Demo `Program.cs`: `options.ToolsListTimeToLive = TimeSpan.FromMinutes(5);`.
 
 <success>
 - [ ] Unit tests on `Stamp` green; E2E TTL test green
@@ -378,7 +390,7 @@ Files: `src/Zero.Mcp.Extensions/ZeroMcpOptions.cs`, `McpServerBuilderExtensions.
 
 <success>
 - [ ] All new E2E tests green with Keycloak
-- [ ] Demo still works via Claude Code `.mcp.json` `poc` server after `dotnet run` (manual: `tools/list` returns 8 tools)
+- [ ] Demo still works via Claude Code `.mcp.json` `poc` server after `dotnet run` (manual: `tools/list` returns 9 tools)
 - [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>

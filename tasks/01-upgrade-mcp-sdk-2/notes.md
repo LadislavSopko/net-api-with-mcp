@@ -66,7 +66,8 @@ Tests: E2E (PolicyAuthorizationTests, ToolVisibilityTests, McpToolInvocationTest
 - [x] Requirements gathered
 - [x] Code analyzed
 - [x] Solution proposed
-- [x] Plan created (tasks/01-upgrade-mcp-sdk-2/plan.md, 9 blocks, j-review-plan approved, CVM parsePlan valid 57/57 red lines)
+- [x] Plan created (tasks/01-upgrade-mcp-sdk-2/plan.md, 9 blocks)
+- [x] Plan reviewed twice (2026-09-14). Second review (vs-mcp + SDK v2.2.0 source cross-check) fixed: block 04 must wire `includeAuthorization: false` because SDK `WithHttpTransport` installs authorization guard filters that throw when `[Authorize]` metadata is present without `AddAuthorizationFilters()`; block 06 `McpServer.Create` needs the required `McpServerOptions` argument; block 05 forbidden-call E2E asserts a thrown `McpProtocolException` (SDK filter → JSON-RPC error), not `IsError`; filter-count RED tests use exact counts (SDK list guard is always present); real tool names are `UserGetById` + 8 snake_case incl. `echo_headers` (9 tools). Measured baseline: E2E 45/56 (11 stale-expectation failures fixed in block 01). Constraint from user: MCP authorization must follow the BE endpoint rules exactly — satisfied by SDK AddAuthorizationFilters evaluating the controller's own [Authorize]/[AllowAnonymous]/policies through the host IAuthorizationService.
 - [ ] Development done
 - [ ] Tested
 - [ ] Deployed
