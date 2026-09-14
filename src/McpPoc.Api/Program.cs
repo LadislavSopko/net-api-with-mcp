@@ -5,12 +5,13 @@ using Scalar.AspNetCore;
 using Serilog;
 using ModelContextProtocol.AspNetCore;
 using Zero.Mcp.Extensions;
+using AppLog = McpPoc.Api.Infrastructure.Log;
 
 // Configure Serilog for file logging
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
-    .WriteTo.Console()
-    .WriteTo.File("logs/mcppoc-.log", rollingInterval: RollingInterval.Day)
+    .WriteTo.Console(formatProvider: System.Globalization.CultureInfo.InvariantCulture)
+    .WriteTo.File("logs/mcppoc-.log", formatProvider: System.Globalization.CultureInfo.InvariantCulture, rollingInterval: RollingInterval.Day)
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
@@ -52,17 +53,15 @@ if (authEnabled)
             {
                 OnAuthenticationFailed = context =>
                 {
-                    context.HttpContext.RequestServices
-                        .GetRequiredService<ILogger<Program>>()
-                        .LogError(context.Exception, "Authentication failed");
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                    AppLog.AuthenticationFailed(logger, context.Exception);
                     return Task.CompletedTask;
                 },
                 OnTokenValidated = context =>
                 {
-                    context.HttpContext.RequestServices
-                        .GetRequiredService<ILogger<Program>>()
-                        .LogInformation("Token validated for user: {User}",
-                            context.Principal?.Identity?.Name ?? "Unknown");
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                    var userName = context.Principal?.Identity?.Name ?? "Unknown";
+                    AppLog.TokenValidated(logger, userName);
                     return Task.CompletedTask;
                 }
             };
@@ -126,12 +125,12 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapZeroMcp();  // Uses configuration from AddZeroMcpExtensions
 
-app.Logger.LogInformation("===========================================");
-app.Logger.LogInformation("MCP POC API");
-app.Logger.LogInformation("HTTP API: http://127.0.0.1:5001/api/users");
-app.Logger.LogInformation("MCP Endpoint: http://127.0.0.1:5001/mcp");
-app.Logger.LogInformation("Scalar UI: http://127.0.0.1:5001/scalar");
-app.Logger.LogInformation("===========================================");
+AppLog.BannerSeparator(app.Logger);
+AppLog.BannerTitle(app.Logger);
+AppLog.BannerHttpApi(app.Logger);
+AppLog.BannerMcpEndpoint(app.Logger);
+AppLog.BannerScalarUi(app.Logger);
+AppLog.BannerSeparator(app.Logger);
 
 app.Run();
 

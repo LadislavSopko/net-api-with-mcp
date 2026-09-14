@@ -1,9 +1,10 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace McpPoc.Api.Tests;
 
 [Collection("McpApi")]
-public class DIScopingTests : IAsyncLifetime
+public sealed class DIScopingTests : IAsyncLifetime
 {
     private readonly McpApiFixture _fixture;
     private McpClientHelper _mcpClient = null!;
@@ -90,7 +91,7 @@ public class DIScopingTests : IAsyncLifetime
 
         // Act - Call with small delay to ensure different timestamps
         var result1 = await _mcpClient.CallToolAsync("get_scope_id");
-        await Task.Delay(10); // Small delay to ensure different timestamps
+        await Task.Delay(10, TestContext.Current.CancellationToken); // Small delay to ensure different timestamps
         var result2 = await _mcpClient.CallToolAsync("get_scope_id");
 
         // Assert
@@ -100,8 +101,8 @@ public class DIScopingTests : IAsyncLifetime
         var json1 = JsonSerializer.Deserialize<JsonElement>(textBlock1.Text);
         var json2 = JsonSerializer.Deserialize<JsonElement>(textBlock2.Text);
 
-        var createdAt1 = DateTime.Parse(json1.GetProperty("created_at").GetString()!);
-        var createdAt2 = DateTime.Parse(json2.GetProperty("created_at").GetString()!);
+        var createdAt1 = DateTime.Parse(json1.GetProperty("created_at").GetString()!, CultureInfo.InvariantCulture);
+        var createdAt2 = DateTime.Parse(json2.GetProperty("created_at").GetString()!, CultureInfo.InvariantCulture);
 
         createdAt2.Should().BeAfter(createdAt1,
             "second instance should be created after the first, proving they are separate instances");

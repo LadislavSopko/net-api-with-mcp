@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Zero.Mcp.Extensions;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
-using Microsoft.Extensions.Primitives;
+using McpPoc.Api.Infrastructure;
 
 namespace McpPoc.Api.Controllers;
 
@@ -43,10 +43,10 @@ public class UsersController : ControllerBase
     [McpServerTool(Name = "UserGetById", UseStructuredContent = true, OutputSchemaType = typeof(User)), Description("Gets a user by their ID")]  // ← TESTING THIS!
     public async Task<ActionResult<User>> GetById(int id)
     {
-        _logger.LogInformation("GetById called with id: {Id} call done by mcp: {isMcp}", id, _mcpContext.IsMcpCall);
+        Log.GetByIdCalled(_logger, id, _mcpContext.IsMcpCall);
 
 
-        var user = await _userService.GetByIdAsync(id);
+        var user = await _userService.GetByIdAsync(id).ConfigureAwait(false);
 
         if (user == null)
         {
@@ -63,9 +63,9 @@ public class UsersController : ControllerBase
     [McpServerTool, Description("Gets all users")]  // ← TESTING THIS!
     public async Task<ActionResult<List<User>>> GetAll()
     {
-        _logger.LogInformation("GetAll called");
+        Log.GetAllCalled(_logger);
 
-        var users = await _userService.GetAllAsync();
+        var users = await _userService.GetAllAsync().ConfigureAwait(false);
         return Ok(users);
     }
 
@@ -78,9 +78,9 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<User>> Create(
         [Description("User creation data")] CreateUserRequest request)
     {
-        _logger.LogInformation("Create called with name: {Name}, email: {Email}", request.Name, request.Email);
+        Log.CreateCalled(_logger, request.Name, request.Email);
 
-        var user = await _userService.CreateAsync(request.Name, request.Email);
+        var user = await _userService.CreateAsync(request.Name, request.Email).ConfigureAwait(false);
         return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
     }
 
@@ -94,9 +94,9 @@ public class UsersController : ControllerBase
         int id,
         [Description("User update data")] UpdateUserRequest request)
     {
-        _logger.LogInformation("Update called for id: {Id}", id);
+        Log.UpdateCalled(_logger, id);
 
-        var user = await _userService.GetByIdAsync(id);
+        var user = await _userService.GetByIdAsync(id).ConfigureAwait(false);
         if (user == null)
         {
             return NotFound(new { error = "User not found", id });
@@ -116,9 +116,9 @@ public class UsersController : ControllerBase
     [Authorize(Policy = PolicyNames.RequireAdmin)]
     public async Task<ActionResult<User>> PromoteToManager(int id)
     {
-        _logger.LogInformation("Promote called for id: {Id}", id);
+        Log.PromoteCalled(_logger, id);
 
-        var user = await _userService.GetByIdAsync(id);
+        var user = await _userService.GetByIdAsync(id).ConfigureAwait(false);
         if (user == null)
         {
             return NotFound(new { error = "User not found", id });
@@ -136,7 +136,7 @@ public class UsersController : ControllerBase
     [McpServerTool, Description("Returns the current request scope ID for DI testing")]
     public ActionResult<ScopeIdResponse> GetScopeId()
     {
-        _logger.LogInformation("GetScopeId called - RequestId: {RequestId}", _scopedTracker.RequestId);
+        Log.GetScopeIdCalled(_logger, _scopedTracker.RequestId);
 
         var response = new ScopeIdResponse(
             _scopedTracker.RequestId,
@@ -173,10 +173,7 @@ public class UsersController : ControllerBase
     {
         var xMcpCallHeader = _mcpContext.GetHeader("x-mcp-call");
 
-        _logger.LogInformation(
-            "GetMcpContext called - IsMcpCall: {IsMcpCall}, x-mcp-call: {XMcpCall}",
-            _mcpContext.IsMcpCall,
-            xMcpCallHeader);
+        Log.GetMcpContextCalled(_logger, _mcpContext.IsMcpCall, xMcpCallHeader);
 
         return Ok(new McpContextInfo(
             _mcpContext.IsMcpCall,
@@ -194,15 +191,15 @@ public class UsersController : ControllerBase
     {
         var assembly = typeof(UsersController).Assembly;
         var toolTypes = assembly.GetTypes()
-            .Where(t => t.GetCustomAttributes(typeof(McpServerToolTypeAttribute), false).Any())
+            .Where(t => t.GetCustomAttributes(typeof(McpServerToolTypeAttribute), false).Length > 0)
             .Select(t => t.FullName ?? t.Name)
             .ToList();
 
         var toolMethods = new List<string>();
-        foreach (var type in assembly.GetTypes().Where(t => t.GetCustomAttributes(typeof(McpServerToolTypeAttribute), false).Any()))
+        foreach (var type in assembly.GetTypes().Where(t => t.GetCustomAttributes(typeof(McpServerToolTypeAttribute), false).Length > 0))
         {
             var methods = type.GetMethods()
-                .Where(m => m.GetCustomAttributes(typeof(McpServerToolAttribute), false).Any())
+                .Where(m => m.GetCustomAttributes(typeof(McpServerToolAttribute), false).Length > 0)
                 .Select(m => $"{type.Name}.{m.Name}");
             toolMethods.AddRange(methods);
         }
@@ -237,8 +234,7 @@ public class UsersController : ControllerBase
             }
         }
 
-        _logger.LogInformation("EchoHeaders called - IsMcpCall: {IsMcpCall}, HeaderCount: {Count}",
-            _mcpContext.IsMcpCall, headers.Count);
+        Log.EchoHeadersCalled(_logger, _mcpContext.IsMcpCall, headers.Count);
 
         return Ok(new EchoHeadersResponse(_mcpContext.IsMcpCall, headers));
     }
@@ -249,7 +245,7 @@ public class UsersController : ControllerBase
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id)
     {
-        _logger.LogInformation("Delete called (NOT an MCP tool) with id: {Id}", id);
+        Log.DeleteCalled(_logger, id);
         return Task.FromResult((IActionResult)NoContent());
     }
 }

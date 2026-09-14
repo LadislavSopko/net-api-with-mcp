@@ -5,7 +5,7 @@ namespace McpPoc.Api.Tests;
 /// Verifies that tools/list only returns tools the user is authorized to invoke.
 /// </summary>
 [Collection("McpApi")]
-public class ToolVisibilityTests : IAsyncLifetime
+public sealed class ToolVisibilityTests : IAsyncLifetime
 {
     private readonly McpApiFixture _fixture;
     private McpClientHelper _viewerClient = null!;
@@ -70,7 +70,7 @@ public class ToolVisibilityTests : IAsyncLifetime
         var toolNames = tools.Select(t => t.Name).ToArray();
 
         // Assert - Member (role 1) should see base tools + create
-        var expected = BaseTools.Concat(new[] { "create" }).ToArray();
+        string[] expected = [.. BaseTools, "create"];
         toolNames.Should().BeEquivalentTo(expected,
             "Member should see base tools and create");
     }
@@ -83,7 +83,7 @@ public class ToolVisibilityTests : IAsyncLifetime
         var toolNames = tools.Select(t => t.Name).ToArray();
 
         // Assert - Manager (role 2) should see base tools + create + update
-        var expected = BaseTools.Concat(new[] { "create", "update" }).ToArray();
+        string[] expected = [.. BaseTools, "create", "update"];
         toolNames.Should().BeEquivalentTo(expected,
             "Manager should see base tools, create, and update");
     }
@@ -96,7 +96,7 @@ public class ToolVisibilityTests : IAsyncLifetime
         var toolNames = tools.Select(t => t.Name).ToArray();
 
         // Assert - Admin (role 3) should see all 9 tools
-        var expected = BaseTools.Concat(new[] { "create", "update", "promote_to_manager" }).ToArray();
+        string[] expected = [.. BaseTools, "create", "update", "promote_to_manager"];
         toolNames.Should().BeEquivalentTo(expected,
             "Admin should see all tools");
     }

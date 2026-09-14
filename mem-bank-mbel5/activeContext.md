@@ -11,7 +11,7 @@
 @version::2.1.0{released}→?3.0.0{target}
 @status::Phase8-Upgrade{PLAN-approved:DEVELOP-not-started}
 
-⚡phase8::UpgradeToSdk2.2.0{DEVELOP:7/9-blocks:run-20260914-1620}
+⚡phase8::UpgradeToSdk2.2.0{DEVELOP:8/9-blocks:run-20260914-1620}
 ✅block01::migrate-test-stack-and-deps{COMPLETE:xunit.v3+AwesomeAssertions+NSubstitute}✅
 ✅phase7::ToolNaming+McpContext{COMPLETE:9-blocks:131-tests}✅
 ✅upgrade::.NET10{9.0→10.0:complete}✅
@@ -25,7 +25,7 @@
 >verified::lint{error-severity-EXIT0:IDE0005-cleared:TreatWarningsAsErrors:false}✅
 >verified::docker{keycloak:8080:postgres:15432}✅
 >verified::3rdp-sdk{gitlink-v2.2.0:signature-extraction-OK}✅
->staged::cvm-exec{id:run-20260914-1620:block-02-complete}✅
+>staged::cvm-exec{id:run-20260914-1620:block-08-complete}✅
 >completed::block05{SDK-AddAuthorizationFilters:deleted-9-auth-classes:kept-MarshalResult:tests-unit90+E2E53}✅
 
 [PHASE8_DECISIONS]{user-approved:2026-09-14}
@@ -42,7 +42,7 @@
 @deps::Microsoft.*§10.0.12+Scalar§2.17.3+SourceLink§10.0.401+Test.Sdk§18.10.0
 @3rdp::csharp-sdk{gitlink:v0.6.0-preview.1→v2.2.0}
 @version::3.0.0{breaking}
-@lint::close-debt-in-block-08{TreatWarningsAsErrors:true}
+@lint::STRICT{TreatWarningsAsErrors:true:0-warnings-all-4-projects:dotnet-format-exit-0}✅
 
 [PHASE8_BLOCKS]
 ✅01::migrate-test-stack-and-deps{COMPLETE}✅
@@ -52,8 +52,8 @@
 ✅05::replace-custom-auth-with-sdk-filters{COMPLETE:AddAuthorizationFilters()-via-SDK:delete-IAuthForMcpSupplier/PreFilter/ToolListFilter/IUserRoleResolver:SDK-reading-[Authorize]/policies-from-Metadata:tools/list-filtered+tools/call→McpProtocolException:unit90+E2E53:CA2007×12+CA1310×4+IDE0005×4-remaining}✅
 ✅06::tools-list-cache-hints{COMPLETE:ZeroMcpOptions.ToolsListTimeToLive(TimeSpan?:default-null):ToolsListCacheHintFilter.cs(internal:Apply+Stamp):registered-LAST-via-WithRequestFilters-after-AddAuthorizationFilters:cacheScope=private-when-UseAuthorization-else-public:wire=ttlMs+cacheScope:demo=5min:6-tests}✅
 ✅07::stateless-and-output-schema-e2e{COMPLETE:ZeroMcpOptions.SessionMode(HttpServerSessionMode:default-Stateless)→WithHttpTransport(o=>o.SessionMode):demo-config-key=Mcp:SessionMode:GetById=[McpServerTool(Name=UserGetById,UseStructuredContent=true,OutputSchemaType=typeof(User))]:outputSchema-emitted-ONLY-with-UseStructuredContent=true(SDK-CreateOutputSchema):IsMcpCall=TRUE-inside-tools-under-stateless(old-limitation-was-a-test-bug:snake_case-deserialization):TransportModeTests(stateless-no-Mcp-Session-Id+stateful-issues-Mcp-Session-Id):6-tests}✅
-⚡08::close-lint-debt-and-enable-gate{NEXT}
-?09::release-3-0-0
+✅08::close-lint-debt-and-enable-gate{COMPLETE:Directory.Build.props=TreatWarningsAsErrors:true+WarningsNotAsErrors-removed:.editorconfig-TODO-block-removed+[tests/**.cs]-section(CA1707/CA1822/CA2007=none:by-design):library=ConfigureAwait+StringComparison.Ordinal+usings:demo=Infrastructure/Log.cs(27-LoggerMessage-methods:AppLog-alias-in-Program.cs)+ConfigureAwait+CA1305-InvariantCulture+CA1860:tests=sealed-fixtures+TestContext.Current.CancellationToken+cached-JsonSerializerOptions+McpApiCollectionDefinition-rename:GenerateDocumentationFile=true+NoWarn-CS1591-in-demo+tests:j-settings-@lint-debt=none}✅
+⚡09::release-3-0-0{NEXT}
 
 [SDK_2.2.0_FACTS]{verified-on-source}
 @filters::WithRequestFilters(f=>f.AddListToolsFilter|AddCallToolFilter){AddXxxFilter-on-builder:REMOVED}
@@ -70,7 +70,7 @@
 @nuget::Zero.Mcp.Extensions{2.0.0+2.1.0:743-dl:0-issues:0-PRs}
 
 [NEXT]
-!next::block-08-close-lint-debt-and-enable-gate{fix-CA2007x12+CA1310x4+IDE0005x4-in-library+xUnit1051-in-tests:TreatWarningsAsErrors=true:remove-WarningsNotAsErrors+editorconfig-TODO:RED=strict-build-must-fail-then-pass:3-tests}
+!next::block-09-release-3-0-0{Version.props=3.0.0:README-rewrite(SDK-attrs+AddAuthorization+migration-from-2.x):CHANGELOG.md:PackageTests(Version.Major==3+SDK-2-dependency+README-grep):MB-final:3-tests}
 ?then::j-close{merge-direct→main:publish-nuget.sh}
 ?later::git-crypt.key{delete-from-root-after-saving}
 ?later::ast-grep{install-for-lint-layer-2}

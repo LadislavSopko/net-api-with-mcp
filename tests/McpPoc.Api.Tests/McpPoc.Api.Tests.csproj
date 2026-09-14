@@ -10,6 +10,9 @@
     <OutputType>Exe</OutputType>
     <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
     <GenerateProgramFile>false</GenerateProgramFile>
+    <!-- IDE0005 (unused usings) only runs in build with XML docs enabled; tests do not document members (CS1591). -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

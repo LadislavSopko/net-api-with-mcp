@@ -1,13 +1,9 @@
 using System.Reflection;
-using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using ModelContextProtocol.AspNetCore;
-using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Zero.Mcp.Extensions;
@@ -104,7 +100,7 @@ public static class McpServerBuilderExtensions
                             new AIFunctionFactoryOptions
                             {
                                 Name = toolName,
-                                MarshalResult = async (result, resultType, ct) => await MarshalResult.UnwrapAsync(result),
+                                MarshalResult = static async (result, _, _) => await MarshalResult.UnwrapAsync(result).ConfigureAwait(false),
                                 SerializerOptions = serializerOptions
                             });
                         return McpServerTool.Create(aiFunction,
@@ -125,7 +121,7 @@ public static class McpServerBuilderExtensions
                             new AIFunctionFactoryOptions
                             {
                                 Name = toolNameCopy,
-                                MarshalResult = async (result, resultType, ct) => await MarshalResult.UnwrapAsync(result),
+                                MarshalResult = static async (result, _, _) => await MarshalResult.UnwrapAsync(result).ConfigureAwait(false),
                                 SerializerOptions = serializerOptions
                             });
 
@@ -193,7 +189,7 @@ public static class McpEndpointExtensions
                 context.Request.Headers[McpRequestContext.McpCallHeaderName] = "true";
             }
 
-            await next();
+            await next().ConfigureAwait(false);
         });
     }
 
@@ -215,7 +211,7 @@ public static class McpEndpointExtensions
             // Add x-mcp-call header (modifying request headers)
             httpContext.Request.Headers[McpRequestContext.McpCallHeaderName] = "true";
 
-            return await next(context);
+            return await next(context).ConfigureAwait(false);
         });
     }
 }

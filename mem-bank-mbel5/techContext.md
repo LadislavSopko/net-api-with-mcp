@@ -13,7 +13,7 @@
 [DEV_TOOLING]{2026-09-14}
 @ai-agent::.ai-agent{submodule:LadislavSopko/ai-agent-lite§2.22.1:.claude/*→symlinks}
 @junior-workflow::j-settings.md{tddab+csharp-overlay+net10-mindset+vs-mcp+xmp4}
-@lint::sgconfig.yml+.editorconfig+Directory.Build.props{analyzers:latest-recommended:TreatWarningsAsErrors:false-TEMP}
+@lint::sgconfig.yml+.editorconfig+Directory.Build.props{analyzers:latest-recommended:TreatWarningsAsErrors:TRUE-since-phase8-block-08:CA2007/CS8618/CA1849/IDE0005=error:[tests/**.cs]CA1707/CA1822/CA2007=none-by-design:GenerateDocumentationFile=true+NoWarn-CS1591-outside-library:ast-grep-not-installed→skip-exit-3}✅
 @lint-astgrep::NOT-installed{layer-2-skipped}
 @secrets::git-crypt{.00-secrets/:.mcp.json(symlinked-to-root)+.nuget-api-key:runbook:docs/git-encryption.md}!
 @test-framework::xunit.v3{namespace:Xunit|AwesomeAssertions|NSubstitute:IAsyncLifetime→ValueTask:OutputHelper∈Xunit:runner∈json-config}

@@ -9,6 +9,11 @@ dotnet_diagnostic.IDE0005.severity = error   # unnecessary usings
 # Test method naming from csharp-senior_10.md: Should_<Outcome>_When<Condition>
 dotnet_naming_style.should_when.capitalization = pascal_case
 
-# TODO(lint-debt): temporary downgrade until existing code is cleaned up; delete this block afterwards.
-dotnet_diagnostic.CA2007.severity = warning
-dotnet_diagnostic.IDE0005.severity = warning
+# Test projects: conventions that intentionally differ from library code.
+[tests/**.cs]
+# Test names follow Should_<Outcome>_When<Condition> (mandated above) — underscores are the convention, not a smell.
+dotnet_diagnostic.CA1707.severity = none
+# Fixture tool methods are deliberately INSTANCE methods: they exercise the instance-tool registration path.
+dotnet_diagnostic.CA1822.severity = none
+# ConfigureAwait(false) carries no meaning in xunit test bodies (no synchronization context).
+dotnet_diagnostic.CA2007.severity = none

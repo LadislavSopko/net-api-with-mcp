@@ -19,11 +19,11 @@ public class HttpCoexistenceTests
         var client = await _fixture.GetAuthenticatedClientAsync();
 
         // Act
-        var response = await client.GetAsync("/api/users");
+        var response = await client.GetAsync("/api/users", TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK, "HTTP API should still work");
-        var users = await response.Content.ReadFromJsonAsync<List<UserDto>>();
+        var users = await response.Content.ReadFromJsonAsync<List<UserDto>>(TestContext.Current.CancellationToken);
         users.Should().NotBeNull();
         users!.Should().HaveCountGreaterThanOrEqualTo(3);
     }
@@ -35,11 +35,11 @@ public class HttpCoexistenceTests
         var client = await _fixture.GetAuthenticatedClientAsync();
 
         // Act
-        var response = await client.GetAsync("/api/users/1");
+        var response = await client.GetAsync("/api/users/1", TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var user = await response.Content.ReadFromJsonAsync<UserDto>();
+        var user = await response.Content.ReadFromJsonAsync<UserDto>(TestContext.Current.CancellationToken);
         user.Should().NotBeNull();
         user!.Name.Should().Be("Alice Smith");
     }
@@ -51,7 +51,7 @@ public class HttpCoexistenceTests
         var client = await _fixture.GetAuthenticatedClientAsync();
 
         // Act
-        var response = await client.DeleteAsync("/api/users/1");
+        var response = await client.DeleteAsync("/api/users/1", TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NoContent, "Delete HTTP endpoint should work");

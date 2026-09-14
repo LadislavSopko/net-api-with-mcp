@@ -17,7 +17,7 @@ public class AuthenticationTests
         var unauthClient = _fixture.GetUnauthenticatedClient();
 
         // Act
-        var response = await unauthClient.GetAsync("/api/users");
+        var response = await unauthClient.GetAsync("/api/users", TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
@@ -31,7 +31,7 @@ public class AuthenticationTests
         var unauthClient = _fixture.GetUnauthenticatedClient();
 
         // Act
-        var response = await unauthClient.GetAsync("/api/users/1");
+        var response = await unauthClient.GetAsync("/api/users/1", TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
@@ -49,7 +49,7 @@ public class AuthenticationTests
             "application/json");
 
         // Act
-        var response = await unauthClient.PostAsync("/api/users", content);
+        var response = await unauthClient.PostAsync("/api/users", content, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
@@ -63,7 +63,7 @@ public class AuthenticationTests
         var unauthClient = _fixture.GetUnauthenticatedClient();
 
         // Act
-        var response = await unauthClient.DeleteAsync("/api/users/1");
+        var response = await unauthClient.DeleteAsync("/api/users/1", TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized,

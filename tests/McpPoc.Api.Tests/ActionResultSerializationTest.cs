@@ -22,7 +22,7 @@ public class ActionResultSerializationTest
         ActionResult<string> actionResult = new OkObjectResult("Hello World");
 
         // Serialize it the way MCP SDK does at line 286
-        var json = JsonSerializer.Serialize(actionResult, typeof(object));
+        var json = JsonSerializer.Serialize<object>(actionResult);
 
         // Output to xUnit test output
         _output.WriteLine($"Serialized ActionResult: {json}");
@@ -49,7 +49,7 @@ public class ActionResultSerializationTest
         var okResult = new OkObjectResult(new { Name = "Alice", Id = 1 });
 
         // Serialize it
-        var json = JsonSerializer.Serialize(okResult, typeof(object));
+        var json = JsonSerializer.Serialize<object>(okResult);
 
         _output.WriteLine($"Serialized OkObjectResult: {json}");
 

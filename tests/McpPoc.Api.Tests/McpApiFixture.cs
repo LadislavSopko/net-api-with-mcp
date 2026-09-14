@@ -77,6 +77,6 @@ public class McpApiFixture : WebApplicationFactory<Program>
 /// Collection fixture for sharing test context
 /// </summary>
 [CollectionDefinition("McpApi")]
-public class McpApiCollection : ICollectionFixture<McpApiFixture>
+public sealed class McpApiCollectionDefinition : ICollectionFixture<McpApiFixture>
 {
 }

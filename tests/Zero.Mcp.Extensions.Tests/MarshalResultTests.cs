@@ -215,7 +215,7 @@ public class MarshalResultTests
         result.Should().Be(plainString);
     }
 
-    private record TestUser
+    private sealed record TestUser
     {
         public Guid Id { get; init; }
         public string Name { get; init; } = string.Empty;

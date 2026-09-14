@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace McpPoc.Api.Tests;
 
 [Collection("McpApi")]
-public class McpToolInvocationTests : IAsyncLifetime
+public sealed class McpToolInvocationTests : IAsyncLifetime
 {
     private readonly McpApiFixture _fixture;
     private McpClientHelper _mcpClient = null!;

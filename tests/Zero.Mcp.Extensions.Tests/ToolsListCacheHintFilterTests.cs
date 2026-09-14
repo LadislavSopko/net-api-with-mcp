@@ -69,7 +69,7 @@ public class ToolsListCacheHintFilterTests
         await using var server = McpServer.Create(
             new StreamServerTransport(pipeIn.Reader.AsStream(), pipeOut.Writer.AsStream()),
             new McpServerOptions());
-        var context = new RequestContext<ListToolsRequestParams>(server, new JsonRpcRequest { Method = "tools/list" });
+        var context = new RequestContext<ListToolsRequestParams>(server, new JsonRpcRequest { Method = "tools/list" }, new ListToolsRequestParams());
 
         var handler = ToolsListCacheHintFilter.Apply(next, TimeSpan.FromSeconds(30), useAuthorization: false);
         var result = await handler(context, TestContext.Current.CancellationToken);

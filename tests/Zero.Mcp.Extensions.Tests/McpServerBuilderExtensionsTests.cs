@@ -330,7 +330,7 @@ public class McpServerBuilderExtensionsTests
 
 // Test controller for async method tests
 [McpServerToolType]
-internal class AsyncMethodTestController
+internal sealed class AsyncMethodTestController
 {
     [McpServerTool]
     public void GetById() { }
@@ -356,7 +356,7 @@ internal class AsyncMethodTestController
 
 // Test controller with static method for testing static method registration
 [McpServerToolType]
-internal class StaticMethodTestController
+internal sealed class StaticMethodTestController
 {
     [McpServerTool]
     public static string StaticTestTool()
@@ -367,7 +367,7 @@ internal class StaticMethodTestController
 
 // Test controller for explicit name override testing
 [McpServerToolType]
-internal class ExplicitNameTestController
+internal sealed class ExplicitNameTestController
 {
     [McpServerTool(Name = "my_explicit_name")]
     public string MyTool()
@@ -379,7 +379,7 @@ internal class ExplicitNameTestController
 // Fixture decorated with the official SDK attributes (ModelContextProtocol.Server) for scanning tests.
 [Authorize]
 [McpServerToolType]
-internal class SdkScanFixture
+internal sealed class SdkScanFixture
 {
     [McpServerTool, Description("one")]
     public static string SdkToolOne() => "1";
@@ -401,7 +401,7 @@ public interface IGreeter
 // Instance-tool fixture: constructor dependency resolved through ActivatorUtilities, plus a policy-protected tool.
 [Authorize]
 [McpServerToolType]
-internal class DiScanFixture(IGreeter greeter)
+internal sealed class DiScanFixture(IGreeter greeter)
 {
     [McpServerTool(Name = "greet"), Description("greets")]
     public string Greet() => greeter.Greet();

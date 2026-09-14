@@ -2,18 +2,18 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [STATUS]
-⚡phase8::UpgradeToSdk2.2.0{DEVELOP:7/9-blocks:run-20260914-1620:feature/laco/upgrade}
+⚡phase8::UpgradeToSdk2.2.0{DEVELOP:8/9-blocks:run-20260914-1620:feature/laco/upgrade}
 ✅upgrade::.NET10{9.0→10.0.100:complete+verified}✅!
 ✅phase5::COMPLETE{library-extraction:Zero.Mcp.Extensions-v2.0.0}✅
 ✅phase7::COMPLETE{ToolNaming+McpContext:v2.1.0}✅!
 ✗phase6::RoleBasedToolFiltering{SUPERSEDED←SDK-AddAuthorizationFilters}
 @tests::131/131{100%}✅{75-unit+56-E2E}
 @version::2.1.0✅→?3.0.0
-@lint-gate::staged{warnings-only:~36-findings:closed-in-phase8-block-08}⚠
+@lint-gate::STRICT{TreatWarningsAsErrors:true:0-warnings:closed-phase8-block-08}✅
 @security-audit::NU1903{Microsoft.OpenApi-2.0.0-high+SourceLink-10.0.102-moderate}→fixed-in-phase8-block-01
 @infra::.ai-agent-submodule+git-crypt(.00-secrets/)+j-settings.md✅
 
-[PHASE8_PLAN]{2026-09-14:7/9-blocks}
+[PHASE8_PLAN]{2026-09-14:8/9-blocks}
 @plan::tasks/01-upgrade-mcp-sdk-2/plan.md{9-blocks:57-tests:reviewed✓}
 ✅block01::test-stack+deps{xunit.v3§4.0.1+AwesomeAssertions§9.6.0+NSubstitute§6.2.0+deps:unit77+E2E56}✅
 ✅block02::ToolMetadataBuilder{7-tests:unit84+E2E56}✅
@@ -22,8 +22,8 @@
 ✅block05::AddAuthorizationFilters{SDK-filters:delete-IAuthForMcpSupplier/PreFilter/ToolListFilter/IUserRoleResolver:tools/list-filtered:tools/call→McpProtocolException:unit90+E2E53}✅
 ✅block06::ToolsListTimeToLive{ttlMs+cacheScope:Private|Public:6-tests:unit95+E2E54}✅
 ✅block07::Stateless+OutputSchemaType-E2E{6-tests:unit96+E2E59:IsMcpCall-true-under-stateless}✅
-⚡block08::lint-debt+TreatWarningsAsErrors:true{3-tests:NEXT}
-?block09::v3.0.0{README+CHANGELOG+pack:3-tests}
+✅block08::lint-debt+TreatWarningsAsErrors:true{unit96+E2E59:0-warnings-4-projects}✅
+⚡block09::v3.0.0{README+CHANGELOG+pack:3-tests:NEXT}
 
 [METRICS]
 @tests::131/131{100%:ALL-PASSING}✅!

@@ -6,7 +6,7 @@ namespace McpPoc.Api.Tests;
 /// <summary>
 /// Helper for making MCP protocol requests using the official SDK
 /// </summary>
-public class McpClientHelper : IAsyncDisposable
+public sealed class McpClientHelper : IAsyncDisposable
 {
     private readonly HttpClient _httpClient;
     private McpClient? _client;

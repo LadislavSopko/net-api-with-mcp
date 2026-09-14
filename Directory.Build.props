@@ -31,12 +31,9 @@
   <!-- Layer-1 native lint gate (Roslyn analyzers), added by j-setup -->
   <PropertyGroup>
     <Nullable>enable</Nullable>
-    <!-- TODO(lint-debt): set to true once the ~36 analyzer findings in Zero.Mcp.Extensions are fixed (CA1848, CA2007, CA1873, CA1310, IDE0005, CA2263, CA1860). -->
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-    <!-- TEMP: NuGet audit warnings (known vulns in Microsoft.OpenApi 2.0.0 / SourceLink 10.0.102) stay warnings until the dependency bump lands. Remove this line afterwards. -->
-    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
   </PropertyGroup>
 
 </Project>

@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using NSubstitute;
 using Xunit;
 
 namespace Zero.Mcp.Extensions.Tests;
@@ -27,7 +26,7 @@ public class McpMiddlewareTests
         var client = host.GetTestClient();
 
         // Act
-        var response = await client.PostAsync("/mcp", null);
+        var response = await client.PostAsync("/mcp", null, TestContext.Current.CancellationToken);
 
         // Assert
         markerWasSet.Should().BeTrue("MCP endpoint should set the marker in Items");
@@ -48,7 +47,7 @@ public class McpMiddlewareTests
         var client = host.GetTestClient();
 
         // Act
-        var response = await client.PostAsync("/mcp", null);
+        var response = await client.PostAsync("/mcp", null, TestContext.Current.CancellationToken);
 
         // Assert
         headerValue.Should().Be("true", "MCP endpoint should add x-mcp-call header");
@@ -71,7 +70,7 @@ public class McpMiddlewareTests
         var client = host.GetTestClient();
 
         // Act - call a different endpoint
-        var response = await client.GetAsync("/other");
+        var response = await client.GetAsync("/other", TestContext.Current.CancellationToken);
 
         // Assert
         markerWasSet.Should().BeFalse("non-MCP endpoints should not have the marker");
@@ -111,7 +110,7 @@ public class McpMiddlewareTests
             })
             .Build();
 
-        await host.StartAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
         return host;
     }
 }

@@ -24,7 +24,7 @@ internal static class MarshalResult
         // Handle ValueTask wrapping
         if (result is ValueTask valueTask)
         {
-            await valueTask;
+            await valueTask.ConfigureAwait(false);
             return null;
         }
 
@@ -40,7 +40,7 @@ internal static class MarshalResult
         // Handle Task<T>
         if (result is Task task)
         {
-            await task;
+            await task.ConfigureAwait(false);
             var taskType = task.GetType();
             if (taskType.IsGenericType)
             {

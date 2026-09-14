@@ -1,5 +1,6 @@
-using Microsoft.AspNetCore.Authorization;
+using McpPoc.Api.Infrastructure;
 using McpPoc.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace McpPoc.Api.Authorization;
 
@@ -20,58 +21,53 @@ public class MinimumRoleRequirementHandler : AuthorizationHandler<MinimumRoleReq
         AuthorizationHandlerContext context,
         MinimumRoleRequirement requirement)
     {
-        _logger.LogTrace("HandleRequirementAsync called for requirement: {MinRole}", requirement.MinimumRole);
+        Log.HandleRequirementCalled(_logger, requirement.MinimumRole);
 
         if (!context.User.Identity?.IsAuthenticated ?? true)
         {
-            _logger.LogWarning("User is not authenticated");
+            Log.UserNotAuthenticated(_logger);
             return;
         }
 
-        _logger.LogTrace("User is authenticated");
+        Log.UserAuthenticated(_logger);
 
         // For POC: Get user by username from claims (username = email in our setup)
         var usernameClaim = context.User.FindFirst("preferred_username")?.Value;
         if (string.IsNullOrEmpty(usernameClaim))
         {
-            _logger.LogWarning("No preferred_username claim found in token");
+            Log.NoPreferredUsernameClaim(_logger);
             return;
         }
 
-        _logger.LogTrace("Found preferred_username claim: {Username}", usernameClaim);
+        Log.FoundPreferredUsernameClaim(_logger, usernameClaim);
 
         // Get user from service (username matches email in test setup)
-        var users = await _userService.GetAllAsync();
-        _logger.LogTrace("GetAllAsync returned {Count} users", users.Count);
+        var users = await _userService.GetAllAsync().ConfigureAwait(false);
+        Log.GetAllAsyncReturned(_logger, users.Count);
 
         foreach (var u in users)
         {
-            _logger.LogTrace("  User in list: Id={Id}, Email={Email}, Role={Role}", u.Id, u.Email, u.Role);
+            Log.UserInList(_logger, u.Id, u.Email, u.Role);
         }
 
         var user = users.FirstOrDefault(u => u.Email == usernameClaim);
 
         if (user == null)
         {
-            _logger.LogWarning("User not found in UserService for username: {Username}", usernameClaim);
+            Log.UserNotFoundForUsername(_logger, usernameClaim);
             return;
         }
 
-        _logger.LogTrace("Found user: Id={Id}, Name={Name}, Email={Email}, Role={Role}",
-            user.Id, user.Name, user.Email, user.Role);
+        Log.FoundUser(_logger, user.Id, user.Name, user.Email, user.Role);
 
         if (user.Role >= requirement.MinimumRole)
         {
-            _logger.LogInformation(
-                "User {Email} with role {Role} meets minimum role {MinRole}",
-                user.Email, user.Role, requirement.MinimumRole);
+            Log.UserMeetsMinimumRole(_logger, user.Email, user.Role, requirement.MinimumRole);
             context.Succeed(requirement);
         }
         else
         {
-            _logger.LogWarning(
-                "User {Username} with role {Role} does NOT meet minimum role {MinRole}",
-                usernameClaim, user.Role, requirement.MinimumRole);
+            Log.UserDoesNotMeetMinimumRole(_logger, usernameClaim, user.Role, requirement.MinimumRole);
         }
     }
 }

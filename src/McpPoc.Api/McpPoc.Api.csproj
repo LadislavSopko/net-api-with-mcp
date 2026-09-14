@@ -4,9 +4,11 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- IDE0005 (unused usings) only runs in build with XML docs enabled; POC API does not document every public member (CS1591). -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
- 
 
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol" />

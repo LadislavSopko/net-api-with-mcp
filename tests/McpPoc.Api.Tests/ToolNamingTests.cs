@@ -5,7 +5,7 @@ namespace McpPoc.Api.Tests;
 /// Verifies that tools are named correctly based on convention settings.
 /// </summary>
 [Collection("McpApi")]
-public class ToolNamingTests : IAsyncLifetime
+public sealed class ToolNamingTests : IAsyncLifetime
 {
     private readonly McpApiFixture _fixture;
     private McpClientHelper _mcpClient = null!;

@@ -46,7 +46,7 @@ public static class ToolNameGenerator
         var name = controllerType.Name;
 
         // Remove "Controller" suffix if present
-        if (name.EndsWith("Controller"))
+        if (name.EndsWith("Controller", StringComparison.Ordinal))
         {
             name = name.Substring(0, name.Length - "Controller".Length);
         }
@@ -69,7 +69,7 @@ public static class ToolNameGenerator
     /// </summary>
     private static string StripAsyncSuffix(string methodName)
     {
-        if (methodName.EndsWith("Async") && methodName.Length > 5)
+        if (methodName.EndsWith("Async", StringComparison.Ordinal) && methodName.Length > 5)
         {
             return methodName.Substring(0, methodName.Length - 5);
         }

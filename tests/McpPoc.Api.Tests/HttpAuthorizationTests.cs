@@ -20,11 +20,11 @@ public class HttpAuthorizationTests
         var request = new { name = "Test User", email = "test@example.com" };
 
         // Act
-        var response = await client.PostAsJsonAsync("/api/users", request);
+        var response = await client.PostAsJsonAsync("/api/users", request, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created, "Member (Alice) should be able to create users via HTTP");
-        var user = await response.Content.ReadFromJsonAsync<UserDto>();
+        var user = await response.Content.ReadFromJsonAsync<UserDto>(TestContext.Current.CancellationToken);
         user.Should().NotBeNull();
         user!.Name.Should().Be("Test User");
     }
@@ -37,7 +37,7 @@ public class HttpAuthorizationTests
         var request = new { name = "Updated Name", email = "updated@example.com" };
 
         // Act
-        var response = await client.PutAsJsonAsync("/api/users/1", request);
+        var response = await client.PutAsJsonAsync("/api/users/1", request, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK, "Manager (Bob) should be able to update users via HTTP");
@@ -51,7 +51,7 @@ public class HttpAuthorizationTests
         var request = new { name = "Updated Name", email = "updated@example.com" };
 
         // Act
-        var response = await client.PutAsJsonAsync("/api/users/1", request);
+        var response = await client.PutAsJsonAsync("/api/users/1", request, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden, "Member (Alice) should NOT be able to update users via HTTP");
@@ -68,11 +68,11 @@ public class HttpAuthorizationTests
         var client = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
 
         // Act
-        var response = await client.GetAsync("/api/users/1");
+        var response = await client.GetAsync("/api/users/1", TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK, "Viewer should be able to read users via HTTP");
-        var user = await response.Content.ReadFromJsonAsync<UserDto>();
+        var user = await response.Content.ReadFromJsonAsync<UserDto>(TestContext.Current.CancellationToken);
         user.Should().NotBeNull();
     }
 
@@ -84,7 +84,7 @@ public class HttpAuthorizationTests
         var request = new { name = "Test User", email = "test@example.com" };
 
         // Act
-        var response = await client.PostAsJsonAsync("/api/users", request);
+        var response = await client.PostAsJsonAsync("/api/users", request, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden, "Viewer should NOT be able to create users via HTTP");
@@ -98,7 +98,7 @@ public class HttpAuthorizationTests
         var request = new { name = "Updated Name", email = "updated@example.com" };
 
         // Act
-        var response = await client.PutAsJsonAsync("/api/users/1", request);
+        var response = await client.PutAsJsonAsync("/api/users/1", request, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden, "Viewer should NOT be able to update users via HTTP");
@@ -111,7 +111,7 @@ public class HttpAuthorizationTests
         var client = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
 
         // Act
-        var response = await client.PostAsync("/api/users/1/promote", null);
+        var response = await client.PostAsync("/api/users/1/promote", null, TestContext.Current.CancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden, "Viewer should NOT be able to promote users via HTTP");

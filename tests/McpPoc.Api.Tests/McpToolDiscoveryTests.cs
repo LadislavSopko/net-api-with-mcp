@@ -1,7 +1,7 @@
 namespace McpPoc.Api.Tests;
 
 [Collection("McpApi")]
-public class McpToolDiscoveryTests : IAsyncLifetime
+public sealed class McpToolDiscoveryTests : IAsyncLifetime
 {
     private readonly McpApiFixture _fixture;
     private McpClientHelper _mcpClient = null!;

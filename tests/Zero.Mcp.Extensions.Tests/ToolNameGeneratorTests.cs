@@ -99,7 +99,7 @@ public class ToolNameGeneratorTests
 
     // Test controllers for reflection
     [McpServerToolType]
-    private class TestProductsController
+    private sealed class TestProductsController
     {
         [McpServerTool]
         public string GetById(int id) => $"Product {id}";
@@ -109,7 +109,7 @@ public class ToolNameGeneratorTests
     }
 
     [McpServerToolType]
-    private class MyTestApiController
+    private sealed class MyTestApiController
     {
         [McpServerTool]
         public string GetAll() => "All items";
@@ -141,7 +141,7 @@ public class ToolNameGeneratorTests
 
     // Fixture decorated with the official SDK attributes (ModelContextProtocol.Server).
     [McpServerToolType]
-    private class SdkUsersController
+    private sealed class SdkUsersController
     {
         [McpServerTool(Name = "UserGetById")]
         public string GetById(int id) => $"User {id}";

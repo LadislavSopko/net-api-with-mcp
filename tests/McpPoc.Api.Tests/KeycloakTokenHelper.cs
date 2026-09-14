@@ -45,10 +45,10 @@ public class KeycloakTokenHelper
         response.EnsureSuccessStatusCode();
 
         var tokenResponse = await response.Content.ReadFromJsonAsync<TokenResponse>();
-        return tokenResponse?.AccessToken ?? throw new Exception("Failed to get access token");
+        return tokenResponse?.AccessToken ?? throw new InvalidOperationException("Failed to get access token");
     }
 
-    private class TokenResponse
+    private sealed class TokenResponse
     {
         [JsonPropertyName("access_token")]
         public string AccessToken { get; set; } = string.Empty;

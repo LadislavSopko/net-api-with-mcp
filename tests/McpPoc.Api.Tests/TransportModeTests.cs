@@ -8,7 +8,7 @@ namespace McpPoc.Api.Tests;
 /// stateful on demand through ZeroMcpOptions.SessionMode (demo config key Mcp:SessionMode).
 /// </summary>
 [Collection("McpApi")]
-public class TransportModeTests(McpApiFixture fixture)
+public sealed class TransportModeTests(McpApiFixture fixture)
 {
     private const string ProtocolVersionHeader = "MCP-Protocol-Version";
 

@@ -12,7 +12,7 @@ namespace McpPoc.Api.Tests;
 /// opposite; that was a test-side snake_case deserialization mistake, not an SDK limitation.)
 /// </summary>
 [Collection("McpApi")]
-public class McpRequestContextE2ETests : IAsyncLifetime
+public sealed class McpRequestContextE2ETests : IAsyncLifetime
 {
     private readonly McpApiFixture _fixture;
     private McpClientHelper _mcpClient = null!;
@@ -40,13 +40,13 @@ public class McpRequestContextE2ETests : IAsyncLifetime
         var httpClient = await _fixture.GetAuthenticatedClientAsync();
 
         // Act - call the endpoint directly via HTTP (not MCP)
-        var response = await httpClient.GetAsync("/api/users/mcp-context");
+        var response = await httpClient.GetAsync("/api/users/mcp-context", TestContext.Current.CancellationToken);
         response.EnsureSuccessStatusCode();
 
-        var json = await response.Content.ReadAsStringAsync();
+        var json = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var contextInfo = JsonSerializer.Deserialize<McpContextInfo>(
             json,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            CaseInsensitive);
 
         // Assert - HTTP calls should NOT be detected as MCP
         contextInfo.Should().NotBeNull();
@@ -79,7 +79,7 @@ public class McpRequestContextE2ETests : IAsyncLifetime
 
         var contextInfo = JsonSerializer.Deserialize<McpContextInfo>(
             content!.Text!,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            CaseInsensitive);
 
         contextInfo.Should().NotBeNull();
     }
@@ -91,13 +91,13 @@ public class McpRequestContextE2ETests : IAsyncLifetime
         var httpClient = await _fixture.GetAuthenticatedClientAsync();
 
         // Act - call via HTTP
-        var response = await httpClient.GetAsync("/api/users/mcp-context");
+        var response = await httpClient.GetAsync("/api/users/mcp-context", TestContext.Current.CancellationToken);
         response.EnsureSuccessStatusCode();
 
-        var json = await response.Content.ReadAsStringAsync();
+        var json = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         var contextInfo = JsonSerializer.Deserialize<McpContextInfo>(
             json,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            CaseInsensitive);
 
         // Assert - HTTP calls don't expose headers (IsMcpCall is false)
         contextInfo.Should().NotBeNull();
@@ -105,7 +105,10 @@ public class McpRequestContextE2ETests : IAsyncLifetime
     }
 
     // Record to deserialize the response
-    private record McpContextInfo(bool IsMcpCall, string? XMcpCallHeader, int HeaderCount);
+    private static readonly JsonSerializerOptions CaseInsensitive = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions SnakeCase = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+
+    private sealed record McpContextInfo(bool IsMcpCall, string? XMcpCallHeader, int HeaderCount);
 
     [Fact]
     public async Task Should_ReportIsMcpCallTrue_WhenInvokedOverStatelessTransport()
@@ -119,7 +122,7 @@ public class McpRequestContextE2ETests : IAsyncLifetime
         // The demo serializes tool payloads in snake_case (is_mcp_call); case-insensitivity alone does not match it.
         var contextInfo = JsonSerializer.Deserialize<McpContextInfo>(
             content.Text!,
-            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+            SnakeCase);
 
         contextInfo.Should().NotBeNull();
         contextInfo!.IsMcpCall.Should().BeTrue("the tool runs in the HTTP request marked by UseZeroMcpMarking");

@@ -5,7 +5,7 @@ using ModelContextProtocol.Protocol;
 namespace McpPoc.Api.Tests;
 
 [Collection("McpApi")]
-public class PolicyAuthorizationTests : IAsyncLifetime
+public sealed class PolicyAuthorizationTests : IAsyncLifetime
 {
     private readonly McpApiFixture _fixture;
     private McpClientHelper _viewerClient = null!;

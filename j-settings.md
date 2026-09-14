@@ -63,7 +63,7 @@
 @lint-astgrep: ast-grep scan
 @lint-backend: dotnet format --verify-no-changes ; csharp
 @lint-archtest: none
-@lint-debt: gate staged as warnings-only (Directory.Build.props TreatWarningsAsErrors=false, .editorconfig TODO block) until ~36 analyzer findings in src/Zero.Mcp.Extensions are fixed; ast-grep not installed locally; 3rdp/csharp-sdk projects fail restore independently (NuGet audit)
+@lint-debt: none (closed in phase 8 block 08 — TreatWarningsAsErrors=true; CA1707/CA1822/CA2007 are scoped off for tests/ in .editorconfig by design; ast-grep not installed locally)
 
 ## C# mindset version
 @csharp-mindset: net10
