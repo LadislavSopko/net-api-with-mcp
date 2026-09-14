@@ -36,13 +36,17 @@ Viewer (0)   → Can Read only (no write operations)
 
 | Tool Name | HTTP Method | Required Role | Who Can Use It |
 |-----------|-------------|---------------|----------------|
-| `get_by_id` | GET | Authenticated | Everyone (admin, user, viewer, alice, bob, carol) |
+| `UserGetById` | GET | Authenticated | Everyone (admin, user, viewer, alice, bob, carol) |
 | `get_all` | GET | Authenticated | Everyone (admin, user, viewer, alice, bob, carol) |
-| `get_public_info` | GET | None (public) | Anyone (no token needed) |
+| `get_public_info` | GET | `[AllowAnonymous]` | Everyone (the `/mcp` endpoint itself still needs a token) |
 | `get_scope_id` | GET | Authenticated | Everyone (admin, user, viewer, alice, bob, carol) |
+| `get_mcp_context` | GET | Authenticated | Everyone (diagnostics) |
+| `echo_headers` | GET | `[AllowAnonymous]` | Everyone (diagnostics) |
 | `create` | POST | Member+ | admin, user, alice, bob, carol (NOT viewer) |
 | `update` | PUT | Manager+ | admin, bob, carol (NOT viewer, user, alice) |
 | `promote_to_manager` | POST | Admin | admin, carol (NOT viewer, user, alice, bob) |
+
+The same rules drive both the HTTP endpoints and the MCP tools: `tools/list` only shows the tools the caller may invoke (viewer 6, member 7, manager 8, admin 9) and a `tools/call` on a hidden tool fails with `Access forbidden: This tool requires authorization.`
 
 ## Quick Reference
 
@@ -134,6 +138,11 @@ curl -X POST http://127.0.0.1:5001/api/users/3/promote \
    - App looks up that username in UserService
    - Checks if user's Role >= Required Role for the endpoint
    - Allows or denies access
+
+3. **MCP** (Zero.Mcp.Extensions 3.0.0 + MCP SDK 2.2.0):
+   - The controller's `[Authorize]`, policy and `[AllowAnonymous]` attributes are attached to each tool
+   - The SDK authorization filters evaluate them with the same `IAuthorizationService` used by HTTP
+   - Nothing MCP-specific to configure: change the controller attribute and both HTTP and MCP follow
 
 ## Common Issues
 

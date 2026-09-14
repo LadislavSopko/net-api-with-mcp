@@ -476,7 +476,7 @@ public static class PatGenerator
 
 | Scope | Description | Example Operations |
 |-------|-------------|-------------------|
-| `mcp:read` | Read-only access to MCP tools | list_tools, call read-only tools (get_by_id, get_all) |
+| `mcp:read` | Read-only access to MCP tools | list_tools, call read-only tools (UserGetById, get_all) |
 | `mcp:write` | Write access to MCP tools | call write tools (create, update) |
 | `mcp:admin` | Administrative operations | promote_to_manager, delete |
 | `mcp:*` | Full access | All MCP operations |

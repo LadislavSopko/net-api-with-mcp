@@ -1,8 +1,9 @@
 # Complete MCP Integration with .NET API Guide
 
-**Version:** 1.0
-**Last Updated:** 2025-10-28
-**Project:** McpPoc.Api
+**Version:** 2.0
+**Last Updated:** 2026-09-14
+**Project:** McpPoc.Api (demo) + Zero.Mcp.Extensions 3.0.0 (library)
+**Stack:** .NET 10 · ASP.NET Core 10.0.12 · MCP C# SDK (ModelContextProtocol) 2.2.0
 
 ## Table of Contents
 
@@ -27,58 +28,64 @@
 
 ## Introduction
 
-This guide provides **complete, production-ready documentation** for integrating Microsoft's Model Context Protocol (MCP) with ASP.NET Core APIs. It shows how to **seamlessly expose existing controllers as MCP tools** while maintaining full HTTP API compatibility.
+This guide provides **complete, production-ready documentation** for integrating the Model Context Protocol (MCP) with ASP.NET Core APIs using the **Zero.Mcp.Extensions 3.0.0** library on top of the **official MCP C# SDK 2.2.0**. It shows how to **seamlessly expose existing controllers as MCP tools** while maintaining full HTTP API compatibility.
 
 ### What This Guide Covers
 
-- ✅ **Complete MCP integration** from scratch
+- ✅ **Complete MCP integration** from scratch (Streamable HTTP, stateless by default)
 - ✅ **Dual protocol support** - HTTP REST API and MCP tools simultaneously
 - ✅ **Full authentication** with JWT Bearer (Keycloak)
-- ✅ **Personal Access Token (PAT)** system for AI agents
-- ✅ **Policy-based authorization** with role hierarchy
-- ✅ **Testing infrastructure** for both protocols
+- ✅ **Personal Access Token (PAT)** design for AI agents
+- ✅ **SDK-native authorization** - `[Authorize]`, policies and `[AllowAnonymous]` enforced by the SDK authorization filters
+- ✅ **Per-user `tools/list`** filtering and JSON-RPC rejection of forbidden `tools/call`
+- ✅ **Testing infrastructure** for both protocols (xunit.v3 on Microsoft.Testing.Platform)
 - ✅ **DI scoping** verification for EF Core compatibility
 - ✅ **Production patterns** and best practices
 - ✅ **All code from real, working implementation** - no guessing
 
 ### Project Status
 
-- **32/32 tests passing** (100%)
-- **All phases complete** through Phase 4
+- **Library:** Zero.Mcp.Extensions **3.0.0** (breaking release, see [CHANGELOG.md](../CHANGELOG.md))
+- **SDK:** ModelContextProtocol / ModelContextProtocol.Core / ModelContextProtocol.AspNetCore **2.2.0**
+- **Tests:** **99 unit tests** (`tests/Zero.Mcp.Extensions.Tests`) + **59 E2E tests** (`tests/McpPoc.Api.Tests`), all passing
+- **Strict analyzer gate:** the whole solution builds with `TreatWarningsAsErrors=true` and zero warnings
 - **Production-ready** authorization and authentication
 - **Proven patterns** for seamless API integration
+
+> **Migrating from 2.x?** The library no longer ships its own attributes or its own authorization layer. See [Migration from 2.x](../README.md#migration-from-2x) in the README; the rest of this guide documents the 3.0.0 design only.
 
 ---
 
 ## What is MCP?
 
-**Model Context Protocol (MCP)** is Microsoft's open protocol for exposing tools and resources to AI models. Think of it as OpenAPI/Swagger for AI agents.
+**Model Context Protocol (MCP)** is an open protocol for exposing tools and resources to AI models. Think of it as OpenAPI/Swagger for AI agents. The official C# implementation is the `ModelContextProtocol` NuGet package family (maintained in the `modelcontextprotocol/csharp-sdk` repository together with Microsoft).
 
 ### Key Concepts
 
 ```mermaid
 graph LR
     A[AI Agent] -->|MCP Protocol| B[MCP Server]
-    B -->|Tool Discovery| C[list_tools]
-    B -->|Tool Invocation| D[call_tool]
-    D -->|Pre-Filter Auth| E[Authorization Check]
-    E -->|Create Controller| F[ASP.NET Controller]
-    F -->|Return Result| D
+    B -->|Tool Discovery| C[tools/list]
+    B -->|Tool Invocation| D[tools/call]
+    C -->|SDK Authorization Filter| E[Per-user filtered list]
+    D -->|SDK Authorization Filter| F[Authorization Check]
+    F -->|Create Controller| G[ASP.NET Controller]
+    G -->|ActionResult unwrapped| D
 ```
 
 #### MCP Components
 
-1. **MCP Server** - Exposes tools via HTTP transport
+1. **MCP Server** - Exposes tools via the Streamable HTTP transport
 2. **MCP Tools** - Individual operations (GET user, CREATE user, etc.)
-3. **MCP Protocol** - JSON-RPC 2.0 based communication
-4. **Tool Schema** - JSON Schema describing parameters
+3. **MCP Protocol** - JSON-RPC 2.0 based communication (protocol revision 2026-07-28 in SDK 2.2.0)
+4. **Tool Schema** - JSON Schema describing parameters (`inputSchema`) and, for structured tools, results (`outputSchema`)
 
 #### Why Use MCP with APIs?
 
 - **AI-Native Interface** - AI agents can discover and invoke your API operations
 - **Zero Duplication** - Same controllers work for both HTTP and MCP
 - **Type Safety** - Automatic JSON Schema generation from C# types
-- **Authorization Ready** - Inherits ASP.NET Core security pipeline
+- **Authorization Ready** - The controllers' own `[Authorize]` rules are evaluated by the SDK through the ASP.NET Core `IAuthorizationService`
 
 ---
 
@@ -97,32 +104,37 @@ graph TB
 
     subgraph App["ASP.NET Core Application"]
         subgraph Endpoints
-            MCP["/mcp endpoint"]
+            MCP["/mcp endpoint
+            (Streamable HTTP, stateless)"]
             API["/api/* endpoints"]
         end
 
         subgraph Pipeline["Middleware Pipeline"]
+            MARK["UseZeroMcpMarking
+            x-mcp-call header"]
             AUTH["Authentication
             JWT Bearer"]
             AUTHZ["Authorization
             Policies"]
         end
 
-        subgraph MCPLayer["MCP Layer"]
+        subgraph MCPLayer["MCP Layer (SDK 2.2.0 + Zero.Mcp.Extensions 3.0.0)"]
             MCPSRV[MCP Server]
-            PREFILTER["Pre-Filter
-            Authorization"]
-            UNWRAP["ActionResult
-            Unwrapper"]
+            AUTHFILTER["SDK Authorization Filters
+            AddAuthorizationFilters()"]
+            CACHE["tools/list Cache Hints
+            ttlMs / cacheScope"]
+            UNWRAP["MarshalResult
+            ActionResult Unwrapper"]
         end
 
         subgraph AppLayer["Application Layer"]
             CTRL["Controllers
-            with McpServerTool"]
+            with [McpServerToolType]"]
             SVC["Services
             IUserService"]
             DB[("In-Memory
-            Data Store")]
+            UserStore")]
         end
     end
 
@@ -131,14 +143,16 @@ graph TB
     AI -->|Get Token| KC
     HTTP -->|Get Token| KC
 
-    MCP --> AUTH
+    MCP --> MARK
+    MARK --> AUTH
     API --> AUTH
     AUTH --> AUTHZ
     AUTHZ --> MCPSRV
     AUTHZ --> CTRL
 
-    MCPSRV --> PREFILTER
-    PREFILTER --> CTRL
+    MCPSRV --> AUTHFILTER
+    AUTHFILTER --> CACHE
+    AUTHFILTER --> CTRL
     CTRL --> UNWRAP
     UNWRAP -->|Response| MCPSRV
 
@@ -150,12 +164,18 @@ graph TB
 
 | Component | Responsibility | Location |
 |-----------|---------------|----------|
-| **MCP Server** | Protocol handling, tool discovery | `builder.Services.AddMcpServer()` |
-| **Pre-Filter** | Authorization BEFORE controller creation | `CreateControllerWithPreFilter()` |
-| **ActionResult Unwrapper** | Extract values from `ActionResult<T>` | `UnwrapActionResult()` |
-| **Controllers** | Business logic, both HTTP and MCP | `UsersController.cs` |
-| **Authorization Handler** | Policy enforcement | `MinimumRoleRequirementHandler.cs` |
-| **Services** | Business logic, data access | `UserService.cs` |
+| **MCP Server** | Protocol handling, tool discovery, Streamable HTTP transport | SDK: `AddMcpServer().WithHttpTransport(...)` |
+| **Zero.Mcp.Extensions** | Assembly scanning, tool naming, tool option derivation, metadata, `ActionResult<T>` unwrapping, cache hints, MCP marking | `src/Zero.Mcp.Extensions/*.cs` |
+| **SDK Authorization Filters** | Evaluate `[Authorize]`/policies/`[AllowAnonymous]` for `tools/list` and `tools/call` | SDK: `AddAuthorizationFilters()` (registered by the library when `UseAuthorization` is true) |
+| **ActionResult Unwrapper** | Extract values from `ActionResult<T>` / `IActionResult` | `src/Zero.Mcp.Extensions/MarshalResult.cs` |
+| **Tool Metadata Builder** | Attach `[MethodInfo, class attributes, method attributes]` to each tool | `src/Zero.Mcp.Extensions/ToolMetadataBuilder.cs` |
+| **Tool Create Options Factory** | Map the SDK `[McpServerTool]` members to `McpServerToolCreateOptions` | `src/Zero.Mcp.Extensions/ToolCreateOptionsFactory.cs` |
+| **Cache Hint Filter** | Stamp `ttlMs` / `cacheScope` on `tools/list` | `src/Zero.Mcp.Extensions/ToolsListCacheHintFilter.cs` |
+| **Controllers** | Business logic, both HTTP and MCP | `src/McpPoc.Api/Controllers/UsersController.cs` |
+| **Authorization Handler** | Policy enforcement (role hierarchy) | `src/McpPoc.Api/Authorization/MinimumRoleRequirementHandler.cs` |
+| **Services** | Business logic, data access | `src/McpPoc.Api/Services/IUserService.cs` |
+
+There is **no library-specific authorization abstraction** to implement. The controllers' existing `[Authorize]`, policy and `[AllowAnonymous]` attributes are the single source of truth for both HTTP and MCP.
 
 ---
 
@@ -163,31 +183,63 @@ graph TB
 
 ### Required Packages
 
+The solution uses Central Package Management (`Directory.Packages.props`). The versions that matter:
+
 ```xml
 <ItemGroup>
-  <!-- MCP SDK -->
-  <PackageReference Include="ModelContextProtocol.Server" Version="0.5.0" />
-  <PackageReference Include="ModelContextProtocol.Server.HttpTransport" Version="0.5.0" />
+  <!-- MCP C# SDK 2.2.0 -->
+  <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
+  <PackageVersion Include="ModelContextProtocol.Core" Version="2.2.0" />
+  <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
 
-  <!-- Authentication -->
-  <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
+  <!-- ASP.NET Core 10.0.12 -->
+  <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
+  <PackageVersion Include="Microsoft.AspNetCore.Authorization" Version="10.0.12" />
+  <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+  <PackageVersion Include="Scalar.AspNetCore" Version="2.17.3" />
 
   <!-- Logging -->
-  <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
-  <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+  <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
+  <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
 
   <!-- Testing -->
-  <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
-  <PackageReference Include="FluentAssertions" Version="7.0.0" />
-  <PackageReference Include="xunit" Version="2.9.2" />
+  <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.0" />
+  <PackageVersion Include="xunit.v3" Version="4.0.1" />
+  <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
+  <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
+  <PackageVersion Include="NSubstitute" Version="6.2.0" />
+  <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
 </ItemGroup>
 ```
 
+Consumers of the library only need:
+
+```bash
+dotnet add package Zero.Mcp.Extensions
+```
+
+`ModelContextProtocol`, `ModelContextProtocol.Core` and `ModelContextProtocol.AspNetCore` 2.2.0 are pulled in transitively.
+
 ### Development Environment
 
-- **.NET 9.0 SDK** or later
+- **.NET 10 SDK** (`global.json` pins `10.0.100`, `rollForward: latestFeature`)
 - **Docker & Docker Compose** for infrastructure
 - **IDE** with C# support (VS, VS Code, Rider)
+
+### Build Gate
+
+`Directory.Build.props` enables the strict Roslyn analyzer gate for every project:
+
+```xml
+<PropertyGroup>
+  <Nullable>enable</Nullable>
+  <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  <AnalysisLevel>latest-recommended</AnalysisLevel>
+  <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+</PropertyGroup>
+```
+
+A consequence you will see throughout the code samples: logging goes through `LoggerMessage` source generators (`src/McpPoc.Api/Infrastructure/Log.cs`) instead of direct `ILogger.LogInformation(...)` calls (CA1848), and every `await` inside library and demo code carries `.ConfigureAwait(false)` (CA2007).
 
 ### Infrastructure Requirements
 
@@ -201,97 +253,143 @@ graph TB
 
 ### Step 1: Docker Compose Configuration
 
-Create `docker/docker-compose.yml`:
+File: `docker/docker-compose.yml` (relevant services)
 
 ```yaml
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: mcppoc-postgres
+    container_name: mcppoc_postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: mcppoc_db
-      POSTGRES_USER: mcppoc_user
+      POSTGRES_DB: ${POSTGRES_DB:-mcppoc_db}
+      POSTGRES_USER: ${POSTGRES_USER:-mcppoc_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mcppoc_postgres_data:/var/lib/postgresql/data
+      - ./postgres:/docker-entrypoint-initdb.d:ro
     networks:
-      - mcppoc-network
+      - mcppoc_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mcppoc_user -d mcppoc_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mcppoc_user} -d ${POSTGRES_DB:-mcppoc_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
-  keycloak:
-    image: quay.io/keycloak/keycloak:25.0.2
-    container_name: mcppoc-keycloak
+  postgres-init:
+    image: postgres:16-alpine
+    container_name: mcppoc_postgres_init
+    restart: "no"
     environment:
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
-      KC_DB_USERNAME: mcppoc_user
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
-      KC_HOSTNAME: localhost
-      KC_HOSTNAME_PORT: 8080
-      KC_HOSTNAME_STRICT: false
-      KC_HOSTNAME_STRICT_HTTPS: false
-      KC_LOG_LEVEL: info
-      KC_METRICS_ENABLED: true
-      KC_HEALTH_ENABLED: true
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-    command: start-dev --import-realm
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./keycloak:/opt/keycloak/data/import:ro
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-mcppoc_user}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - mcppoc_network
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - ./postgres/init-db.sh:/init-db.sh:ro
+    command: /init-db.sh
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0.2
+    container_name: mcppoc_keycloak
+    restart: unless-stopped
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB:-keycloak}
+      KC_DB_USERNAME: ${POSTGRES_USER:-mcppoc_user}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    command: start-dev --import-realm
+    ports:
+      - "${KEYCLOAK_PORT:-8080}:8080"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
     networks:
-      - mcppoc-network
+      - mcppoc_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\\r\\nhost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n' >&3;if [ $? -eq 0 ]; then echo 'Healthcheck Successful';exit 0;else echo 'Healthcheck Failed';exit 1;fi;"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
       interval: 10s
-      timeout: 10s
-      retries: 15
-      start_period: 90s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
 volumes:
-  postgres_data:
+  mcppoc_postgres_data:
 
 networks:
-  mcppoc-network:
+  mcppoc_network:
     driver: bridge
 ```
 
+The API itself runs locally with `dotnet run --project src/McpPoc.Api` (the `api` service in the compose file is commented out for local development).
+
 ### Step 2: Environment Configuration
 
-Create `docker/.env`:
+Create `docker/.env` (secrets belong in `.00-secrets/`, see `docs/SECURITY.md`):
 
 ```env
 POSTGRES_PASSWORD=your_secure_password_here
-KEYCLOAK_ADMIN_USER=admin
+KEYCLOAK_ADMIN=admin
 KEYCLOAK_ADMIN_PASSWORD=admin
 ```
 
 ### Step 3: Keycloak Realm Configuration
 
-Create `docker/keycloak/mcppoc-realm.json` with users and roles:
+File: `docker/keycloak/mcppoc-realm.json` (excerpt). The demo client is **public** (no client secret; password grant enabled for tests). Realm roles are only `admin` and `user`; the **application roles** (Viewer / Member / Manager / Admin) live in the app's `UserStore` and are resolved by the authorization handler from the `preferred_username` claim.
 
 ```json
 {
   "realm": "mcppoc-realm",
   "enabled": true,
+  "roles": {
+    "realm": [
+      { "name": "admin", "description": "Administrator role with full access" },
+      { "name": "user",  "description": "Regular user role with standard access" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "mcppoc-api",
+      "name": "MCP POC API",
+      "rootUrl": "http://127.0.0.1:5001",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://127.0.0.1:5001/*"],
+      "webOrigins": ["http://127.0.0.1:5001"]
+    }
+  ],
   "users": [
+    {
+      "username": "admin",
+      "email": "admin@mcppoc.com",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "admin123", "temporary": false }],
+      "realmRoles": ["admin", "user"]
+    },
     {
       "username": "alice@example.com",
       "email": "alice@example.com",
       "enabled": true,
       "firstName": "Alice",
       "lastName": "Smith",
-      "credentials": [{"type": "password", "value": "alice123"}],
+      "credentials": [{ "type": "password", "value": "alice123", "temporary": false }],
       "realmRoles": ["user"]
     },
     {
@@ -300,8 +398,8 @@ Create `docker/keycloak/mcppoc-realm.json` with users and roles:
       "enabled": true,
       "firstName": "Bob",
       "lastName": "Jones",
-      "credentials": [{"type": "password", "value": "bob123"}],
-      "realmRoles": ["user", "manager"]
+      "credentials": [{ "type": "password", "value": "bob123", "temporary": false }],
+      "realmRoles": ["user"]
     },
     {
       "username": "carol@example.com",
@@ -309,31 +407,27 @@ Create `docker/keycloak/mcppoc-realm.json` with users and roles:
       "enabled": true,
       "firstName": "Carol",
       "lastName": "White",
-      "credentials": [{"type": "password", "value": "carol123"}],
-      "realmRoles": ["user", "manager", "admin"]
-    }
-  ],
-  "roles": {
-    "realm": [
-      {"name": "user"},
-      {"name": "manager"},
-      {"name": "admin"}
-    ]
-  },
-  "clients": [
+      "credentials": [{ "type": "password", "value": "carol123", "temporary": false }],
+      "realmRoles": ["admin", "user"]
+    },
     {
-      "clientId": "mcppoc-api",
+      "username": "viewer",
       "enabled": true,
-      "publicClient": false,
-      "serviceAccountsEnabled": true,
-      "directAccessGrantsEnabled": true,
-      "secret": "your-client-secret-here",
-      "redirectUris": ["http://127.0.0.1:5001/*"],
-      "webOrigins": ["http://127.0.0.1:5001"]
+      "credentials": [{ "type": "password", "value": "viewer123", "temporary": false }],
+      "realmRoles": ["user"]
     }
   ]
 }
 ```
+
+### Test Users
+
+| Username | Password | App Role | Can Do |
+|----------|----------|----------|--------|
+| `viewer` | `viewer123` | Viewer | Read only |
+| `alice@example.com` | `alice123` | Member | Read + Create |
+| `bob@example.com` | `bob123` | Manager | Read + Create + Update |
+| `carol@example.com` | `carol123` | Admin | Everything |
 
 ### Step 4: Start Infrastructure
 
@@ -346,6 +440,9 @@ docker-compose ps
 
 # Check Keycloak is ready
 curl http://127.0.0.1:8080/health/ready
+
+# Get a token (password grant against the public client)
+TOKEN=$(./get-token.sh alice@example.com alice123)
 ```
 
 ---
@@ -354,25 +451,36 @@ curl http://127.0.0.1:8080/health/ready
 
 ### Step 1: Application Configuration
 
-Create `src/McpPoc.Api/appsettings.json`:
+File: `src/McpPoc.Api/appsettings.json`
 
 ```json
 {
   "Logging": {
     "LogLevel": {
       "Default": "Information",
-      "Microsoft.AspNetCore": "Warning",
-      "McpPoc.Api": "Trace"
+      "Microsoft.AspNetCore": "Warning"
     }
   },
   "AllowedHosts": "*",
+  "Auth": {
+    "Enabled": true
+  },
   "Keycloak": {
     "Authority": "http://127.0.0.1:8080/realms/mcppoc-realm",
     "Audience": "account",
-    "RequireHttpsMetadata": false
+    "RequireHttpsMetadata": false,
+    "ValidateAudience": true,
+    "ValidateIssuer": true
   }
 }
 ```
+
+Two configuration keys drive MCP behaviour in the demo:
+
+| Key | Default | Effect |
+|-----|---------|--------|
+| `Auth:Enabled` | `true` | `false` turns off JWT authentication **and** sets `RequireAuthentication = false`, `UseAuthorization = false` (every tool listed and callable) |
+| `Mcp:SessionMode` | `Stateless` | Passed to `ZeroMcpOptions.SessionMode`; `Stateful` or `StatefulForInitializeClients` make the SDK issue `Mcp-Session-Id` |
 
 ### Step 2: Program.cs - Complete Setup
 
@@ -380,16 +488,19 @@ File: `src/McpPoc.Api/Program.cs`
 
 ```csharp
 using McpPoc.Api.Authorization;
-using McpPoc.Api.Extensions;
 using McpPoc.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.OpenApi.Models;
+using Scalar.AspNetCore;
 using Serilog;
+using ModelContextProtocol.AspNetCore;
+using Zero.Mcp.Extensions;
+using AppLog = McpPoc.Api.Infrastructure.Log;
 
 // Configure Serilog for file logging
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Verbose()
-    .WriteTo.File("logs/mcppoc-.log", rollingInterval: RollingInterval.Day)
+    .MinimumLevel.Information()
+    .WriteTo.Console(formatProvider: System.Globalization.CultureInfo.InvariantCulture)
+    .WriteTo.File("logs/mcppoc-.log", formatProvider: System.Globalization.CultureInfo.InvariantCulture, rollingInterval: RollingInterval.Day)
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
@@ -397,147 +508,126 @@ var builder = WebApplication.CreateBuilder(args);
 // Use Serilog
 builder.Host.UseSerilog();
 
+// Check if auth is enabled (default: true)
+var authEnabled = builder.Configuration.GetValue("Auth:Enabled", true);
+
 // Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// Configure Swagger with OAuth2
-builder.Services.AddSwaggerGen(options =>
+// Configure OpenAPI (native)
+builder.Services.AddOpenApi();
+
+// Configure JWT Bearer authentication with Keycloak (only if auth enabled)
+if (authEnabled)
 {
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "MCP POC API",
-        Version = "v1",
-        Description = "API with MCP tools and Keycloak authentication"
-    });
-
-    // Add OAuth2 security definition
-    var keycloakAuthority = builder.Configuration["Keycloak:Authority"];
-    options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
-    {
-        Type = SecuritySchemeType.OAuth2,
-        Flows = new OpenApiOAuthFlows
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
         {
-            Implicit = new OpenApiOAuthFlow
+            var keycloakAuthority = builder.Configuration["Keycloak:Authority"];
+
+            options.Authority = keycloakAuthority;
+            options.Audience = builder.Configuration["Keycloak:Audience"];
+            options.RequireHttpsMetadata = builder.Configuration.GetValue<bool>("Keycloak:RequireHttpsMetadata");
+
+            options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
             {
-                AuthorizationUrl = new Uri($"{keycloakAuthority}/protocol/openid-connect/auth"),
-                TokenUrl = new Uri($"{keycloakAuthority}/protocol/openid-connect/token"),
-                Scopes = new Dictionary<string, string>
+                ValidateAudience = false,  // Keycloak puts the client in 'azp', not 'aud'
+                ValidateIssuer = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true
+            };
+
+            options.Events = new JwtBearerEvents
+            {
+                OnAuthenticationFailed = context =>
                 {
-                    { "openid", "OpenID Connect" },
-                    { "profile", "User profile" },
-                    { "email", "User email" }
-                }
-            }
-        }
-    });
-
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                    AppLog.AuthenticationFailed(logger, context.Exception);
+                    return Task.CompletedTask;
+                },
+                OnTokenValidated = context =>
                 {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "oauth2"
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                    var userName = context.Principal?.Identity?.Name ?? "Unknown";
+                    AppLog.TokenValidated(logger, userName);
+                    return Task.CompletedTask;
                 }
-            },
-            new[] { "openid", "profile", "email" }
-        }
-    });
-});
+            };
+        });
 
-// Configure JWT Bearer authentication with Keycloak
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        var keycloakAuthority = builder.Configuration["Keycloak:Authority"];
+    // CRITICAL: the SDK authorization filters resolve policy names through the host
+    // IAuthorizationPolicyProvider, so every policy used on a controller MUST be registered here.
+    builder.Services.AddAuthorization();
+    builder.Services.AddMcpPocAuthorization();
+}
+else
+{
+    // No-op authorization when auth disabled
+    builder.Services.AddAuthorization();
+    Log.Warning("Authentication is DISABLED - all endpoints are accessible without auth");
+}
 
-        options.Authority = keycloakAuthority;
-        options.Audience = builder.Configuration["Keycloak:Audience"];
-        options.RequireHttpsMetadata = builder.Configuration.GetValue<bool>("Keycloak:RequireHttpsMetadata");
-
-        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
-        {
-            ValidateAudience = false,  // Keycloak uses 'azp' claim instead of 'aud'
-            ValidateIssuer = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true
-        };
-
-        options.Events = new JwtBearerEvents
-        {
-            OnAuthenticationFailed = context =>
-            {
-                context.HttpContext.RequestServices
-                    .GetRequiredService<ILogger<Program>>()
-                    .LogError(context.Exception, "Authentication failed");
-                return Task.CompletedTask;
-            },
-            OnTokenValidated = context =>
-            {
-                context.HttpContext.RequestServices
-                    .GetRequiredService<ILogger<Program>>()
-                    .LogInformation("Token validated for user: {User}",
-                        context.Principal?.Identity?.Name ?? "Unknown");
-                return Task.CompletedTask;
-            }
-        };
-    });
-
-builder.Services.AddAuthorization();
-
-// CRITICAL: Add custom authorization policies
-builder.Services.AddMcpPocAuthorization();
-
-// CRITICAL: Add HttpContextAccessor for pre-filter authorization
 builder.Services.AddHttpContextAccessor();
-
-// Register services - Scoped for test isolation and EF Core compatibility
+builder.Services.AddSingleton<UserStore>();  // HACK: In-memory persistence
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IScopedRequestTracker, ScopedRequestTracker>();
 
 // ============================================
-// MCP Server Configuration
+// MCP Server Configuration (Zero.Mcp.Extensions)
 // ============================================
-builder.Services
-    .AddMcpServer()                                      // Add MCP server
-    .WithHttpTransport()                                 // Use HTTP transport
-    .WithToolsFromAssemblyUnwrappingActionResult();      // Custom: Unwrap ActionResult<T>
+builder.Services.AddZeroMcpExtensions(options =>
+{
+    options.RequireAuthentication = authEnabled;  // Require auth only if enabled
+    options.UseAuthorization = authEnabled;       // SDK authorization filters enforce [Authorize] policies only if enabled
+    options.ToolsListTimeToLive = TimeSpan.FromMinutes(5);  // tools/list cache hint (ttlMs + cacheScope)
+    options.SessionMode = builder.Configuration.GetValue("Mcp:SessionMode", HttpServerSessionMode.Stateless);  // Stateless default
+    options.McpEndpointPath = "/mcp";             // MCP endpoint path
+    options.ToolAssembly = typeof(McpPoc.Api.Controllers.UsersController).Assembly;  // Explicit assembly for Docker
+});
 
 var app = builder.Build();
 
 // Configure HTTP pipeline
-if (app.Environment.IsDevelopment())
+// OpenAPI/Scalar only for local development with ENABLE_OPENAPI=true
+if (app.Environment.IsDevelopment() && builder.Configuration.GetValue("ENABLE_OPENAPI", false))
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
+    app.MapOpenApi();
+
+    // Scalar UI with OAuth2 configuration
+    var keycloakAuthority = builder.Configuration["Keycloak:Authority"];
+    app.MapScalarApiReference(options =>
     {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "MCP POC API v1");
-        options.OAuthClientId("mcppoc-api");
-        options.OAuthAppName("MCP POC API");
-        options.OAuthUsePkce();
+        options
+            .WithTitle("MCP POC API")
+            .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient)
+            .AddAuthorizationCodeFlow("keycloak", flow =>
+            {
+                flow.ClientId = "mcppoc-api";
+                flow.AuthorizationUrl = $"{keycloakAuthority}/protocol/openid-connect/auth";
+                flow.TokenUrl = $"{keycloakAuthority}/protocol/openid-connect/token";
+            });
     });
 }
 
 // CRITICAL: Middleware order matters!
 app.UseHttpsRedirection();
-app.UseAuthentication();        // JWT validation
-app.UseAuthorization();         // Policy enforcement
-app.MapControllers();           // HTTP API routes
+app.UseZeroMcpMarking();  // Mark MCP requests (x-mcp-call header + HttpContext.Items marker) BEFORE authentication
+app.UseAuthentication();  // JWT validation
+app.UseAuthorization();   // Policy enforcement for HTTP endpoints
+app.MapControllers();     // HTTP API routes
 
 // ============================================
-// MCP Endpoint - MUST be authenticated
+// MCP Endpoint - Streamable HTTP, RequireAuthorization() applied when RequireAuthentication is true
 // ============================================
-app.MapMcp("/mcp").RequireAuthorization();
+app.MapZeroMcp();  // Uses configuration from AddZeroMcpExtensions
 
-app.Logger.LogInformation("===========================================");
-app.Logger.LogInformation("MCP + Controller Integration");
-app.Logger.LogInformation("HTTP API: http://127.0.0.1:5001/api/users");
-app.Logger.LogInformation("MCP Endpoint: http://127.0.0.1:5001/mcp");
-app.Logger.LogInformation("Swagger: http://127.0.0.1:5001/swagger");
-app.Logger.LogInformation("===========================================");
+AppLog.BannerSeparator(app.Logger);
+AppLog.BannerTitle(app.Logger);
+AppLog.BannerHttpApi(app.Logger);
+AppLog.BannerMcpEndpoint(app.Logger);
+AppLog.BannerScalarUi(app.Logger);
+AppLog.BannerSeparator(app.Logger);
 
 app.Run();
 
@@ -545,203 +635,455 @@ app.Run();
 public partial class Program { }
 ```
 
-### Step 3: Custom MCP Extension - ActionResult Unwrapping
+### Step 3: Inside the Library - Registration Pipeline
 
-This is the **key piece** that makes controllers work as MCP tools.
+This is the **key piece** that makes controllers work as MCP tools. Since 2.0 it lives in the NuGet library, not in the demo project; in 3.0.0 it is a thin layer over the SDK.
 
-File: `src/McpPoc.Api/Extensions/McpServerBuilderExtensions.cs`
+#### ZeroMcpOptions
+
+File: `src/Zero.Mcp.Extensions/ZeroMcpOptions.cs`
 
 ```csharp
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using ModelContextProtocol.Server;
 using System.Reflection;
+using System.Text.Json;
+using ModelContextProtocol.AspNetCore;   // HttpServerSessionMode
 
-namespace McpPoc.Api.Extensions;
+namespace Zero.Mcp.Extensions;
 
-public static class McpServerBuilderExtensions
+public class ZeroMcpOptions
 {
-    /// <summary>
-    /// Adds MCP tools from assembly with ActionResult unwrapping and pre-filter authorization.
-    /// This enables ASP.NET Core controllers to work as MCP tools.
-    /// </summary>
-    public static IMcpServerBuilder WithToolsFromAssemblyUnwrappingActionResult(
-        this IMcpServerBuilder builder)
+    // Whether to require authentication for the MCP endpoint (default: true)
+    public bool RequireAuthentication { get; set; } = true;
+
+    // Attach [Authorize]/[AllowAnonymous] metadata to tools and register the SDK
+    // AddAuthorizationFilters(): tools/list is filtered per user and forbidden tools/call
+    // is rejected. Requires the host to call AddAuthorization(). When false, no authorization
+    // metadata is attached, no filters are registered, every tool is listed and callable. (default: true)
+    public bool UseAuthorization { get; set; } = true;
+
+    // The path where the MCP endpoint will be mapped (default: "/mcp")
+    public string McpEndpointPath { get; set; } = "/mcp";
+
+    // The assembly to scan for MCP tools (default: null = calling assembly)
+    public Assembly? ToolAssembly { get; set; }
+
+    // JSON serializer options for parameters and results (default: null = snake_case_lower)
+    public JsonSerializerOptions? SerializerOptions { get; set; }
+
+    // Streamable HTTP session mode passed to the SDK transport (default: Stateless)
+    public HttpServerSessionMode SessionMode { get; set; } = HttpServerSessionMode.Stateless;
+
+    // When set, tools/list responses carry ttlMs = value and
+    // cacheScope = "private" if UseAuthorization, otherwise "public" (default: null = no hints)
+    public TimeSpan? ToolsListTimeToLive { get; set; }
+
+    // Tool naming convention (default: MethodOnly)
+    public ToolNamingConvention NamingConvention { get; set; } = ToolNamingConvention.MethodOnly;
+
+    // Separator for controller prefix (default: "_")
+    public string ToolNameSeparator { get; set; } = "_";
+}
+```
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `RequireAuthentication` | `true` | `MapZeroMcp()` applies `RequireAuthorization()` to the endpoint |
+| `UseAuthorization` | `true` | Attach authorization metadata + register SDK `AddAuthorizationFilters()` |
+| `McpEndpointPath` | `"/mcp"` | Endpoint path |
+| `ToolAssembly` | `null` (calling assembly) | Assembly scanned for `[McpServerToolType]` |
+| `SerializerOptions` | `null` (snake_case_lower) | Parameter and result serialization |
+| `NamingConvention` | `MethodOnly` | `MethodOnly` or `ControllerPrefix` |
+| `ToolNameSeparator` | `"_"` | Separator for `ControllerPrefix` |
+| `ToolsListTimeToLive` | `null` | When set, `tools/list` carries `ttlMs` + `cacheScope` |
+| `SessionMode` | `Stateless` | `Stateless` / `Stateful` / `StatefulForInitializeClients` |
+
+#### AddZeroMcpExtensions - the pipeline
+
+File: `src/Zero.Mcp.Extensions/McpServerBuilderExtensions.cs`
+
+```csharp
+public static IMcpServerBuilder AddZeroMcpExtensions(
+    this IServiceCollection services,
+    Action<ZeroMcpOptions>? configure = null)
+{
+    var options = new ZeroMcpOptions();
+    configure?.Invoke(options);
+
+    // Capture the calling assembly NOW if not explicitly provided
+    options.ToolAssembly ??= Assembly.GetCallingAssembly();
+
+    services.AddSingleton(options);
+    services.AddHttpContextAccessor();
+    services.AddScoped<IMcpRequestContext, McpRequestContext>();
+
+    var mcpBuilder = services
+        .AddMcpServer()
+        .WithHttpTransport(transport => transport.SessionMode = options.SessionMode)
+        .WithToolsFromAssemblyUnwrappingActionResult(options);
+
+    // Authorization is delegated to the SDK: [Authorize]/[AllowAnonymous] found in the tool metadata are
+    // evaluated through the host's IAuthorizationService for both tools/list and tools/call.
+    if (options.UseAuthorization)
     {
-        return builder.WithToolsFromAssembly(
-            typeof(Program).Assembly,
-            controllerFactory: CreateControllerWithPreFilter,
-            resultMarshaller: UnwrapActionResult);
+        mcpBuilder.AddAuthorizationFilters();
     }
 
-    /// <summary>
-    /// Creates controller instance with PRE-FILTER authorization check.
-    /// Authorization happens BEFORE controller is instantiated.
-    /// </summary>
-    private static object CreateControllerWithPreFilter(
+    // Cache hints are stamped LAST so they wrap the per-user list produced by the authorization filter.
+    if (options.ToolsListTimeToLive is not null)
+    {
+        mcpBuilder.WithRequestFilters(filters => filters.AddListToolsFilter(next =>
+            ToolsListCacheHintFilter.Apply(next, options.ToolsListTimeToLive, options.UseAuthorization)));
+    }
+
+    return mcpBuilder;
+}
+```
+
+The pipeline in one line:
+
+```
+AddMcpServer()
+  .WithHttpTransport(o => o.SessionMode = options.SessionMode)
+  .WithToolsFromAssemblyUnwrappingActionResult(options)
+  [.AddAuthorizationFilters()               if UseAuthorization]
+  [.WithRequestFilters(list-tools cache hint) if ToolsListTimeToLive is set]
+```
+
+`AddZeroMcpExtensions` returns the SDK `IMcpServerBuilder`, so prompts, resources or extra filters can be chained on the result.
+
+#### Tool discovery and creation
+
+```csharp
+private static IMcpServerBuilder WithToolsFromAssemblyUnwrappingActionResult(
+    this IMcpServerBuilder builder,
+    ZeroMcpOptions options)
+{
+    var toolAssembly = options.ToolAssembly!;
+    var serializerOptions = options.GetEffectiveSerializerOptions();
+
+    // Find all types with the SDK [McpServerToolType]
+    var toolTypes = toolAssembly.GetTypes()
+        .Where(t => t.GetCustomAttribute<McpServerToolTypeAttribute>() is not null);
+
+    foreach (var toolType in toolTypes)
+    {
+        // Find all methods with the SDK [McpServerTool]
+        var toolMethods = toolType.GetMethods(
+            BindingFlags.Public | BindingFlags.NonPublic |
+            BindingFlags.Static | BindingFlags.Instance)
+            .Where(m => m.GetCustomAttribute<McpServerToolAttribute>() is not null);
+
+        foreach (var method in toolMethods)
+        {
+            var toolName = ToolNameGenerator.GenerateName(method, toolType, options);
+
+            if (method.IsStatic)
+            {
+                builder.Services.AddSingleton<McpServerTool>(services =>
+                {
+                    var aiFunction = AIFunctionFactory.Create(
+                        method,
+                        target: null,
+                        new AIFunctionFactoryOptions
+                        {
+                            Name = toolName,
+                            MarshalResult = static async (result, _, _) => await MarshalResult.UnwrapAsync(result).ConfigureAwait(false),
+                            SerializerOptions = serializerOptions
+                        });
+                    return McpServerTool.Create(aiFunction,
+                        ToolCreateOptionsFactory.Create(method, services, serializerOptions, options.UseAuthorization));
+                });
+            }
+            else
+            {
+                // Instance method - controller resolved through DI per invocation
+                var methodCopy = method;
+                var toolNameCopy = toolName;
+
+                builder.Services.AddSingleton<McpServerTool>(services =>
+                {
+                    var aiFunction = AIFunctionFactory.Create(
+                        methodCopy,
+                        args => ActivatorUtilities.CreateInstance(args.Services!, toolType),   // scoped DI from the request
+                        new AIFunctionFactoryOptions
+                        {
+                            Name = toolNameCopy,
+                            MarshalResult = static async (result, _, _) => await MarshalResult.UnwrapAsync(result).ConfigureAwait(false),
+                            SerializerOptions = serializerOptions
+                        });
+
+                    return McpServerTool.Create(aiFunction,
+                        ToolCreateOptionsFactory.Create(methodCopy, services, serializerOptions, options.UseAuthorization));
+                });
+            }
+        }
+    }
+
+    return builder;
+}
+```
+
+Per tool the library does three things:
+
+1. **`AIFunctionFactory.Create(method, createTarget, options)`** (Microsoft.Extensions.AI) - the controller instance is created **per call** via `ActivatorUtilities.CreateInstance(args.Services!, toolType)`. `args.Services` is the request's scoped service provider, so constructor injection of scoped services works exactly like in HTTP.
+2. **`MarshalResult = MarshalResult.UnwrapAsync`** - unwraps `ActionResult<T>` / `IActionResult` (see below). Microsoft.Extensions.AI **awaits `Task`/`ValueTask` results before invoking the marshaller** (verified), so the marshaller receives the `ActionResult<T>` directly.
+3. **`McpServerTool.Create(aiFunction, ToolCreateOptionsFactory.Create(...))`** - the `AIFunction` overload of `McpServerTool.Create` does **not** read attributes, so the library derives `McpServerToolCreateOptions` itself.
+
+#### ToolCreateOptionsFactory - SDK attribute passthrough
+
+File: `src/Zero.Mcp.Extensions/ToolCreateOptionsFactory.cs`
+
+```csharp
+internal static class ToolCreateOptionsFactory
+{
+    // SDK attribute defaults: hints are only forwarded when they differ from these, matching the SDK's
+    // "was it explicitly set" semantics (the attribute exposes them as non-nullable bools).
+    private const bool DestructiveDefault = true;
+    private const bool IdempotentDefault = false;
+    private const bool OpenWorldDefault = true;
+    private const bool ReadOnlyDefault = false;
+
+    public static McpServerToolCreateOptions Create(
+        MethodInfo method,
         IServiceProvider services,
-        Type controllerType,
-        MethodInfo method)
+        JsonSerializerOptions serializerOptions,
+        bool includeAuthorization)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogTrace("CreateControllerWithPreFilter: {Controller}.{Method}",
-            controllerType.Name, method.Name);
-
-        // Get HttpContext via IHttpContextAccessor
-        var httpContextAccessor = services.GetService<IHttpContextAccessor>();
-        var httpContext = httpContextAccessor?.HttpContext;
-
-        if (httpContext == null)
+        var options = new McpServerToolCreateOptions
         {
-            logger.LogError("HttpContext not available in CreateControllerWithPreFilter");
-            throw new InvalidOperationException(
-                "HttpContext not available. Ensure IHttpContextAccessor is registered.");
+            Services = services,
+            SerializerOptions = serializerOptions,
+            Metadata = ToolMetadataBuilder.Build(method, includeAuthorization),
+            Description = method.GetCustomAttribute<DescriptionAttribute>()?.Description,
+        };
+
+        var attribute = method.GetCustomAttribute<McpServerToolAttribute>();
+        if (attribute is null)
+        {
+            return options;
         }
 
-        // Check for [Authorize] attribute on method or class
-        var methodAuthorize = method.GetCustomAttribute<AuthorizeAttribute>();
-        var classAuthorize = controllerType.GetCustomAttribute<AuthorizeAttribute>();
-        var authorizeAttr = methodAuthorize ?? classAuthorize;
+        options.Title = attribute.Title;
+        options.UseStructuredContent = attribute.UseStructuredContent;
 
-        if (authorizeAttr != null)
+        if (attribute.Destructive != DestructiveDefault) options.Destructive = attribute.Destructive;
+        if (attribute.Idempotent != IdempotentDefault)   options.Idempotent = attribute.Idempotent;
+        if (attribute.OpenWorld != OpenWorldDefault)     options.OpenWorld = attribute.OpenWorld;
+        if (attribute.ReadOnly != ReadOnlyDefault)       options.ReadOnly = attribute.ReadOnly;
+
+        if (attribute.OutputSchemaType is { } schemaType)
         {
-            logger.LogTrace("Found [Authorize] attribute - performing pre-filter authorization");
-
-            // 1. Check Authentication
-            if (httpContext.User?.Identity?.IsAuthenticated != true)
-            {
-                logger.LogWarning("Authentication failed - user not authenticated");
-                throw new UnauthorizedAccessException("Authentication required to access this tool");
-            }
-
-            logger.LogTrace("User authenticated: {User}", httpContext.User.Identity.Name);
-
-            // 2. Check Policy Authorization
-            if (!string.IsNullOrEmpty(authorizeAttr.Policy))
-            {
-                logger.LogTrace("Checking policy: {Policy}", authorizeAttr.Policy);
-
-                var authService = services.GetRequiredService<IAuthorizationService>();
-
-                // CRITICAL: Must use blocking call because factory is synchronous
-                var authResult = authService.AuthorizeAsync(
-                    httpContext.User,
-                    httpContext,
-                    authorizeAttr.Policy).GetAwaiter().GetResult();
-
-                if (!authResult.Succeeded)
-                {
-                    var reasons = string.Join(", ", authResult.Failure?.FailureReasons.Select(r => r.Message) ?? []);
-                    logger.LogWarning(
-                        "Policy authorization failed: {Policy}. Reasons: {Reasons}",
-                        authorizeAttr.Policy, reasons);
-
-                    throw new UnauthorizedAccessException(
-                        $"Access denied: Policy '{authorizeAttr.Policy}' not satisfied");
-                }
-
-                logger.LogInformation("Policy authorization succeeded: {Policy}", authorizeAttr.Policy);
-            }
-
-            // 3. Check Role Authorization
-            if (!string.IsNullOrEmpty(authorizeAttr.Roles))
-            {
-                logger.LogTrace("Checking roles: {Roles}", authorizeAttr.Roles);
-
-                var roles = authorizeAttr.Roles.Split(',').Select(r => r.Trim());
-                var hasRole = roles.Any(role => httpContext.User.IsInRole(role));
-
-                if (!hasRole)
-                {
-                    logger.LogWarning(
-                        "Role authorization failed - required roles: {Roles}",
-                        authorizeAttr.Roles);
-
-                    throw new UnauthorizedAccessException(
-                        $"Access denied: Required role '{authorizeAttr.Roles}'");
-                }
-
-                logger.LogInformation("Role authorization succeeded: {Roles}", authorizeAttr.Roles);
-            }
+            options.OutputSchema = AIJsonUtilities.CreateJsonSchema(schemaType, serializerOptions: serializerOptions);
         }
 
-        // Authorization passed - create controller instance
-        logger.LogTrace("Creating controller instance: {Controller}", controllerType.Name);
-        return ActivatorUtilities.CreateInstance(services, controllerType);
-    }
-
-    /// <summary>
-    /// Unwraps ActionResult&lt;T&gt; to extract the actual value for MCP response.
-    /// MCP SDK expects plain objects, not ActionResult wrappers.
-    /// </summary>
-    private static ValueTask<object?> UnwrapActionResult(
-        object? result,
-        Type? resultType,
-        CancellationToken cancellationToken)
-    {
-        if (result == null)
+        if (!string.IsNullOrEmpty(attribute.IconSource))
         {
-            return ValueTask.FromResult<object?>(null);
+            options.Icons = [new Icon { Source = attribute.IconSource }];
         }
 
-        var unwrapped = UnwrapIfActionResult(result);
-        return ValueTask.FromResult(unwrapped);
-    }
-
-    /// <summary>
-    /// Recursively unwraps ActionResult types to get the actual value.
-    /// </summary>
-    private static object? UnwrapIfActionResult(object? obj)
-    {
-        if (obj == null) return null;
-
-        var type = obj.GetType();
-
-        // Handle ActionResult<T>
-        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ActionResult<>))
-        {
-            // Try Result property first (for explicit results)
-            var resultProp = type.GetProperty("Result");
-            if (resultProp != null)
-            {
-                var resultValue = resultProp.GetValue(obj);
-                if (resultValue != null)
-                {
-                    return UnwrapIfActionResult(resultValue);
-                }
-            }
-
-            // Try Value property (for implicit conversions)
-            var valueProp = type.GetProperty("Value");
-            if (valueProp != null)
-            {
-                var value = valueProp.GetValue(obj);
-                if (value != null)
-                {
-                    return value;
-                }
-            }
-        }
-
-        // Handle ObjectResult (Ok, Created, etc.)
-        if (obj is ObjectResult objectResult)
-        {
-            return objectResult.Value;
-        }
-
-        // Already unwrapped or not an ActionResult
-        return obj;
+        return options;
     }
 }
 ```
 
-### Key Features of This Extension:
+Every member of the SDK `[McpServerTool]` attribute flows to the client: `Name`, `Title`, `ReadOnly` / `Destructive` / `Idempotent` / `OpenWorld`, `IconSource`, `UseStructuredContent`, `OutputSchemaType`. Note the SDK only emits `outputSchema` when `UseStructuredContent = true`, so set both together.
 
-1. **Pre-Filter Authorization** - Checks `[Authorize]` BEFORE creating controller
-2. **Synchronous Auth** - Uses `.GetAwaiter().GetResult()` because factory is sync
-3. **ActionResult Unwrapping** - Extracts values from `ActionResult<T>`
-4. **HttpContext Access** - Uses `IHttpContextAccessor` to get current request context
-5. **Comprehensive Logging** - Traces every authorization decision
+#### ToolMetadataBuilder - what the SDK authorization filters see
+
+File: `src/Zero.Mcp.Extensions/ToolMetadataBuilder.cs`
+
+```csharp
+internal static class ToolMetadataBuilder
+{
+    // Layout mirrors the SDK's own reflection path: [MethodInfo, ...declaring-class attributes, ...method attributes]
+    public static IReadOnlyList<object> Build(MethodInfo method, bool includeAuthorization)
+    {
+        List<object> metadata = [method];
+        if (method.DeclaringType is not null)
+        {
+            metadata.AddRange(method.DeclaringType.GetCustomAttributes(inherit: true));
+        }
+
+        metadata.AddRange(method.GetCustomAttributes(inherit: true));
+
+        if (!includeAuthorization)
+        {
+            metadata.RemoveAll(static m => m is IAuthorizeData or IAllowAnonymous or AuthorizationPolicy or IAuthorizationRequirementData);
+        }
+
+        return metadata;
+    }
+}
+```
+
+The metadata list is exactly what the SDK's `AddAuthorizationFilters()` inspects: `[Authorize]` (class and method, `inherit: true`), `[Authorize(Policy = ...)]`, `[AllowAnonymous]`. When `UseAuthorization` is `false` the authorization entries are **stripped** - this matters because of an SDK guard: a tool carrying `[Authorize]` metadata in a server that did **not** call `AddAuthorizationFilters()` makes the SDK throw `InvalidOperationException`. The library ties metadata and filter registration to the same flag so the two can never disagree.
+
+#### MarshalResult - ActionResult unwrapping
+
+File: `src/Zero.Mcp.Extensions/MarshalResult.cs`
+
+```csharp
+internal static class MarshalResult
+{
+    /// Unwraps an ActionResult<T> or IActionResult to extract the actual value.
+    /// Returns null for Ok(null) (valid for nullable types).
+    /// Throws InvalidOperationException if controller returns an error result.
+    public static async ValueTask<object?> UnwrapAsync(object? result)
+    {
+        if (result is null)
+            return null;
+
+        // Defensive: Task / ValueTask wrappers are awaited here too (MEAI already awaits them before calling us)
+        if (result is ValueTask valueTask)
+        {
+            await valueTask.ConfigureAwait(false);
+            return null;
+        }
+
+        var resultType = result.GetType();
+
+        if (resultType.IsGenericType && resultType.GetGenericTypeDefinition() == typeof(ValueTask<>))
+        {
+            dynamic vt = result;
+            result = await vt;
+        }
+
+        if (result is Task task)
+        {
+            await task.ConfigureAwait(false);
+            var taskType = task.GetType();
+            if (taskType.IsGenericType)
+            {
+                result = taskType.GetProperty("Result")?.GetValue(task);
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        if (result is null)
+            return null;
+
+        resultType = result.GetType();
+
+        // Handle ActionResult<T>
+        if (resultType.IsGenericType && resultType.GetGenericTypeDefinition() == typeof(ActionResult<>))
+        {
+            var actionResult = resultType.GetProperty("Result")?.GetValue(result);
+            if (actionResult is not null)
+            {
+                result = actionResult;               // explicit Ok(...)/NotFound(...) etc.
+            }
+            else
+            {
+                return resultType.GetProperty("Value")?.GetValue(result);   // implicit conversion
+            }
+        }
+
+        // Handle IActionResult with value
+        if (result is IActionResult actionResultInterface)
+        {
+            if (actionResultInterface is IStatusCodeActionResult statusCodeResult
+                && statusCodeResult is ObjectResult objectResult)
+            {
+                return objectResult.Value; // Can be null for ActionResult<T?>
+            }
+
+            // Error results like NotFoundResult, BadRequestResult should throw
+            throw new InvalidOperationException(
+                $"Controller returned error result: {actionResultInterface.GetType().Name}. " +
+                "MCP tools should return domain error objects wrapped in ActionResult<T> instead of IActionResult error types. " +
+                "Example: return new ActionResult<User>(new ObjectResult(new { error = \"Not found\" }) { StatusCode = 404 });");
+        }
+
+        return result;
+    }
+}
+```
+
+Behaviour summary:
+
+| Controller returns | MCP result |
+|--------------------|-----------|
+| `Ok(user)` / `CreatedAtAction(..., user)` | `user` serialized (snake_case) |
+| `Ok(null)` for `ActionResult<T?>` | `null` |
+| `NotFound(new { error = "..." })` (an `ObjectResult`) | the anonymous object (status code is not transported) |
+| `NotFound()` / `BadRequest()` (status-only results) | `InvalidOperationException` → SDK reports a tool error (`IsError = true`) |
+
+#### ToolsListCacheHintFilter - cache hints
+
+File: `src/Zero.Mcp.Extensions/ToolsListCacheHintFilter.cs`
+
+```csharp
+internal static class ToolsListCacheHintFilter
+{
+    public static McpRequestHandler<ListToolsRequestParams, ListToolsResult> Apply(
+        McpRequestHandler<ListToolsRequestParams, ListToolsResult> next,
+        TimeSpan? ttl,
+        bool useAuthorization) =>
+        async (context, cancellationToken) =>
+        {
+            var result = await next(context, cancellationToken).ConfigureAwait(false);
+            Stamp(result, ttl, useAuthorization);
+            return result;
+        };
+
+    internal static void Stamp(ListToolsResult result, TimeSpan? ttl, bool useAuthorization)
+    {
+        if (ttl is { } timeToLive)
+        {
+            result.TimeToLive = timeToLive;
+            result.CacheScope = useAuthorization ? CacheScope.Private : CacheScope.Public;
+        }
+    }
+}
+```
+
+With the demo's `ToolsListTimeToLive = TimeSpan.FromMinutes(5)` and authorization on, a raw `tools/list` response contains `"ttlMs":300000` and `"cacheScope":"private"` - the list varies per user, so it must never be shared between users.
+
+#### MapZeroMcp and UseZeroMcpMarking
+
+```csharp
+public static IEndpointConventionBuilder MapZeroMcp(this IEndpointRouteBuilder app, string? path = null)
+{
+    var options = app.ServiceProvider.GetService<ZeroMcpOptions>() ?? new ZeroMcpOptions();
+    var effectivePath = path ?? options.McpEndpointPath;
+
+    var builder = app.MapMcp(effectivePath);          // SDK Streamable HTTP endpoint
+
+    if (options.RequireAuthentication)
+    {
+        builder.RequireAuthorization();
+    }
+
+    return builder;
+}
+
+public static IApplicationBuilder UseZeroMcpMarking(this IApplicationBuilder app, string mcpPath = "/mcp")
+{
+    return app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments(mcpPath, StringComparison.OrdinalIgnoreCase))
+        {
+            context.Items[McpRequestContext.McpCallMarkerKey] = true;              // "__McpCall"
+            context.Request.Headers[McpRequestContext.McpCallHeaderName] = "true"; // "x-mcp-call"
+        }
+
+        await next().ConfigureAwait(false);
+    });
+}
+```
+
+### Key Features of the Library:
+
+1. **SDK attributes only** - `[McpServerToolType]` / `[McpServerTool]` from `ModelContextProtocol.Server`; no library attribute types
+2. **SDK-native authorization** - metadata + `AddAuthorizationFilters()`, evaluated through the host `IAuthorizationService`; fully async, no sync-over-async anywhere
+3. **ActionResult Unwrapping** - `MarshalResult` extracts values from `ActionResult<T>`
+4. **Scoped DI per call** - controllers are created from the request's `RequestServices`
+5. **Streamable HTTP, stateless by default** - `SessionMode` configurable
+6. **Cache hints** - optional `ttlMs` / `cacheScope` on `tools/list`
+7. **Request context** - `IMcpRequestContext` works inside tools (see [Critical Discoveries](#critical-discoveries))
 
 ---
 
@@ -757,39 +1099,44 @@ using McpPoc.Api.Models;
 using McpPoc.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ModelContextProtocol.Server;
+using Zero.Mcp.Extensions;          // IMcpRequestContext
+using ModelContextProtocol.Server;  // [McpServerToolType], [McpServerTool] - the SDK attributes
 using System.ComponentModel;
+using McpPoc.Api.Infrastructure;    // Log (LoggerMessage source generators)
 
 namespace McpPoc.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]                  // ← Endpoint-level authentication
-[McpServerToolType]          // ← Enables MCP tool exposure
+[Authorize]                  // ← Endpoint-level authentication, enforced for MCP too
+[McpServerToolType]          // ← Enables MCP tool exposure (SDK attribute)
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
     private readonly ILogger<UsersController> _logger;
     private readonly IScopedRequestTracker _scopedTracker;
+    private readonly IMcpRequestContext _mcpContext;
 
     public UsersController(
         IUserService userService,
         ILogger<UsersController> logger,
-        IScopedRequestTracker scopedTracker)
+        IScopedRequestTracker scopedTracker,
+        IMcpRequestContext mcpContext)
     {
         _userService = userService;
         _logger = logger;
         _scopedTracker = scopedTracker;
+        _mcpContext = mcpContext;
     }
 
-    // GET /api/users/{id} AND MCP tool "get_by_id"
+    // GET /api/users/{id} AND MCP tool "UserGetById" (explicit Name, structured content + output schema)
     [HttpGet("{id}")]
-    [McpServerTool, Description("Gets a user by their ID")]
+    [McpServerTool(Name = "UserGetById", UseStructuredContent = true, OutputSchemaType = typeof(User)), Description("Gets a user by their ID")]
     public async Task<ActionResult<User>> GetById(int id)
     {
-        _logger.LogInformation("GetById called with id: {Id}", id);
+        Log.GetByIdCalled(_logger, id, _mcpContext.IsMcpCall);
 
-        var user = await _userService.GetByIdAsync(id);
+        var user = await _userService.GetByIdAsync(id).ConfigureAwait(false);
 
         if (user == null)
         {
@@ -804,9 +1151,9 @@ public class UsersController : ControllerBase
     [McpServerTool, Description("Gets all users")]
     public async Task<ActionResult<List<User>>> GetAll()
     {
-        _logger.LogInformation("GetAll called");
+        Log.GetAllCalled(_logger);
 
-        var users = await _userService.GetAllAsync();
+        var users = await _userService.GetAllAsync().ConfigureAwait(false);
         return Ok(users);
     }
 
@@ -817,10 +1164,9 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<User>> Create(
         [Description("User creation data")] CreateUserRequest request)
     {
-        _logger.LogInformation("Create called with name: {Name}, email: {Email}",
-            request.Name, request.Email);
+        Log.CreateCalled(_logger, request.Name, request.Email);
 
-        var user = await _userService.CreateAsync(request.Name, request.Email);
+        var user = await _userService.CreateAsync(request.Name, request.Email).ConfigureAwait(false);
         return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
     }
 
@@ -832,9 +1178,9 @@ public class UsersController : ControllerBase
         int id,
         [Description("User update data")] UpdateUserRequest request)
     {
-        _logger.LogInformation("Update called for id: {Id}", id);
+        Log.UpdateCalled(_logger, id);
 
-        var user = await _userService.GetByIdAsync(id);
+        var user = await _userService.GetByIdAsync(id).ConfigureAwait(false);
         if (user == null)
         {
             return NotFound(new { error = "User not found", id });
@@ -852,9 +1198,9 @@ public class UsersController : ControllerBase
     [Authorize(Policy = PolicyNames.RequireAdmin)]
     public async Task<ActionResult<User>> PromoteToManager(int id)
     {
-        _logger.LogInformation("Promote called for id: {Id}", id);
+        Log.PromoteCalled(_logger, id);
 
-        var user = await _userService.GetByIdAsync(id);
+        var user = await _userService.GetByIdAsync(id).ConfigureAwait(false);
         if (user == null)
         {
             return NotFound(new { error = "User not found", id });
@@ -870,8 +1216,7 @@ public class UsersController : ControllerBase
     [McpServerTool, Description("Returns the current request scope ID for DI testing")]
     public ActionResult<ScopeIdResponse> GetScopeId()
     {
-        _logger.LogInformation("GetScopeId called - RequestId: {RequestId}",
-            _scopedTracker.RequestId);
+        Log.GetScopeIdCalled(_logger, _scopedTracker.RequestId);
 
         var response = new ScopeIdResponse(
             _scopedTracker.RequestId,
@@ -882,40 +1227,130 @@ public class UsersController : ControllerBase
         return Ok(response);
     }
 
+    // GET /api/users/public AND MCP tool "get_public_info" - [AllowAnonymous] overrides class-level [Authorize]
+    [HttpGet("public")]
+    [McpServerTool, Description("Gets public information without authentication")]
+    [AllowAnonymous]
+    public ActionResult<object> GetPublicInfo()
+    {
+        return Ok(new
+        {
+            message = "This is public information accessible without authentication",
+            timestamp = DateTime.UtcNow,
+            serverVersion = "1.8.0"
+        });
+    }
+
+    // GET /api/users/mcp-context AND MCP tool "get_mcp_context" - IMcpRequestContext diagnostics
+    [HttpGet("mcp-context")]
+    [McpServerTool, Description("Returns MCP request context information for diagnostics")]
+    public ActionResult<McpContextInfo> GetMcpContext()
+    {
+        var xMcpCallHeader = _mcpContext.GetHeader("x-mcp-call");
+
+        Log.GetMcpContextCalled(_logger, _mcpContext.IsMcpCall, xMcpCallHeader);
+
+        return Ok(new McpContextInfo(
+            _mcpContext.IsMcpCall,
+            xMcpCallHeader,
+            _mcpContext.Headers?.Count ?? 0
+        ));
+    }
+
+    // GET /api/users/echo-headers AND MCP tool "echo_headers" - [AllowAnonymous]
+    [HttpGet("echo-headers")]
+    [McpServerTool, Description("Returns all request headers with their values - for testing")]
+    [AllowAnonymous]
+    public ActionResult<EchoHeadersResponse> EchoHeaders()
+    {
+        var headers = new Dictionary<string, string>();
+
+        if (_mcpContext.IsMcpCall && _mcpContext.Headers != null)
+        {
+            foreach (var header in _mcpContext.Headers)
+            {
+                headers[header.Key] = header.Value.ToString();
+            }
+        }
+        else
+        {
+            foreach (var header in Request.Headers)
+            {
+                headers[header.Key] = header.Value.ToString();
+            }
+        }
+
+        Log.EchoHeadersCalled(_logger, _mcpContext.IsMcpCall, headers.Count);
+
+        return Ok(new EchoHeadersResponse(_mcpContext.IsMcpCall, headers));
+    }
+
     // DELETE /api/users/{id} - HTTP ONLY (no [McpServerTool])
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id)
     {
-        _logger.LogInformation("Delete called (NOT an MCP tool) with id: {Id}", id);
+        Log.DeleteCalled(_logger, id);
         return Task.FromResult((IActionResult)NoContent());
     }
 }
 
 // DTOs
+public record McpContextInfo(bool IsMcpCall, string? XMcpCallHeader, int HeaderCount);
 public record ScopeIdResponse(Guid RequestId, DateTime CreatedAt, string Message);
 public record CreateUserRequest(string Name, string Email);
 public record UpdateUserRequest(string Name, string Email);
+public record EchoHeadersResponse(bool IsMcpCall, Dictionary<string, string> Headers);
 ```
 
 ### Key Controller Patterns:
 
-1. **`[McpServerToolType]`** on class - Enables tool exposure
-2. **`[McpServerTool]`** on methods - Marks individual tools
+1. **`[McpServerToolType]`** on class - Enables tool exposure (SDK attribute, `ModelContextProtocol.Server`)
+2. **`[McpServerTool]`** on methods - Marks individual tools; `Name`, `Title`, hints, `IconSource`, `UseStructuredContent`, `OutputSchemaType` all flow to the client
 3. **`[Description]`** - Provides tool and parameter descriptions
-4. **`ActionResult<T>`** - MCP unwrapper extracts `T`
-5. **Selective Exposure** - `Delete` has no `[McpServerTool]`, so it's HTTP-only
+4. **`ActionResult<T>`** - `MarshalResult` extracts `T`
+5. **`[Authorize]` / `[AllowAnonymous]`** - the same attributes that protect the HTTP endpoint protect the tool
+6. **Selective Exposure** - `Delete` has no `[McpServerTool]`, so it's HTTP-only
+
+### The Demo's Nine Tools
+
+| Tool name | Method | Authorization | Notes |
+|-----------|--------|---------------|-------|
+| `UserGetById` | `GetById` | `[Authorize]` (class) | Explicit `Name`; `UseStructuredContent = true`, `OutputSchemaType = typeof(User)` |
+| `get_all` | `GetAll` | `[Authorize]` (class) | |
+| `create` | `Create` | `RequireMember` | |
+| `update` | `Update` | `RequireManager` | |
+| `promote_to_manager` | `PromoteToManager` | `RequireAdmin` | |
+| `get_scope_id` | `GetScopeId` | `[Authorize]` (class) | DI scoping probe |
+| `get_public_info` | `GetPublicInfo` | `[AllowAnonymous]` | |
+| `get_mcp_context` | `GetMcpContext` | `[Authorize]` (class) | `IMcpRequestContext` probe |
+| `echo_headers` | `EchoHeaders` | `[AllowAnonymous]` | |
+
+Visibility per role (what `tools/list` returns):
+
+| Role | Visible / callable tools | Count |
+|------|--------------------------|-------|
+| Viewer | `UserGetById`, `get_all`, `get_scope_id`, `get_public_info`, `get_mcp_context`, `echo_headers` | 6 |
+| Member | Viewer + `create` | 7 |
+| Manager | Member + `update` | 8 |
+| Admin | All, including `promote_to_manager` | 9 |
 
 ### Method Name Conversion
 
-MCP SDK automatically converts C# method names to snake_case:
+The library's `ToolNameGenerator` converts C# method names to snake_case (and strips an `Async` suffix) unless an explicit `Name` is given:
 
-| C# Method Name | MCP Tool Name |
-|----------------|---------------|
-| `GetById` | `get_by_id` |
-| `GetAll` | `get_all` |
-| `Create` | `create` |
-| `Update` | `update` |
-| `PromoteToManager` | `promote_to_manager` |
+| C# Method Name | MCP Tool Name (`MethodOnly`) | MCP Tool Name (`ControllerPrefix`) |
+|----------------|------------------------------|------------------------------------|
+| `GetById` (with `Name = "UserGetById"`) | `UserGetById` | `UserGetById` (explicit name always wins) |
+| `GetAll` | `get_all` | `users_get_all` |
+| `Create` | `create` | `users_create` |
+| `Update` | `update` | `users_update` |
+| `PromoteToManager` | `promote_to_manager` | `users_promote_to_manager` |
+
+```csharp
+// Avoid collisions between controllers
+options.NamingConvention = ToolNamingConvention.ControllerPrefix;
+options.ToolNameSeparator = "-";   // "users-get-all"
+```
 
 ### DTO Parameter Binding Pattern
 
@@ -936,7 +1371,7 @@ public async Task<ActionResult<User>> Create(CreateUserRequest request)
 public record CreateUserRequest(string Name, string Email);
 ```
 
-The MCP SDK generates this JSON Schema:
+The MCP SDK generates this JSON Schema (property names follow the snake_case serializer):
 
 ```json
 {
@@ -1018,7 +1453,7 @@ var args = new Dictionary<string, object?>
 #### Why This Pattern?
 
 - **ASP.NET Core Inference:** Controllers don't need `[FromBody]` - it's inferred for complex types
-- **MCP SDK Behavior:** SDK uses parameter names as JSON property names
+- **MCP SDK Behavior:** `AIFunctionFactory` uses parameter names as JSON property names
 - **Type Safety:** Preserves C# type information in JSON Schema
 
 #### HTTP vs MCP Comparison
@@ -1051,6 +1486,19 @@ Content-Type: application/json
 }
 ```
 
+### Structured Content and Output Schema
+
+`UserGetById` opts into structured results:
+
+```csharp
+[McpServerTool(Name = "UserGetById", UseStructuredContent = true, OutputSchemaType = typeof(User))]
+public async Task<ActionResult<User>> GetById(int id) { ... }
+```
+
+- `tools/list` advertises `outputSchema` for `User` (snake_case properties `id`, `name`, `email`, `created_at`, `role`)
+- `tools/call` returns `structuredContent` in addition to the text content block
+- The SDK **only** emits `outputSchema` when `UseStructuredContent = true`; `OutputSchemaType` alone is silently ignored
+
 ---
 
 ## Authentication & Authorization
@@ -1065,7 +1513,7 @@ sequenceDiagram
     participant API
     participant Keycloak
 
-    Client->>Keycloak: POST /token (username/password)
+    Client->>Keycloak: POST /token (username/password, public client)
     Keycloak->>Client: JWT access token
     Client->>API: Request with Bearer token
     API->>API: Validate JWT signature
@@ -1074,7 +1522,11 @@ sequenceDiagram
     API->>Client: Response (200 OK or 401 Unauthorized)
 ```
 
+The `/mcp` endpoint carries `RequireAuthorization()` (from `RequireAuthentication = true`), so an unauthenticated client gets **401** before the MCP server even parses the JSON-RPC request.
+
 ### Authorization Infrastructure
+
+The library has **no authorization abstraction of its own**. The host registers ordinary ASP.NET Core policies; the SDK evaluates the controller attributes against them.
 
 #### 1. Policy Names
 
@@ -1103,7 +1555,7 @@ namespace McpPoc.Api.Authorization;
 
 /// <summary>
 /// Authorization requirement that checks minimum role level.
-/// Supports role hierarchy: Member(1) &lt; Manager(2) &lt; Admin(3).
+/// Supports role hierarchy: Viewer(0) &lt; Member(1) &lt; Manager(2) &lt; Admin(3).
 /// </summary>
 public class MinimumRoleRequirement : IAuthorizationRequirement
 {
@@ -1121,9 +1573,9 @@ public class MinimumRoleRequirement : IAuthorizationRequirement
 File: `src/McpPoc.Api/Authorization/MinimumRoleRequirementHandler.cs`
 
 ```csharp
-using Microsoft.AspNetCore.Authorization;
-using McpPoc.Api.Models;
+using McpPoc.Api.Infrastructure;
 using McpPoc.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace McpPoc.Api.Authorization;
 
@@ -1131,8 +1583,7 @@ namespace McpPoc.Api.Authorization;
 /// Handles MinimumRoleRequirement by querying user service for role.
 /// Implements role hierarchy where higher roles inherit lower permissions.
 /// </summary>
-public class MinimumRoleRequirementHandler
-    : AuthorizationHandler<MinimumRoleRequirement>
+public class MinimumRoleRequirementHandler : AuthorizationHandler<MinimumRoleRequirement>
 {
     private readonly IUserService _userService;
     private readonly ILogger<MinimumRoleRequirementHandler> _logger;
@@ -1149,54 +1600,67 @@ public class MinimumRoleRequirementHandler
         AuthorizationHandlerContext context,
         MinimumRoleRequirement requirement)
     {
-        _logger.LogTrace("Handling MinimumRoleRequirement for role: {Role}",
-            requirement.MinimumRole);
+        Log.HandleRequirementCalled(_logger, requirement.MinimumRole);
 
         // 1. Check if user is authenticated
         if (!context.User.Identity?.IsAuthenticated ?? true)
         {
-            _logger.LogTrace("User not authenticated");
+            Log.UserNotAuthenticated(_logger);
             return;
         }
 
-        // 2. Get preferred_username claim (OIDC standard)
+        Log.UserAuthenticated(_logger);
+
+        // 2. Get preferred_username claim (OIDC standard; username = email in our setup)
         var usernameClaim = context.User.FindFirst("preferred_username")?.Value;
         if (string.IsNullOrEmpty(usernameClaim))
         {
-            _logger.LogTrace("No preferred_username claim found");
+            Log.NoPreferredUsernameClaim(_logger);
             return;
         }
 
-        _logger.LogTrace("Found username claim: {Username}", usernameClaim);
+        Log.FoundPreferredUsernameClaim(_logger, usernameClaim);
 
         // 3. Query user from service
-        var users = await _userService.GetAllAsync();
+        var users = await _userService.GetAllAsync().ConfigureAwait(false);
+        Log.GetAllAsyncReturned(_logger, users.Count);
+
         var user = users.FirstOrDefault(u => u.Email == usernameClaim);
 
         if (user == null)
         {
-            _logger.LogWarning("User not found in service: {Username}", usernameClaim);
+            Log.UserNotFoundForUsername(_logger, usernameClaim);
             return;
         }
 
-        _logger.LogTrace("User found with role: {Role}", user.Role);
+        Log.FoundUser(_logger, user.Id, user.Name, user.Email, user.Role);
 
         // 4. Check role hierarchy (>= allows inheritance)
         if (user.Role >= requirement.MinimumRole)
         {
-            _logger.LogInformation(
-                "User {Username} with role \"{UserRole}\" meets minimum role \"{MinRole}\"",
-                usernameClaim, user.Role, requirement.MinimumRole);
-
+            Log.UserMeetsMinimumRole(_logger, user.Email, user.Role, requirement.MinimumRole);
             context.Succeed(requirement);
         }
         else
         {
-            _logger.LogWarning(
-                "User {Username} with role \"{UserRole}\" does NOT meet minimum role \"{MinRole}\"",
-                usernameClaim, user.Role, requirement.MinimumRole);
+            Log.UserDoesNotMeetMinimumRole(_logger, usernameClaim, user.Role, requirement.MinimumRole);
         }
     }
+}
+```
+
+The `Log.*` calls are `LoggerMessage` source-generated methods from `src/McpPoc.Api/Infrastructure/Log.cs` (strict analyzer gate, CA1848):
+
+```csharp
+internal static partial class Log
+{
+    [LoggerMessage(EventId = 2000, Level = LogLevel.Trace, Message = "HandleRequirementAsync called for requirement: {MinRole}")]
+    public static partial void HandleRequirementCalled(ILogger logger, UserRole minRole);
+
+    [LoggerMessage(EventId = 2001, Level = LogLevel.Warning, Message = "User is not authenticated")]
+    public static partial void UserNotAuthenticated(ILogger logger);
+
+    // ... one method per message template
 }
 ```
 
@@ -1212,16 +1676,11 @@ namespace McpPoc.Api.Authorization;
 
 public static class AuthorizationServiceExtensions
 {
-    /// <summary>
-    /// Registers MCP POC authorization policies and handlers.
-    /// </summary>
-    public static IServiceCollection AddMcpPocAuthorization(
-        this IServiceCollection services)
+    public static IServiceCollection AddMcpPocAuthorization(this IServiceCollection services)
     {
-        // Register handler as Scoped (depends on Scoped IUserService)
+        // Scoped because it depends on IUserService which is Scoped
         services.AddScoped<IAuthorizationHandler, MinimumRoleRequirementHandler>();
 
-        // Configure authorization policies
         services.AddAuthorizationCore(options =>
         {
             options.AddPolicy(PolicyNames.RequireMember, policy =>
@@ -1239,20 +1698,46 @@ public static class AuthorizationServiceExtensions
 }
 ```
 
+**Every policy name used on a controller must be registered here.** The SDK authorization filters resolve policy names through the host `IAuthorizationPolicyProvider`; an unknown policy surfaces as an `InvalidOperationException` about a missing policy.
+
+### How MCP Authorization Works in 3.0.0
+
+```mermaid
+graph LR
+    A["Controller attributes
+    [Authorize] / Policy / [AllowAnonymous]"] -->|ToolMetadataBuilder| B["McpServerTool.Metadata
+    [MethodInfo, class attrs, method attrs]"]
+    B -->|SDK AddAuthorizationFilters| C["tools/list filter
+    per-user list"]
+    B -->|SDK AddAuthorizationFilters| D["tools/call filter
+    JSON-RPC error if forbidden"]
+    C --> E[IAuthorizationService]
+    D --> E
+    E --> F[IAuthorizationPolicyProvider + handlers]
+```
+
+1. **Metadata** - for each tool the library attaches `[MethodInfo, class attributes, method attributes]` (`ToolMetadataBuilder`), mirroring the SDK's own reflection layout.
+2. **Filters** - when `UseAuthorization` is `true`, the library calls the SDK `AddAuthorizationFilters()`.
+3. **`tools/list`** - the SDK filter evaluates each tool's `[Authorize]` / policy / `[AllowAnonymous]` against the caller through the host `IAuthorizationService` and **drops tools the caller may not invoke**.
+4. **`tools/call`** - the same evaluation runs before the tool executes; a forbidden call is rejected in the SDK request pipeline with the JSON-RPC error **`Access forbidden: This tool requires authorization.`** The controller is **never instantiated**.
+5. **Client view** - SDK clients throw **`McpProtocolException`** for the rejected call. There is no `CallToolResult` with `IsError = true` for authorization failures (those are reserved for tool execution errors such as `NotFound()`).
+6. **Fully async** - authorization runs inside the SDK's async request handlers; there is no sync-over-async anywhere in the library.
+7. **`UseAuthorization = false`** - no authorization metadata is attached, no filters are registered, every tool is listed and callable (the demo does this when `Auth:Enabled=false`).
+
 ### Authorization Flow
 
 ```mermaid
 sequenceDiagram
     participant MCP as MCP Client
-    participant Pre as Pre-Filter
+    participant F as SDK Authorization Filter
     participant Auth as IAuthorizationService
     participant Handler as MinimumRoleRequirementHandler
     participant Svc as IUserService
     participant Ctrl as Controller
 
-    MCP->>Pre: call_tool("create")
-    Pre->>Pre: Check [Authorize(Policy="RequireMember")]
-    Pre->>Auth: AuthorizeAsync(user, policy)
+    MCP->>F: tools/call("create")
+    F->>F: Read tool metadata: [Authorize(Policy="RequireMember")]
+    F->>Auth: AuthorizeAsync(user, policy)
     Auth->>Handler: HandleRequirementAsync(MinimumRole=Member)
     Handler->>Handler: Extract preferred_username claim
     Handler->>Svc: GetAllAsync()
@@ -1261,15 +1746,15 @@ sequenceDiagram
     Handler->>Handler: Check user.Role >= MinimumRole
     alt Role sufficient
         Handler->>Auth: context.Succeed()
-        Auth->>Pre: AuthorizationResult.Succeeded=true
-        Pre->>Ctrl: CreateInstance(controller)
-        Ctrl->>Pre: ActionResult<User>
-        Pre->>Pre: Unwrap ActionResult
-        Pre->>MCP: CallToolResult (success)
+        Auth->>F: AuthorizationResult.Succeeded=true
+        F->>Ctrl: ActivatorUtilities.CreateInstance(RequestServices, UsersController)
+        Ctrl->>F: ActionResult<User>
+        F->>F: MarshalResult.UnwrapAsync
+        F->>MCP: CallToolResult (success)
     else Role insufficient
         Handler->>Auth: (no Succeed call)
-        Auth->>Pre: AuthorizationResult.Succeeded=false
-        Pre->>MCP: CallToolResult.IsError=true
+        Auth->>F: AuthorizationResult.Succeeded=false
+        F->>MCP: JSON-RPC error "Access forbidden: This tool requires authorization." (client: McpProtocolException)
     end
 ```
 
@@ -1281,19 +1766,23 @@ The `>=` operator in the handler enables role hierarchy:
 if (user.Role >= requirement.MinimumRole)
 ```
 
-| Policy | Required Role | Member | Manager | Admin |
-|--------|--------------|--------|---------|-------|
-| RequireMember | Member (1) | ✅ | ✅ | ✅ |
-| RequireManager | Manager (2) | ❌ | ✅ | ✅ |
-| RequireAdmin | Admin (3) | ❌ | ❌ | ✅ |
+| Policy | Required Role | Viewer | Member | Manager | Admin |
+|--------|--------------|--------|--------|---------|-------|
+| (class `[Authorize]` only) | authenticated | ✅ | ✅ | ✅ | ✅ |
+| RequireMember | Member (1) | ❌ | ✅ | ✅ | ✅ |
+| RequireManager | Manager (2) | ❌ | ❌ | ✅ | ✅ |
+| RequireAdmin | Admin (3) | ❌ | ❌ | ❌ | ✅ |
+| `[AllowAnonymous]` | none | ✅ | ✅ | ✅ | ✅ |
 
 ---
 
 ## Personal Access Token (PAT) Authentication
 
+> **Status:** design only (optional). The demo authenticates with Keycloak JWTs. Nothing in Zero.Mcp.Extensions is PAT-specific: a PAT is just another ASP.NET Core **authentication scheme**. Once the scheme has produced a `ClaimsPrincipal`, MCP authorization flows through the SDK authorization filters exactly as described above.
+
 ### When to Use PAT vs JWT
 
-The project supports **two authentication methods**:
+The design supports **two authentication methods**:
 
 | Method | Use Case | Flow Type | Lifetime |
 |--------|----------|-----------|----------|
@@ -1363,9 +1852,9 @@ sequenceDiagram
     participant API as MCP API
     participant AppDB as App Database
     participant KC as Keycloak
-    participant SecSvc as SecurityService
+    participant SDK as SDK Authorization Filters
 
-    Note over Agent,API: 1. PAT Validation (App DB)
+    Note over Agent,API: 1. PAT Validation (App DB) - PAT authentication scheme
     Agent->>API: POST /mcp<br/>Bearer: mcppat_xxx
     API->>API: Hash incoming PAT
     API->>AppDB: Lookup by hash
@@ -1376,15 +1865,13 @@ sequenceDiagram
     KC->>KC: Check: user exists?<br/>account enabled?
     KC->>API: JWT with identity<br/>(email, username)
 
-    Note over API,AppDB: 3. CRITICAL: Get Roles from App DB
-    API->>SecSvc: GetUserRoles(email)
-    SecSvc->>AppDB: Query CURRENT role
-    AppDB->>SecSvc: User(role=Manager)
-    SecSvc->>API: Current role: Manager
+    Note over API,AppDB: 3. ClaimsPrincipal with preferred_username
+    API->>API: Build ClaimsPrincipal from exchanged identity
 
-    Note over API: 4. Authorization with Current Roles
-    API->>API: Execute policies<br/>with role from App DB
-    API->>Agent: MCP Response
+    Note over API,SDK: 4. Authorization - unchanged
+    API->>SDK: tools/list or tools/call
+    SDK->>AppDB: MinimumRoleRequirementHandler queries CURRENT role
+    SDK->>Agent: Filtered list / result / "Access forbidden" error
 ```
 
 ### Critical Security Requirement
@@ -1403,10 +1890,10 @@ This system uses **hybrid architecture**:
 
 **Authentication Flow with Token Exchange (RFC 8693):**
 
-1. **PAT Validation**: API validates token exists in app database
+1. **PAT Validation**: the PAT authentication scheme validates the token exists in the app database
 2. **Identity Validation**: API exchanges PAT for JWT from Keycloak (confirms user exists, account enabled)
-3. **Role Extraction**: SecurityService queries CURRENT user role from app database
-4. **Authorization**: Standard policies execute with current role from app DB
+3. **Principal**: the scheme produces a `ClaimsPrincipal` carrying `preferred_username`
+4. **Authorization**: the SDK authorization filters evaluate the controllers' `[Authorize]` policies; `MinimumRoleRequirementHandler` reads the CURRENT role from the app DB
 5. **Dual Validation**: Both Keycloak (identity) and app DB (roles) checked
 
 ### Token Format
@@ -1440,16 +1927,17 @@ curl -X POST http://127.0.0.1:5001/api/tokens \
 {
   "token": "mcppat_k8x2n9p4q6r7s5t1u3v8w2x9y4z6a1b3c5d7",
   "name": "Claude Agent",
-  "expiresAt": "2026-01-26T10:30:00Z"
+  "expiresAt": "2026-12-13T10:30:00Z"
 }
 
 # 2. AI Agent stores PAT in environment variable
 export MCP_API_TOKEN="mcppat_k8x2n9p4q6r7s5t1u3v8w2x9y4z6a1b3c5d7"
 
-# 3. AI Agent calls MCP tools
+# 3. AI Agent calls MCP tools (stateless Streamable HTTP: one self-contained POST per request)
 curl -X POST http://127.0.0.1:5001/mcp \
   -H "Authorization: Bearer $MCP_API_TOKEN" \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
   -d '{
     "jsonrpc": "2.0",
     "method": "tools/call",
@@ -1466,33 +1954,34 @@ curl -X POST http://127.0.0.1:5001/mcp \
   }'
 
 # 4. Behind the scenes:
-# - API validates PAT against DB
-# - API exchanges PAT for Keycloak JWT (with CURRENT user roles)
-# - API executes authorization policies
-# - API returns MCP response
+# - PAT authentication scheme validates PAT against DB
+# - API exchanges PAT for Keycloak JWT (identity)
+# - SDK authorization filters evaluate the controller's [Authorize] policies with the CURRENT app role
+# - API returns MCP response (or the "Access forbidden" JSON-RPC error)
 ```
 
 ### PAT vs JWT Token Exchange Flow
 
 **JWT Flow (Interactive User):**
 ```
-User → Keycloak Auth → JWT (identity) → MCP API → Query App DB for roles → Authorization → Response
+User → Keycloak Auth → JWT (identity) → MCP API → SDK authorization filters → App DB role → Response
 ```
 
 **PAT Flow (AI Agent with Hybrid Validation):**
 ```
-Agent → PAT → App DB Validation → Keycloak Token Exchange (identity) → Query App DB for roles → Authorization → Response
-              └──────┬──────┘      └────────────┬────────────┘          └──────────┬──────────┘
-                     │                          │                                   │
-              Token exists?          User exists & enabled?              CURRENT role from app
-              Not expired?           Account not locked?                 (Member/Manager/Admin)
+Agent → PAT → App DB Validation → Keycloak Token Exchange (identity) → SDK authorization filters → App DB role → Response
+              └──────┬──────┘      └────────────┬────────────┘          └──────────────┬─────────────────┘
+                     │                          │                                      │
+              Token exists?          User exists & enabled?               CURRENT role from app
+              Not expired?           Account not locked?                  (Viewer/Member/Manager/Admin)
 ```
 
 **Key Points:**
 - **Keycloak**: Authentication only (user identity, account status)
 - **App Database**: Authorization only (application-specific roles)
-- **SecurityService**: Queries CURRENT role from app DB every request
+- **MinimumRoleRequirementHandler**: Queries CURRENT role from app DB on every authorization check
 - **No Role Sync Needed**: Roles only exist in app DB
+- **No MCP-specific code**: the PAT scheme is invisible to Zero.Mcp.Extensions and to the SDK filters
 
 ### Benefits
 
@@ -1509,8 +1998,8 @@ Agent → PAT → App DB Validation → Keycloak Token Exchange (identity) → Q
 
 ### Implementation Status
 
-**Current:** Phase 4 complete with JWT authentication
-**Next:** PAT system design documented (see PAT-AUTHENTICATION-DESIGN.md)
+**Current:** JWT Bearer authentication with Keycloak; SDK-native MCP authorization (3.0.0)
+**Next:** PAT system design documented (see PAT-AUTHENTICATION-DESIGN.md), not implemented
 
 **For full implementation details, see:**
 - [PAT-AUTHENTICATION-DESIGN.md](PAT-AUTHENTICATION-DESIGN.md) - Complete architecture, database schema, code samples
@@ -1521,65 +2010,96 @@ Agent → PAT → App DB Validation → Keycloak Token Exchange (identity) → Q
 
 ## Testing Infrastructure
 
+### Test Stack
+
+| Package | Version | Notes |
+|---------|---------|-------|
+| `xunit.v3` | 4.0.1 | `IAsyncLifetime.InitializeAsync/DisposeAsync` return **`ValueTask`**; `ITestOutputHelper` lives in the `Xunit` namespace; `TestContext.Current.CancellationToken` available |
+| `xunit.runner.visualstudio` | 4.0.0 | IDE integration |
+| `AwesomeAssertions` | 9.6.0 | Namespace **`AwesomeAssertions`** (community fork of FluentAssertions; `Should()` API unchanged) |
+| `NSubstitute` | 6.2.0 | Mocking in unit tests (Moq removed) |
+| `Microsoft.AspNetCore.Mvc.Testing` | 10.0.12 | `WebApplicationFactory<Program>` |
+| `ModelContextProtocol` | 2.2.0 | SDK client (`McpClient`, `HttpClientTransport`) for E2E tests |
+
+The runner is opted in through `global.json`:
+
+```json
+{
+  "sdk": { "version": "10.0.100", "rollForward": "latestFeature" },
+  "test": { "runner": "Microsoft.Testing.Platform" }
+}
+```
+
+and every test project sets `<OutputType>Exe</OutputType>` + `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>`.
+
+**Running tests:**
+
+```bash
+# Unit tests (99) - no infrastructure needed
+dotnet test --project tests/Zero.Mcp.Extensions.Tests
+
+# E2E tests (59) - Keycloak must be running (docker-compose up -d)
+dotnet test --project tests/McpPoc.Api.Tests
+```
+
+Use `--project <dir>` (Microsoft.Testing.Platform style) and **never pass `--nologo`** - the new runner rejects it.
+
+`tests/McpPoc.Api.Tests/Usings.cs`:
+
+```csharp
+global using Xunit;
+global using AwesomeAssertions;
+global using System.Net;
+global using System.Net.Http.Json;
+```
+
 ### Test Fixture
 
 File: `tests/McpPoc.Api.Tests/McpApiFixture.cs`
 
 ```csharp
+using McpPoc.Api.Services;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net.Http.Headers;
 
 namespace McpPoc.Api.Tests;
 
-public class McpApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
+/// <summary>
+/// Test fixture that spins up the API for integration testing
+/// </summary>
+public class McpApiFixture : WebApplicationFactory<Program>
 {
     private readonly KeycloakTokenHelper _tokenHelper;
-    private readonly Dictionary<string, string> _tokenCache = new();
+    private readonly Dictionary<string, string> _tokenCache;
 
     public McpApiFixture()
     {
         _tokenHelper = new KeycloakTokenHelper();
-    }
-
-    public async Task InitializeAsync()
-    {
-        // Pre-warm Keycloak connection
-        await _tokenHelper.GetClientCredentialsTokenAsync();
-    }
-
-    public new Task DisposeAsync()
-    {
-        _tokenCache.Clear();
-        return Task.CompletedTask;
+        _tokenCache = new Dictionary<string, string>();
     }
 
     /// <summary>
-    /// Gets authenticated client using client_credentials flow (no user context).
+    /// Reset test data to seed state. Call before tests that need clean data.
+    /// </summary>
+    public void ResetUserStore()
+    {
+        var store = Services.GetRequiredService<UserStore>();
+        store.Reset();
+    }
+
+    /// <summary>
+    /// Get HttpClient with authentication using default test user (alice@example.com, Member).
     /// </summary>
     public async Task<HttpClient> GetAuthenticatedClientAsync()
     {
-        const string cacheKey = "client_credentials";
-
-        if (!_tokenCache.TryGetValue(cacheKey, out var token))
-        {
-            token = await _tokenHelper.GetClientCredentialsTokenAsync();
-            _tokenCache[cacheKey] = token;
-        }
-
-        var client = CreateClient(new WebApplicationFactoryClientOptions
-        {
-            BaseAddress = new Uri("http://127.0.0.1")
-        });
-
-        client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", token);
-
-        return client;
+        // client_credentials flow is not available: mcppoc-api is a public client
+        return await GetAuthenticatedClientAsync("alice@example.com", "alice123");
     }
 
     /// <summary>
-    /// Gets authenticated client using password flow (with user context for authorization).
+    /// Get HttpClient authenticated as specific user (for role-based testing).
+    /// Tokens are cached per user for performance.
     /// </summary>
     public async Task<HttpClient> GetAuthenticatedClientAsync(string username, string password)
     {
@@ -1595,15 +2115,12 @@ public class McpApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         {
             BaseAddress = new Uri("http://127.0.0.1")
         });
-
-        client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", token);
-
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
 
     /// <summary>
-    /// Gets unauthenticated client for negative testing.
+    /// Get unauthenticated HttpClient (for testing 401 responses)
     /// </summary>
     public HttpClient GetUnauthenticatedClient()
     {
@@ -1615,7 +2132,7 @@ public class McpApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 }
 
 [CollectionDefinition("McpApi")]
-public class McpApiCollection : ICollectionFixture<McpApiFixture>
+public sealed class McpApiCollectionDefinition : ICollectionFixture<McpApiFixture>
 {
 }
 ```
@@ -1625,76 +2142,62 @@ public class McpApiCollection : ICollectionFixture<McpApiFixture>
 File: `tests/McpPoc.Api.Tests/KeycloakTokenHelper.cs`
 
 ```csharp
-using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace McpPoc.Api.Tests;
 
 public class KeycloakTokenHelper
 {
-    private readonly HttpClient _httpClient;
-    private readonly string _tokenEndpoint;
+    private readonly string _keycloakUrl;
+    private readonly string _realm;
     private readonly string _clientId;
-    private readonly string _clientSecret;
 
-    public KeycloakTokenHelper()
+    public KeycloakTokenHelper(
+        string keycloakUrl = "http://127.0.0.1:8080",   // 127.0.0.1, not localhost (see Troubleshooting)
+        string realm = "mcppoc-realm",
+        string clientId = "mcppoc-api",
+        string clientSecret = "mcppoc-api-secret")       // unused: public client
     {
-        _httpClient = new HttpClient();
-        _tokenEndpoint = "http://127.0.0.1:8080/realms/mcppoc-realm/protocol/openid-connect/token";
-        _clientId = "mcppoc-api";
-        _clientSecret = "your-client-secret-here";
+        _keycloakUrl = keycloakUrl;
+        _realm = realm;
+        _clientId = clientId;
     }
 
     /// <summary>
-    /// Gets token using client_credentials flow (machine-to-machine).
-    /// No user context - cannot be used for authorization tests.
-    /// </summary>
-    public async Task<string> GetClientCredentialsTokenAsync()
-    {
-        var requestContent = new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["grant_type"] = "client_credentials",
-            ["client_id"] = _clientId,
-            ["client_secret"] = _clientSecret
-        });
-
-        var response = await _httpClient.PostAsync(_tokenEndpoint, requestContent);
-        response.EnsureSuccessStatusCode();
-
-        var responseContent = await response.Content.ReadAsStringAsync();
-        var tokenResponse = JsonSerializer.Deserialize<TokenResponse>(responseContent);
-
-        return tokenResponse?.AccessToken
-            ?? throw new InvalidOperationException("Failed to get access token");
-    }
-
-    /// <summary>
-    /// Gets token using password flow (user authentication).
+    /// Get access token using password grant (for user login).
     /// Provides user context with preferred_username claim for authorization.
     /// </summary>
     public async Task<string> GetPasswordTokenAsync(string username, string password)
     {
+        using var httpClient = new HttpClient();
+        var tokenEndpoint = $"{_keycloakUrl}/realms/{_realm}/protocol/openid-connect/token";
+
         var requestContent = new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["grant_type"] = "password",
             ["client_id"] = _clientId,
-            ["client_secret"] = _clientSecret,
             ["username"] = username,
             ["password"] = password
+            // Note: client_secret not needed for public client
         });
 
-        var response = await _httpClient.PostAsync(_tokenEndpoint, requestContent);
+        var response = await httpClient.PostAsync(tokenEndpoint, requestContent);
         response.EnsureSuccessStatusCode();
 
-        var responseContent = await response.Content.ReadAsStringAsync();
-        var tokenResponse = JsonSerializer.Deserialize<TokenResponse>(responseContent);
-
-        return tokenResponse?.AccessToken
-            ?? throw new InvalidOperationException("Failed to get access token");
+        var tokenResponse = await response.Content.ReadFromJsonAsync<TokenResponse>();
+        return tokenResponse?.AccessToken ?? throw new InvalidOperationException("Failed to get access token");
     }
 
-    private class TokenResponse
+    private sealed class TokenResponse
     {
+        [JsonPropertyName("access_token")]
         public string AccessToken { get; set; } = string.Empty;
+
+        [JsonPropertyName("expires_in")]
+        public int ExpiresIn { get; set; }
+
+        [JsonPropertyName("token_type")]
+        public string TokenType { get; set; } = string.Empty;
     }
 }
 ```
@@ -1704,17 +2207,15 @@ public class KeycloakTokenHelper
 File: `tests/McpPoc.Api.Tests/McpClientHelper.cs`
 
 ```csharp
-using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
 namespace McpPoc.Api.Tests;
 
 /// <summary>
-/// Helper for making MCP protocol requests.
-/// Manages MCP client lifecycle and provides convenient methods for testing.
+/// Helper for making MCP protocol requests using the official SDK
 /// </summary>
-public class McpClientHelper : IAsyncDisposable
+public sealed class McpClientHelper : IAsyncDisposable
 {
     private readonly HttpClient _httpClient;
     private McpClient? _client;
@@ -1726,9 +2227,12 @@ public class McpClientHelper : IAsyncDisposable
 
     private async Task<McpClient> GetConnectedClientAsync()
     {
-        if (_client != null) return _client;
+        if (_client != null)
+        {
+            return _client;
+        }
 
-        // Create HTTP transport pointing to /mcp endpoint
+        // Create HTTP transport pointing to /mcp endpoint (Streamable HTTP, auto-detected)
         var transport = new HttpClientTransport(
             new HttpClientTransportOptions
             {
@@ -1736,16 +2240,13 @@ public class McpClientHelper : IAsyncDisposable
                 TransportMode = HttpTransportMode.AutoDetect
             },
             _httpClient,
-            ownsHttpClient: false  // We manage HttpClient lifecycle
+            ownsHttpClient: false
         );
 
         _client = await McpClient.CreateAsync(transport);
         return _client;
     }
 
-    /// <summary>
-    /// Lists all available MCP tools.
-    /// </summary>
     public async Task<IList<McpClientTool>> ListToolsAsync()
     {
         var client = await GetConnectedClientAsync();
@@ -1753,11 +2254,10 @@ public class McpClientHelper : IAsyncDisposable
     }
 
     /// <summary>
-    /// Calls an MCP tool with optional arguments.
+    /// Call an MCP tool. A forbidden call does NOT come back as CallToolResult:
+    /// the SDK client throws McpProtocolException ("Access forbidden: This tool requires authorization.").
     /// </summary>
-    public async Task<CallToolResult> CallToolAsync(
-        string toolName,
-        IReadOnlyDictionary<string, object?>? arguments = null)
+    public async Task<CallToolResult> CallToolAsync(string toolName, IReadOnlyDictionary<string, object?>? arguments = null)
     {
         var client = await GetConnectedClientAsync();
         return await client.CallToolAsync(toolName, arguments);
@@ -1775,13 +2275,13 @@ public class McpClientHelper : IAsyncDisposable
 
 ### Example Test - Tool Discovery
 
-File: `tests/McpPoc.Api.Tests/McpToolDiscoveryTests.cs`
+File: `tests/McpPoc.Api.Tests/McpToolDiscoveryTests.cs` (excerpt)
 
 ```csharp
 namespace McpPoc.Api.Tests;
 
 [Collection("McpApi")]
-public class McpToolDiscoveryTests : IAsyncLifetime
+public sealed class McpToolDiscoveryTests : IAsyncLifetime
 {
     private readonly McpApiFixture _fixture;
     private McpClientHelper _mcpClient = null!;
@@ -1791,48 +2291,81 @@ public class McpToolDiscoveryTests : IAsyncLifetime
         _fixture = fixture;
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()          // xunit.v3: ValueTask, not Task
     {
         var httpClient = await _fixture.GetAuthenticatedClientAsync();
         _mcpClient = new McpClientHelper(httpClient);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _mcpClient.DisposeAsync();
     }
 
     [Fact]
-    public async Task Should_DiscoverSixMcpTools_WhenListingTools()
+    public async Task Should_DiscoverToolsFilteredByRole_WhenListingTools()
     {
-        // Act
+        // Act - default user is alice@example.com (Member role)
         var tools = await _mcpClient.ListToolsAsync();
 
-        // Assert
+        // Assert - Member sees 6 base tools + create (7 total)
         tools.Should().NotBeNull();
-        tools.Should().HaveCount(6,
-            "GetById, GetAll, Create, Update, PromoteToManager, and GetScopeId should be exposed");
+        tools.Should().HaveCount(7, "Member should see 6 base tools + create");
 
-        // Verify expected tool names (SDK converts to snake_case)
         var toolNames = tools.Select(t => t.Name).ToList();
-        toolNames.Should().Contain("get_by_id");
+        toolNames.Should().Contain("UserGetById");
         toolNames.Should().Contain("get_all");
         toolNames.Should().Contain("create");
-        toolNames.Should().Contain("update");
-        toolNames.Should().Contain("promote_to_manager");
         toolNames.Should().Contain("get_scope_id");
+        toolNames.Should().Contain("get_public_info");
+
+        // Member should NOT see higher-role tools
+        toolNames.Should().NotContain("update", "Member cannot see Manager-level tools");
+        toolNames.Should().NotContain("promote_to_manager", "Member cannot see Admin-level tools");
     }
 
     [Fact]
     public async Task Should_NotExposeDeleteEndpoint_AsAnMcpTool()
     {
-        // Act
         var tools = await _mcpClient.ListToolsAsync();
 
-        // Assert
         tools
             .Should().NotContain(t => t.Name.Contains("delete", StringComparison.OrdinalIgnoreCase),
                 "Delete endpoint should NOT have [McpServerTool] attribute");
+    }
+
+    [Fact]
+    public async Task Should_ReturnTtlAndPrivateScope_WhenConfigured()
+    {
+        // Raw JSON-RPC so the wire-level hint names (ttlMs / cacheScope) are asserted
+        var http = await _fixture.GetAuthenticatedClientAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/mcp")
+        {
+            Content = new StringContent("""{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""", System.Text.Encoding.UTF8, "application/json")
+        };
+        request.Headers.Accept.ParseAdd("application/json");
+        request.Headers.Accept.ParseAdd("text/event-stream");
+        request.Headers.Add("MCP-Protocol-Version", "2025-11-25");
+
+        using var response = await http.SendAsync(request, TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        response.IsSuccessStatusCode.Should().BeTrue(body);
+        body.Should().Contain("\"ttlMs\":300000");
+        body.Should().Contain("\"cacheScope\":\"private\"");
+    }
+
+    [Fact]
+    public async Task Should_ExposeOutputSchemaOfUser_WhenOutputSchemaTypeIsSet()
+    {
+        var tools = await _mcpClient.ListToolsAsync();
+        var tool = tools.Should().ContainSingle(t => t.Name == "UserGetById").Subject;
+
+        // The SDK derives outputSchema from OutputSchemaType (snake_case serializer => "id", "name")
+        tool.ProtocolTool.OutputSchema.Should().NotBeNull();
+        var properties = tool.ProtocolTool.OutputSchema!.Value.GetProperty("properties");
+        properties.TryGetProperty("id", out _).Should().BeTrue();
+        properties.TryGetProperty("name", out _).Should().BeTrue();
     }
 }
 ```
@@ -1842,10 +2375,17 @@ public class McpToolDiscoveryTests : IAsyncLifetime
 File: `tests/McpPoc.Api.Tests/PolicyAuthorizationTests.cs` (excerpt)
 
 ```csharp
+using System.Text.Json;
+using ModelContextProtocol;           // McpProtocolException
+using ModelContextProtocol.Protocol;
+
+namespace McpPoc.Api.Tests;
+
 [Collection("McpApi")]
-public class PolicyAuthorizationTests : IAsyncLifetime
+public sealed class PolicyAuthorizationTests : IAsyncLifetime
 {
     private readonly McpApiFixture _fixture;
+    private McpClientHelper _viewerClient = null!;
     private McpClientHelper _memberClient = null!;
     private McpClientHelper _managerClient = null!;
     private McpClientHelper _adminClient = null!;
@@ -1855,9 +2395,14 @@ public class PolicyAuthorizationTests : IAsyncLifetime
         _fixture = fixture;
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
-        // Create authenticated clients for each role
+        // Reset data to seed state for test isolation
+        _fixture.ResetUserStore();
+
+        var viewerHttp = await _fixture.GetAuthenticatedClientAsync("viewer", "viewer123");
+        _viewerClient = new McpClientHelper(viewerHttp);
+
         var memberHttp = await _fixture.GetAuthenticatedClientAsync("alice@example.com", "alice123");
         _memberClient = new McpClientHelper(memberHttp);
 
@@ -1866,6 +2411,14 @@ public class PolicyAuthorizationTests : IAsyncLifetime
 
         var adminHttp = await _fixture.GetAuthenticatedClientAsync("carol@example.com", "carol123");
         _adminClient = new McpClientHelper(adminHttp);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _viewerClient.DisposeAsync();
+        await _memberClient.DisposeAsync();
+        await _managerClient.DisposeAsync();
+        await _adminClient.DisposeAsync();
     }
 
     [Fact]
@@ -1893,7 +2446,7 @@ public class PolicyAuthorizationTests : IAsyncLifetime
     [Fact]
     public async Task Should_BlockUpdate_WhenUserIsMember()
     {
-        // Arrange
+        // Arrange - Member user trying to call Manager-protected tool
         var args = new Dictionary<string, object?>
         {
             ["id"] = 1,
@@ -1904,17 +2457,26 @@ public class PolicyAuthorizationTests : IAsyncLifetime
             }
         };
 
-        // Act
-        var result = await _memberClient.CallToolAsync("update", args);
+        // Act - the SDK authorization filter rejects the call in the request pipeline (JSON-RPC error),
+        // which the SDK client surfaces as a thrown McpProtocolException instead of a CallToolResult.
+        Func<Task> act = () => _memberClient.CallToolAsync("update", args);
 
         // Assert
-        result.Should().NotBeNull();
-        result.IsError.Should().Be(true,
-            "Member should NOT be able to update users - authorization should block this");
-        result.Content.Should().NotBeEmpty("error response should contain error details");
+        await act.Should().ThrowAsync<McpProtocolException>("Member should NOT be able to update users - authorization should block this")
+            .WithMessage("*Access forbidden*");
     }
 }
 ```
+
+The forbidden-call assertion pattern used throughout the E2E suite:
+
+```csharp
+await act.Should().ThrowAsync<McpProtocolException>().WithMessage("*Access forbidden*");
+```
+
+### Unit Tests (Zero.Mcp.Extensions.Tests)
+
+The 99 unit tests cover the library in isolation (no Keycloak): `MarshalResultTests`, `ToolNameGeneratorTests`, `ToolMetadataBuilderTests`, `ToolCreateOptionsFactoryTests`, `ToolsListCacheHintFilterTests`, `McpServerBuilderExtensionsTests`, `McpRequestContextTests`, `McpMiddlewareTests`, `ZeroMcpOptionsTests`, `PackageTests` and a `TestStackSmokeTests` that pins the xunit.v3 / AwesomeAssertions / NSubstitute combination.
 
 ---
 
@@ -1936,19 +2498,20 @@ graph TB
         H9 --> H10[HTTP Response 200 OK]
     end
 
-    subgraph "MCP Request Flow"
-        M1[MCP Client] -->|call_tool get_by_id| M2[/mcp Endpoint]
-        M2 --> M3[Require Authorization]
+    subgraph "MCP Request Flow (stateless Streamable HTTP)"
+        M1[MCP Client] -->|POST /mcp tools/call UserGetById| M2[/mcp Endpoint]
+        M2 --> M2b[UseZeroMcpMarking: x-mcp-call]
+        M2b --> M3[Authentication + RequireAuthorization]
         M3 --> M4[MCP Server]
         M4 --> M5[Find Tool]
-        M5 --> M6[Pre-Filter Authorization]
-        M6 -->|Check Authorize Attributes| M7{Policy Check}
-        M7 -->|Authorized| M8[Create Controller]
-        M7 -->|Denied| M9[Return Error]
+        M5 --> M6[SDK Authorization Filter]
+        M6 -->|Evaluate tool metadata| M7{IAuthorizationService}
+        M7 -->|Authorized| M8[Create Controller from RequestServices]
+        M7 -->|Denied| M9[JSON-RPC error: Access forbidden]
         M8 --> M10[Execute Method]
-        M10 --> M11[ActionResult Unwrapper]
+        M10 --> M11[MarshalResult.UnwrapAsync]
         M11 --> M12[Extract Value]
-        M12 --> M13[Serialize to JSON]
+        M12 --> M13[Serialize to JSON snake_case]
         M13 --> M14[MCP Response]
     end
 
@@ -1965,24 +2528,24 @@ sequenceDiagram
     participant E as /mcp Endpoint
     participant A as Auth Middleware
     participant M as MCP Server
-    participant P as Pre-Filter
+    participant F as SDK Authorization Filter
     participant AS as IAuthorizationService
     participant H as MinimumRoleRequirementHandler
     participant S as IUserService
     participant CT as Controller
-    participant U as Unwrapper
+    participant U as MarshalResult
 
-    C->>E: POST /mcp - call_tool("create", args)
-    E->>A: Check RequireAuthorization
+    C->>E: POST /mcp - tools/call("create", args)
+    E->>A: UseZeroMcpMarking + RequireAuthorization
     A->>A: Validate JWT token
     alt Token Invalid
         A->>C: 401 Unauthorized
     end
     A->>M: Request authorized
     M->>M: Find tool "create"
-    M->>P: CreateControllerWithPreFilter(UsersController, Create)
-    P->>P: Check [Authorize(Policy="RequireMember")]
-    P->>AS: AuthorizeAsync(user, policy="RequireMember")
+    M->>F: Run tools/call filter with tool metadata
+    F->>F: Metadata contains [Authorize(Policy="RequireMember")]
+    F->>AS: AuthorizeAsync(user, policy="RequireMember")
     AS->>H: HandleRequirementAsync(MinimumRole=Member)
     H->>H: Extract preferred_username claim
     H->>S: GetAllAsync()
@@ -1991,30 +2554,36 @@ sequenceDiagram
     H->>H: Check user.Role >= Member
     alt Role Insufficient
         H->>AS: (no Succeed call)
-        AS->>P: AuthorizationResult.Succeeded=false
-        P->>C: UnauthorizedAccessException → CallToolResult.IsError=true
+        AS->>F: AuthorizationResult.Succeeded=false
+        F->>C: JSON-RPC error "Access forbidden: This tool requires authorization." (McpProtocolException on the client)
     end
     H->>AS: context.Succeed(requirement)
-    AS->>P: AuthorizationResult.Succeeded=true
-    P->>CT: ActivatorUtilities.CreateInstance(UsersController)
-    P->>CT: await Create(request)
+    AS->>F: AuthorizationResult.Succeeded=true
+    F->>CT: ActivatorUtilities.CreateInstance(RequestServices, UsersController)
+    F->>CT: await Create(request)
     CT->>S: CreateAsync(name, email)
     S->>CT: User
-    CT->>P: ActionResult<User> (CreatedAtAction)
-    P->>U: UnwrapActionResult(result)
-    U->>U: Extract Value from ActionResult
+    CT->>U: ActionResult<User> (CreatedAtAction) - already awaited by MEAI
+    U->>U: Extract Value from ObjectResult
     U->>M: User object
-    M->>M: Serialize to JSON
-    M->>C: CallToolResult{IsError=null, Content=[TextBlock]}
+    M->>M: Serialize to JSON (snake_case)
+    M->>C: CallToolResult{IsError=null, Content=[TextContentBlock]}
 ```
 
 ### Key Decision Points
 
-1. **Step 2-3**: Endpoint-level authentication via `.RequireAuthorization()`
-2. **Step 7-8**: Pre-filter checks `[Authorize]` attributes
-3. **Step 10-15**: Authorization handler queries user service for role
-4. **Step 19**: Controller only created AFTER authorization passes
-5. **Step 23-24**: ActionResult unwrapping for MCP response
+1. **Step 2-3**: Endpoint-level authentication via `RequireAuthorization()` (set by `RequireAuthentication = true`); the marking middleware runs first so `IMcpRequestContext` sees the call
+2. **Step 7-9**: The SDK authorization filter reads the tool metadata attached by `ToolMetadataBuilder`
+3. **Step 10-15**: Authorization handler queries user service for role - the same handler used by HTTP
+4. **Step 19**: Controller only created AFTER authorization passes, from the request's scoped provider
+5. **Step 23-24**: `MarshalResult` unwrapping for MCP response
+
+### Transport: Streamable HTTP, Stateless by Default
+
+- SDK 2.2.0 speaks **Streamable HTTP** (protocol revision 2026-07-28). Legacy HTTP+SSE is **off**.
+- `SessionMode = Stateless` (default): no `Mcp-Session-Id` header is ever issued or required; every JSON-RPC request is a self-contained HTTP POST. Load balancers need no sticky sessions.
+- Because each `tools/call` runs **inside its own HTTP request** with that request's `ExecutionContext` and `RequestServices`, `IHttpContextAccessor` (and therefore `IMcpRequestContext`) works inside tools: `IsMcpCall` is `true` and `x-mcp-call` is present.
+- `SessionMode = Stateful` or `StatefulForInitializeClients`: the SDK issues `Mcp-Session-Id` on `initialize` and expects it on later requests. The demo reads the mode from `Mcp:SessionMode`; `TransportModeTests` verify both behaviours.
 
 ---
 
@@ -2024,14 +2593,14 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    subgraph "Request 1"
+    subgraph "Request 1 (tools/call)"
         R1[HttpContext] --> S1[RequestServices]
         S1 --> I1[IUserService Instance 1]
         S1 --> T1["IScopedRequestTracker
         RequestId=abc-123"]
     end
 
-    subgraph "Request 2"
+    subgraph "Request 2 (tools/call)"
         R2[HttpContext] --> S2[RequestServices]
         S2 --> I2[IUserService Instance 2]
         S2 --> T2["IScopedRequestTracker
@@ -2041,6 +2610,8 @@ graph LR
     style T1 fill:#90EE90
     style T2 fill:#90EE90
 ```
+
+How the controller reaches the request scope: the library passes `args => ActivatorUtilities.CreateInstance(args.Services!, toolType)` as the target factory to `AIFunctionFactory.Create`. `args.Services` is the `IServiceProvider` the SDK supplies for the invocation, i.e. the HTTP request's `RequestServices`. No manual scope creation is needed.
 
 ### Scoped Request Tracker
 
@@ -2087,7 +2658,7 @@ public async Task Should_CreateNewScope_PerToolInvocation()
     result1.IsError.Should().NotBe(true, "first tool call should succeed");
     result2.IsError.Should().NotBe(true, "second tool call should succeed");
 
-    // Extract RequestIds from responses
+    // Extract RequestIds from responses (snake_case payload: "request_id")
     var json1 = JsonSerializer.Deserialize<JsonElement>(textBlock1.Text);
     var json2 = JsonSerializer.Deserialize<JsonElement>(textBlock2.Text);
 
@@ -2107,7 +2678,7 @@ public async Task Should_CreateNewScope_PerToolInvocation()
 
 1. **EF Core DbContext** - Each request must have its own context
 2. **Test Isolation** - Tests shouldn't share state
-3. **Authorization Handler** - Must query fresh user data per request
+3. **Authorization Handler** - Must query fresh user data per request (the SDK filter runs it in the request scope)
 4. **Request Tracking** - Unique identifiers per request
 
 **Service Lifetime Choices:**
@@ -2117,6 +2688,9 @@ public async Task Should_CreateNewScope_PerToolInvocation()
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IScopedRequestTracker, ScopedRequestTracker>();
 builder.Services.AddScoped<IAuthorizationHandler, MinimumRoleRequirementHandler>();
+
+// Singleton only for the deliberately shared in-memory store (HACK until EF Core)
+builder.Services.AddSingleton<UserStore>();
 
 // ❌ Wrong - Would break test isolation and DbContext tracking
 builder.Services.AddSingleton<IUserService, UserService>();
@@ -2131,7 +2705,19 @@ builder.Services.AddSingleton<IUserService, UserService>();
 ```
 net-api-with-mcp/
 ├── src/
-│   └── McpPoc.Api/
+│   ├── Zero.Mcp.Extensions/                 # NuGet library 3.0.0
+│   │   ├── IMcpRequestContext.cs
+│   │   ├── MarshalResult.cs                 # ActionResult<T> unwrapping
+│   │   ├── McpRequestContext.cs
+│   │   ├── McpServerBuilderExtensions.cs    # AddZeroMcpExtensions / MapZeroMcp / UseZeroMcpMarking
+│   │   ├── ToolCreateOptionsFactory.cs      # SDK attribute -> McpServerToolCreateOptions
+│   │   ├── ToolMetadataBuilder.cs           # metadata for the SDK authorization filters
+│   │   ├── ToolNameGenerator.cs
+│   │   ├── ToolNamingConvention.cs
+│   │   ├── ToolsListCacheHintFilter.cs      # ttlMs / cacheScope
+│   │   ├── ZeroMcpOptions.cs
+│   │   └── README.md
+│   └── McpPoc.Api/                          # Demo API
 │       ├── Authorization/
 │       │   ├── AuthorizationServiceExtensions.cs
 │       │   ├── MinimumRoleRequirement.cs
@@ -2139,17 +2725,29 @@ net-api-with-mcp/
 │       │   └── PolicyNames.cs
 │       ├── Controllers/
 │       │   └── UsersController.cs
-│       ├── Extensions/
-│       │   └── McpServerBuilderExtensions.cs
+│       ├── Infrastructure/
+│       │   └── Log.cs                       # LoggerMessage source generators
 │       ├── Models/
 │       │   └── User.cs
 │       ├── Services/
-│       │   ├── IUserService.cs
+│       │   ├── IUserService.cs              # IUserService, UserStore, UserService
 │       │   └── ScopedRequestTracker.cs
 │       ├── appsettings.json
 │       └── Program.cs
 ├── tests/
-│   └── McpPoc.Api.Tests/
+│   ├── Zero.Mcp.Extensions.Tests/           # 99 unit tests
+│   │   ├── MarshalResultTests.cs
+│   │   ├── McpMiddlewareTests.cs
+│   │   ├── McpRequestContextTests.cs
+│   │   ├── McpServerBuilderExtensionsTests.cs
+│   │   ├── PackageTests.cs
+│   │   ├── TestStackSmokeTests.cs
+│   │   ├── ToolCreateOptionsFactoryTests.cs
+│   │   ├── ToolMetadataBuilderTests.cs
+│   │   ├── ToolNameGeneratorTests.cs
+│   │   ├── ToolsListCacheHintFilterTests.cs
+│   │   └── ZeroMcpOptionsTests.cs
+│   └── McpPoc.Api.Tests/                    # 59 E2E tests (Keycloak required)
 │       ├── ActionResultSerializationTest.cs
 │       ├── AuthenticationTests.cs
 │       ├── DIScopingTests.cs
@@ -2158,17 +2756,29 @@ net-api-with-mcp/
 │       ├── KeycloakTokenHelper.cs
 │       ├── McpApiFixture.cs
 │       ├── McpClientHelper.cs
+│       ├── McpRequestContextE2ETests.cs
 │       ├── McpToolDiscoveryTests.cs
 │       ├── McpToolInvocationTests.cs
-│       └── PolicyAuthorizationTests.cs
+│       ├── PolicyAuthorizationTests.cs
+│       ├── ToolNamingTests.cs
+│       ├── ToolVisibilityTests.cs
+│       ├── TransportModeTests.cs
+│       └── Usings.cs
 ├── docker/
 │   ├── docker-compose.yml
-│   ├── .env
-│   └── keycloak/
-│       └── mcppoc-realm.json
-└── docs/
-    ├── MCP-AUTHORIZATION-COMPLETE-GUIDE.md
-    └── MCP-COMPLETE-INTEGRATION-GUIDE.md (this file)
+│   ├── keycloak/
+│   │   └── mcppoc-realm.json
+│   ├── nginx/
+│   └── postgres/
+├── docs/
+│   ├── MCP-AUTHORIZATION-COMPLETE-GUIDE.md
+│   ├── MCP-COMPLETE-INTEGRATION-GUIDE.md (this file)
+│   └── PAT-AUTHENTICATION-DESIGN.md
+├── Directory.Build.props                    # TreatWarningsAsErrors, analyzers
+├── Directory.Packages.props                 # Central Package Management
+├── global.json                              # .NET 10 SDK + Microsoft.Testing.Platform runner
+├── CHANGELOG.md
+└── README.md
 ```
 
 ### Model - User Entity
@@ -2180,9 +2790,10 @@ namespace McpPoc.Api.Models;
 
 public enum UserRole
 {
-    Member = 1,
-    Manager = 2,
-    Admin = 3
+    Viewer = 0,   // Read-only access
+    Member = 1,   // Read + Create
+    Manager = 2,  // Read + Create + Update
+    Admin = 3     // Everything
 }
 
 public class User
@@ -2211,59 +2822,144 @@ public interface IUserService
     Task<User> CreateAsync(string name, string email);
 }
 
-public class UserService : IUserService
+/// <summary>
+/// Singleton store for user data persistence across requests.
+/// HACK: In-memory persistence until EF Core is wired up.
+/// </summary>
+public class UserStore
 {
-    private readonly List<User> _users = new()
+    private List<User> _users;
+    private readonly object _lock = new();
+
+    public UserStore()
+    {
+        _users = CreateSeedData();
+    }
+
+    private static List<User> CreateSeedData() => new()
     {
         new User { Id = 1, Name = "Alice Smith", Email = "alice@example.com", Role = UserRole.Member },
         new User { Id = 2, Name = "Bob Jones", Email = "bob@example.com", Role = UserRole.Manager },
-        new User { Id = 3, Name = "Carol White", Email = "carol@example.com", Role = UserRole.Admin }
+        new User { Id = 3, Name = "Carol White", Email = "carol@example.com", Role = UserRole.Admin },
+        new User { Id = 100, Name = "Admin User", Email = "admin", Role = UserRole.Admin },
+        new User { Id = 101, Name = "Regular User", Email = "user", Role = UserRole.Member },
+        new User { Id = 102, Name = "Viewer User", Email = "viewer", Role = UserRole.Viewer }
     };
 
-    private int _nextId = 4;
-
-    public Task<User?> GetByIdAsync(int id)
+    public User? GetById(int id)
     {
-        var user = _users.FirstOrDefault(u => u.Id == id);
-        return Task.FromResult(user);
+        lock (_lock) return _users.FirstOrDefault(u => u.Id == id);
     }
 
-    public Task<List<User>> GetAllAsync()
+    public List<User> GetAll()
     {
-        return Task.FromResult(_users.ToList());
+        lock (_lock) return _users.ToList();
     }
+
+    public User Add(User user)
+    {
+        lock (_lock)
+        {
+            user.Id = _users.Max(u => u.Id) + 1;
+            _users.Add(user);
+            return user;
+        }
+    }
+
+    /// <summary>
+    /// Reset to seed data. Used for test isolation.
+    /// </summary>
+    public void Reset()
+    {
+        lock (_lock)
+        {
+            _users = CreateSeedData();
+        }
+    }
+}
+
+public class UserService : IUserService
+{
+    private readonly UserStore _store;
+
+    public UserService(UserStore store)
+    {
+        _store = store;
+    }
+
+    public Task<User?> GetByIdAsync(int id) => Task.FromResult(_store.GetById(id));
+
+    public Task<List<User>> GetAllAsync() => Task.FromResult(_store.GetAll());
 
     public Task<User> CreateAsync(string name, string email)
     {
         var user = new User
         {
-            Id = _nextId++,
             Name = name,
             Email = email,
-            CreatedAt = DateTime.UtcNow,
             Role = UserRole.Member
         };
-
-        _users.Add(user);
-        return Task.FromResult(user);
+        return Task.FromResult(_store.Add(user));
     }
 }
 ```
+
+The `Email` of the seed users matches the Keycloak `preferred_username` claim - that is how `MinimumRoleRequirementHandler` maps a token to an application role (`viewer` → Viewer, `alice@example.com` → Member, `bob@example.com` → Manager, `carol@example.com` → Admin).
+
+### IMcpRequestContext
+
+File: `src/Zero.Mcp.Extensions/IMcpRequestContext.cs`
+
+```csharp
+public interface IMcpRequestContext
+{
+    // True if this request came through the MCP endpoint
+    bool IsMcpCall { get; }
+
+    // Get a specific header value (returns null if not MCP call)
+    string? GetHeader(string name);
+
+    // Access all headers (returns null if not MCP call)
+    IHeaderDictionary? Headers { get; }
+}
+```
+
+`McpRequestContext` (registered as Scoped by `AddZeroMcpExtensions`) reads `IHttpContextAccessor`: `IsMcpCall` is true when the `__McpCall` item set by `UseZeroMcpMarking` is present, or - as a fallback - when the request path starts with `/mcp`.
 
 ---
 
 ## Common Patterns & Examples
 
-### Pattern: Read-Only Tool
+### Pattern: Read-Only Tool (with SDK hints)
 
 ```csharp
 [HttpGet]
-[McpServerTool, Description("Gets statistics - read-only")]
+[McpServerTool(ReadOnly = true, Idempotent = true, Title = "Current statistics"), Description("Gets statistics - read-only")]
 public async Task<ActionResult<Stats>> GetStats()
 {
-    var stats = await _statsService.GetCurrentStatsAsync();
+    var stats = await _statsService.GetCurrentStatsAsync().ConfigureAwait(false);
     return Ok(stats);
 }
+```
+
+`ReadOnly`, `Idempotent`, `Destructive`, `OpenWorld` and `Title` flow to the client's tool annotations.
+
+### Pattern: Destructive Tool with Icon
+
+```csharp
+[HttpDelete("{id}")]
+[McpServerTool(Name = "delete_user", Title = "Delete user", Destructive = true, Idempotent = true,
+               IconSource = "https://example.com/icons/delete.svg")]
+[Authorize(Policy = PolicyNames.RequireAdmin)]
+public async Task<ActionResult<bool>> Delete(int id) { ... }
+```
+
+### Pattern: Structured Content with Output Schema
+
+```csharp
+[McpServerTool(Name = "UserGetById", UseStructuredContent = true, OutputSchemaType = typeof(User))]
+public async Task<ActionResult<User>> GetById(int id) { ... }
+// tools/list advertises outputSchema for User; tools/call returns structuredContent
 ```
 
 ### Pattern: Tool with Complex Parameters
@@ -2274,7 +2970,7 @@ public async Task<ActionResult<Stats>> GetStats()
 public async Task<ActionResult<List<User>>> Search(
     [Description("Search criteria")] SearchRequest request)
 {
-    var results = await _userService.SearchAsync(request);
+    var results = await _userService.SearchAsync(request).ConfigureAwait(false);
     return Ok(results);
 }
 
@@ -2300,10 +2996,10 @@ public async Task<ActionResult<BulkCreateResponse>> BulkCreate(
     {
         try
         {
-            var user = await _userService.CreateAsync(userReq.Name, userReq.Email);
+            var user = await _userService.CreateAsync(userReq.Name, userReq.Email).ConfigureAwait(false);
             created.Add(user);
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
             errors.Add($"Failed to create {userReq.Name}: {ex.Message}");
         }
@@ -2325,7 +3021,7 @@ public async Task<ActionResult<PagedResponse<User>>> ListUsers(
     [Description("Page number (default: 1)")] int page = 1,
     [Description("Page size (default: 10)")] int pageSize = 10)
 {
-    var users = await _userService.GetPagedAsync(page, pageSize);
+    var users = await _userService.GetPagedAsync(page, pageSize).ConfigureAwait(false);
     return Ok(users);
 }
 ```
@@ -2333,7 +3029,7 @@ public async Task<ActionResult<PagedResponse<User>>> ListUsers(
 ### Pattern: Conditional Authorization
 
 ```csharp
-// Method-level policy overrides class-level
+// Method-level policy overrides class-level; [AllowAnonymous] overrides [Authorize]
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]  // Default: just authenticated
@@ -2342,7 +3038,7 @@ public class DocumentsController : ControllerBase
 {
     [HttpGet("{id}")]
     [McpServerTool]
-    [AllowAnonymous]  // Override: allow public access
+    [AllowAnonymous]  // Override: allow public access (visible to every caller in tools/list)
     public async Task<ActionResult<Document>> GetPublic(int id)
     {
         // ...
@@ -2350,12 +3046,59 @@ public class DocumentsController : ControllerBase
 
     [HttpPost]
     [McpServerTool]
-    [Authorize(Policy = PolicyNames.RequireManager)]  // Override: stricter
+    [Authorize(Policy = PolicyNames.RequireManager)]  // Override: stricter (hidden from Viewer/Member)
     public async Task<ActionResult<Document>> Create(CreateDocumentRequest request)
     {
         // ...
     }
 }
+```
+
+### Pattern: Domain Error Instead of NotFound()
+
+`NotFound()` / `BadRequest()` without a body throw `InvalidOperationException` in `MarshalResult` and become a tool error. When the client should see a payload, return an `ObjectResult`:
+
+```csharp
+if (user == null)
+{
+    return NotFound(new { error = "User not found", id });   // ObjectResult → payload reaches the client
+}
+```
+
+### Pattern: Library Configuration Recipes
+
+```csharp
+// Without authentication (development)
+builder.Services.AddZeroMcpExtensions(options =>
+{
+    options.RequireAuthentication = false;
+    options.UseAuthorization = false;   // every tool listed and callable, no [Authorize] evaluation
+});
+
+// Multiple controllers with the same method names
+builder.Services.AddZeroMcpExtensions(options =>
+{
+    options.NamingConvention = ToolNamingConvention.ControllerPrefix;   // users_get_all, products_get_all
+});
+
+// Custom endpoint path (match the marking middleware!)
+builder.Services.AddZeroMcpExtensions(options => options.McpEndpointPath = "/api/mcp");
+app.UseZeroMcpMarking("/api/mcp");
+
+// tools/list cache hints
+builder.Services.AddZeroMcpExtensions(options =>
+{
+    options.ToolsListTimeToLive = TimeSpan.FromMinutes(5);
+});
+// tools/list result: "ttlMs": 300000, "cacheScope": "private" (UseAuthorization = true)
+//                                      "cacheScope": "public"  (UseAuthorization = false)
+
+// Stateful sessions
+using ModelContextProtocol.AspNetCore;
+builder.Services.AddZeroMcpExtensions(options =>
+{
+    options.SessionMode = HttpServerSessionMode.Stateful;   // SDK issues Mcp-Session-Id
+});
 ```
 
 ---
@@ -2364,17 +3107,18 @@ public class DocumentsController : ControllerBase
 
 ### Issue 1: Tool Not Discovered
 
-**Symptom:** Tool doesn't appear in `list_tools` response
+**Symptom:** Tool doesn't appear in `tools/list` response
 
 **Checklist:**
-- ✅ Controller has `[McpServerToolType]` attribute
-- ✅ Method has `[McpServerTool]` attribute
-- ✅ Method is public
-- ✅ Controller is in assembly being scanned
+- ✅ Controller has the SDK `[McpServerToolType]` attribute (`using ModelContextProtocol.Server;`)
+- ✅ Method has the SDK `[McpServerTool]` attribute
+- ✅ Controller is in the assembly being scanned (`options.ToolAssembly`)
+- ✅ The caller is **authorized** for the tool - with `UseAuthorization = true` the SDK filter hides tools the user may not call (a Viewer never sees `create`)
 
 **Solution:**
 ```csharp
-// Ensure both attributes are present
+using ModelContextProtocol.Server;
+
 [McpServerToolType]  // ← On controller class
 public class UsersController : ControllerBase
 {
@@ -2384,11 +3128,14 @@ public class UsersController : ControllerBase
         // ...
     }
 }
+
+// Program.cs - explicit assembly when in doubt
+options.ToolAssembly = typeof(UsersController).Assembly;
 ```
 
-### Issue 2: Authorization Always Fails
+### Issue 2: Authorization Always Fails ("Access forbidden")
 
-**Symptom:** All MCP tool calls return "Access denied"
+**Symptom:** `tools/call` throws `McpProtocolException` with `Access forbidden: This tool requires authorization.`, or `tools/list` is shorter than expected
 
 **Debugging Steps:**
 
@@ -2411,13 +3158,9 @@ echo $TOKEN | cut -d. -f2 | base64 -d | jq
 }
 ```
 
-4. Verify user exists in UserService:
-```csharp
-// Add logging to handler
-_logger.LogTrace("Looking for user: {Username}", usernameClaim);
-var user = users.FirstOrDefault(u => u.Email == usernameClaim);
-_logger.LogTrace("User found: {Found}, Role: {Role}", user != null, user?.Role);
-```
+4. Verify user exists in `UserStore` with the expected role (the handler logs at Trace level: `Found user ... Role=...`, `User ... does NOT meet minimum role ...`).
+
+5. Verify every policy used on a controller is registered with `AddAuthorization(...)` / `AddAuthorizationCore(...)`. A missing policy surfaces as an `InvalidOperationException` about the policy name.
 
 ### Issue 3: Parameter Binding Fails
 
@@ -2462,6 +3205,13 @@ result.IsError.Should().BeFalse();  // ❌ Fails when null
 result.IsError.Should().NotBe(true);  // ✅ Works with null
 ```
 
+**Related:** a forbidden call never produces a `CallToolResult` at all - assert the exception:
+
+```csharp
+Func<Task> act = () => client.CallToolAsync("update", args);
+await act.Should().ThrowAsync<McpProtocolException>().WithMessage("*Access forbidden*");
+```
+
 ### Issue 5: DI Scoping Issues
 
 **Symptom:** Tests fail with shared state between test runs
@@ -2501,12 +3251,12 @@ public async Task Should_CreateNewScope_PerToolInvocation()
 
 **Wrong:**
 ```csharp
-_tokenEndpoint = "http://localhost:8080/realms/...";  // Slow DNS
+_keycloakUrl = "http://localhost:8080";  // Slow DNS
 ```
 
 **Correct:**
 ```csharp
-_tokenEndpoint = "http://127.0.0.1:8080/realms/...";  // Fast, direct IP
+_keycloakUrl = "http://127.0.0.1:8080";  // Fast, direct IP
 ```
 
 **Performance Impact:**
@@ -2517,27 +3267,66 @@ _tokenEndpoint = "http://127.0.0.1:8080/realms/...";  // Fast, direct IP
 
 **Symptom:** MCP client gets 401 Unauthorized when connecting
 
-**Root Cause:** Forgot `.RequireAuthorization()` or token not provided
+**Root Cause:** `RequireAuthentication = true` (default) and no/invalid token
 
 **Check:**
 ```csharp
-// Program.cs - Ensure endpoint requires auth
-app.MapMcp("/mcp").RequireAuthorization();
+// Program.cs - endpoint requires auth unless RequireAuthentication = false
+builder.Services.AddZeroMcpExtensions(options => options.RequireAuthentication = authEnabled);
+app.MapZeroMcp();
 
 // Test - Ensure client has token
 var client = await _fixture.GetAuthenticatedClientAsync();
 // NOT: var client = _fixture.GetUnauthenticatedClient();
 ```
 
+### Issue 8: InvalidOperationException at Startup About Authorization Filters
+
+**Symptom:** The server throws `InvalidOperationException` when a tool carries `[Authorize]` metadata but `AddAuthorizationFilters()` was not registered
+
+**Root Cause:** SDK guard. This cannot happen through `AddZeroMcpExtensions` (metadata and filters are both tied to `UseAuthorization`), but it can if you register extra tools with the raw SDK API and attach authorization metadata yourself
+
+**Solution:** Either call `AddAuthorizationFilters()` on the returned `IMcpServerBuilder`, or do not attach `IAuthorizeData` metadata to tools
+
+### Issue 9: `outputSchema` Missing from tools/list
+
+**Symptom:** `OutputSchemaType` is set but clients see no `outputSchema`
+
+**Root Cause:** The SDK only emits `outputSchema` for structured tools
+
+**Solution:**
+```csharp
+[McpServerTool(UseStructuredContent = true, OutputSchemaType = typeof(User))]
+```
+
+### Issue 10: `IsMcpCall` Is Always False
+
+**Symptom:** `IMcpRequestContext.IsMcpCall` returns `false` inside a tool
+
+**Checklist:**
+- ✅ `app.UseZeroMcpMarking()` is called **before** `UseAuthentication()` and its path matches `McpEndpointPath`
+- ✅ You are not deserializing the tool payload with default (PascalCase) options - the demo serializes results in **snake_case** (`is_mcp_call`), so a case-insensitive PascalCase deserialization silently yields `false`. This was the root cause of an earlier, wrong "HttpContext does not flow into tools" conclusion
+
+### Issue 11: `dotnet test` Rejects `--nologo` or Finds No Tests
+
+**Root Cause:** The solution runs on Microsoft.Testing.Platform (`global.json` → `"test": { "runner": "Microsoft.Testing.Platform" }`)
+
+**Solution:**
+```bash
+dotnet test --project tests/Zero.Mcp.Extensions.Tests
+dotnet test --project tests/McpPoc.Api.Tests
+```
+Do not pass `--nologo`.
+
 ---
 
 ## Critical Discoveries
 
-### 1. ActionResult Marshaller Bug
+### 1. ActionResult Marshaller Bug (historical, still true)
 
-**Issue:** Using `new ValueTask<object?>(result)` loses the value
+**Issue:** In the original custom marshaller, using `new ValueTask<object?>(result)` lost the value
 
-**Solution:** Use `ValueTask.FromResult(result)`
+**Solution:** Use `ValueTask.FromResult(result)` (today `MarshalResult.UnwrapAsync` is an `async ValueTask<object?>` method, which has the same effect)
 
 ```csharp
 // ❌ Wrong - loses value
@@ -2570,11 +3359,45 @@ options.TokenValidationParameters = new TokenValidationParameters
 };
 ```
 
-### 3. MCP SDK Metadata Collection
+### 3. The SDK Guards Authorization Metadata
 
-**Feature:** SDK automatically collects `[Authorize]` and `[Description]` attributes
+**Discovery:** A tool whose metadata contains `[Authorize]` (`IAuthorizeData`) in a server that did **not** call `AddAuthorizationFilters()` makes the SDK throw `InvalidOperationException` - it refuses to silently expose a tool that declares authorization it cannot enforce.
 
-The SDK introspects method attributes and includes them in tool metadata:
+**Consequence for the library:** `ToolMetadataBuilder.Build(method, includeAuthorization)` strips `IAuthorizeData`, `IAllowAnonymous`, `AuthorizationPolicy` and `IAuthorizationRequirementData` entries when `UseAuthorization` is `false`, and `AddZeroMcpExtensions` registers `AddAuthorizationFilters()` only when it is `true`. Both sides always agree.
+
+### 4. `outputSchema` Requires `UseStructuredContent = true`
+
+**Discovery:** Setting `OutputSchemaType` alone does nothing visible: the SDK only serializes `outputSchema` for tools that opt into structured content.
+
+```csharp
+[McpServerTool(Name = "UserGetById", UseStructuredContent = true, OutputSchemaType = typeof(User))]
+```
+
+`ToolCreateOptionsFactory` builds the schema with `AIJsonUtilities.CreateJsonSchema(schemaType, serializerOptions)` so property names follow the same snake_case serializer as the payload.
+
+### 5. HttpContext DOES Flow into Tools in Stateless Mode
+
+**Discovery:** Under SDK 2.2.0 stateless Streamable HTTP every `tools/call` runs inside its own HTTP request with the request's `ExecutionContext` and `RequestServices`. `IHttpContextAccessor` therefore sees the marker set by `UseZeroMcpMarking`, and `IMcpRequestContext.IsMcpCall` is `true` inside tools; `GetHeader("x-mcp-call")` returns `"true"`.
+
+An earlier version of this project documented the opposite ("HttpContext is not flowed to tool scopes"). That conclusion was a **test-side snake_case deserialization mistake** (`IsMcpCall` deserialized from an `is_mcp_call` payload with PascalCase options), not an SDK limitation. `McpRequestContextE2ETests.Should_ReportIsMcpCallTrue_WhenInvokedOverStatelessTransport` locks in the correct behaviour.
+
+### 6. Microsoft.Extensions.AI Awaits Before `MarshalResult`
+
+**Discovery (verified):** `AIFunctionFactory` awaits `Task<T>` / `ValueTask<T>` return values **before** invoking the `MarshalResult` delegate. The marshaller therefore receives the `ActionResult<T>` directly, never a `Task`. `MarshalResult.UnwrapAsync` still handles `Task`/`ValueTask` defensively, but that path is not exercised by controller tools.
+
+### 7. Test Runner Opt-In Lives in `global.json`
+
+**Discovery:** With xunit.v3 4.x the runner is selected globally:
+
+```json
+{ "test": { "runner": "Microsoft.Testing.Platform" } }
+```
+
+plus `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` and `<OutputType>Exe</OutputType>` in each test project. The CLI syntax changes to `dotnet test --project <dir>` and `--nologo` is rejected. `IAsyncLifetime` members return `ValueTask`, and `TestContext.Current.CancellationToken` is available for HTTP calls.
+
+### 8. MCP SDK Metadata Collection
+
+**Feature:** For the `AIFunction` overload of `McpServerTool.Create` the SDK does **not** read attributes, so the library builds the metadata list and the create options itself. The resulting `tools/list` entry for a controller action carries `[Description]` and the JSON Schema:
 
 ```csharp
 [HttpPost]
@@ -2603,7 +3426,9 @@ Generates tool schema:
 }
 ```
 
-### 4. MCP DTO Parameter Binding Requires Nesting
+The `[Authorize]` attribute is **not** part of the wire schema; it lives in `McpServerTool.Metadata` where the SDK authorization filters read it.
+
+### 9. MCP DTO Parameter Binding Requires Nesting
 
 **Critical Pattern:** MCP SDK requires DTOs to be nested inside parameter name wrapper
 
@@ -2634,22 +3459,23 @@ var args = new Dictionary<string, object?>
 };
 ```
 
-**Why:** ASP.NET Core infers `[FromBody]` for complex types, and MCP SDK uses the parameter name as a JSON property wrapper. This differs from HTTP API calls where the body is sent directly without a wrapper.
+**Why:** ASP.NET Core infers `[FromBody]` for complex types, and `AIFunctionFactory` uses the parameter name as a JSON property wrapper. This differs from HTTP API calls where the body is sent directly without a wrapper.
 
 **Rule:** Simple types (`int`, `string`) stay flat; complex types (DTOs) must be nested under their parameter name.
 
-### 5. Snake Case Conversion
+### 10. Snake Case Conversion
 
-**Feature:** MCP SDK converts C# method names to snake_case
+**Feature:** The library's `ToolNameGenerator` converts C# method names to snake_case (stripping an `Async` suffix)
 
 | C# Name | MCP Tool Name |
 |---------|---------------|
-| `GetById` | `get_by_id` |
+| `GetAll` | `get_all` |
 | `PromoteToManager` | `promote_to_manager` |
+| `GetById` with `Name = "UserGetById"` | `UserGetById` |
 
-This is automatic and cannot be disabled.
+An explicit `[McpServerTool(Name = "...")]` always wins; `ToolNamingConvention.ControllerPrefix` prepends the controller name (`users_get_all`).
 
-### 6. FromServices Not Supported in MCP Tools
+### 11. FromServices Not Supported in MCP Tools
 
 **Issue:** `[FromServices]` parameter attribute doesn't work in MCP context
 
@@ -2676,44 +3502,33 @@ public class UsersController : ControllerBase
 
     public async Task<ActionResult<User>> Create(CreateUserRequest request)
     {
-        var user = await _userService.CreateAsync(...);
+        var user = await _userService.CreateAsync(...).ConfigureAwait(false);
         // ...
     }
 }
 ```
 
-### 7. Client Credentials Has No User Context
+### 12. Password Grant Provides the User Context
 
-**Issue:** Token from client_credentials flow has no `preferred_username` claim
+**Issue:** A token without `preferred_username` cannot be mapped to an application role (the client_credentials flow is unavailable anyway: `mcppoc-api` is a public client)
 
-**Solution:** Use password grant for authorization tests
+**Solution:** Use the password grant for authorization tests
 
 ```csharp
-// ❌ Wrong - no user context
-var client = await _fixture.GetAuthenticatedClientAsync();
-
-// ✅ Correct - has preferred_username claim
+// ✅ Has preferred_username claim
 var client = await _fixture.GetAuthenticatedClientAsync("alice@example.com", "alice123");
 ```
 
-### 8. HttpContext.RequestServices Already Scoped
+### 13. HttpContext.RequestServices Already Scoped
 
-**Discovery:** No need for manual scope creation - `RequestServices` is already scoped
-
-The pre-filter uses `HttpContext.RequestServices` which is automatically scoped per request:
+**Discovery:** No need for manual scope creation - the service provider handed to the tool invocation is the request's `RequestServices`
 
 ```csharp
-private static object CreateControllerWithPreFilter(
-    IServiceProvider services,  // This is already HttpContext.RequestServices!
-    Type controllerType,
-    MethodInfo method)
-{
-    // No manual scope creation needed
-    return ActivatorUtilities.CreateInstance(services, controllerType);
-}
+// McpServerBuilderExtensions - target factory passed to AIFunctionFactory.Create
+args => ActivatorUtilities.CreateInstance(args.Services!, toolType)   // args.Services == RequestServices
 ```
 
-**Result:** Each MCP tool call gets a fresh scope, just like HTTP requests.
+**Result:** Each MCP tool call gets a fresh scope, just like HTTP requests (`DIScopingTests` verify distinct `request_id` values per call).
 
 ---
 
@@ -2722,33 +3537,34 @@ private static object CreateControllerWithPreFilter(
 This guide provides **complete, production-ready documentation** for integrating MCP with ASP.NET Core APIs:
 
 ✅ **Infrastructure** - Docker Compose with PostgreSQL + Keycloak
-✅ **MCP Server** - Custom extension with ActionResult unwrapping
-✅ **Controllers** - Dual protocol support (HTTP + MCP)
+✅ **MCP Server** - Official SDK 2.2.0 (Streamable HTTP, stateless) + Zero.Mcp.Extensions 3.0.0 with ActionResult unwrapping
+✅ **Controllers** - Dual protocol support (HTTP + MCP) with the SDK's own attributes
 ✅ **Authentication** - JWT Bearer with Keycloak OIDC
-✅ **Authorization** - Policy-based with role hierarchy
-✅ **Pre-Filter** - Authorization before controller creation
-✅ **Testing** - Complete infrastructure for both protocols
+✅ **Authorization** - The controllers' `[Authorize]` policies enforced by the SDK authorization filters; per-user `tools/list`, `Access forbidden` on `tools/call`
+✅ **Cache Hints & Structured Content** - `ttlMs` / `cacheScope`, `outputSchema` / `structuredContent`
+✅ **Testing** - xunit.v3 on Microsoft.Testing.Platform for both protocols
 ✅ **DI Scoping** - Verified for EF Core compatibility
-✅ **32/32 Tests Passing** - Full coverage
+✅ **99 unit + 59 E2E tests passing** - Full coverage, strict analyzer gate
 
 ### Key Takeaways
 
 1. **Seamless Integration** - Same controllers work for both HTTP and MCP
-2. **Pre-Filter Authorization** - Security checks BEFORE instantiation
-3. **ActionResult Unwrapping** - Custom marshaller extracts values
+2. **SDK-Native Authorization** - No custom auth layer; metadata + `AddAuthorizationFilters()`, fully async
+3. **ActionResult Unwrapping** - `MarshalResult` extracts values, `NotFound()`-style results become tool errors
 4. **DTO Nested Parameters** - Complex types must be nested under parameter name
-5. **Scoped Services** - Critical for EF Core and test isolation
-6. **No Code Duplication** - Single codebase, dual protocols
+5. **Scoped Services** - Controllers are created per call from the request scope
+6. **Stateless Transport** - No sessions, no sticky load balancing, HttpContext available inside tools
+7. **No Code Duplication** - Single codebase, dual protocols
 
 ### Next Steps
 
-- **Phase 5**: Implement Personal Access Token (PAT) system (design complete)
-- **Phase 6**: Add EF Core with real database (scoping proven ready)
-- **Phase 7**: Advanced authorization (claims, custom requirements)
-- **Production**: Deploy with verified security, PAT support, and scoping
+- **PAT**: Implement the Personal Access Token authentication scheme (design complete; authorization needs no change)
+- **EF Core**: Replace the in-memory `UserStore` with a real database (scoping proven ready)
+- **Advanced authorization**: claims-based requirements and resource-based policies (all evaluated by the same SDK filters)
+- **Production**: Deploy with verified security, stateless Streamable HTTP and cache hints
 
 ---
 
-**Version:** 1.0
-**Last Updated:** 2025-10-28
-**Status:** Production Ready ✅
+**Version:** 2.0
+**Last Updated:** 2026-09-14
+**Status:** Production Ready ✅ (Zero.Mcp.Extensions 3.0.0 / MCP C# SDK 2.2.0 / .NET 10)
