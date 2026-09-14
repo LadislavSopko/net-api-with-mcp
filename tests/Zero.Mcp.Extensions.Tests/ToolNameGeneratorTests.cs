@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using ModelContextProtocol.Server;
 using Xunit;
 
 namespace Zero.Mcp.Extensions.Tests;
@@ -112,5 +113,40 @@ public class ToolNameGeneratorTests
     {
         [McpServerTool]
         public string GetAll() => "All items";
+    }
+
+    [Fact]
+    public void Should_UseExplicitName_WhenSdkAttributeNameIsSet()
+    {
+        var method = typeof(SdkUsersController).GetMethod(nameof(SdkUsersController.GetById))!;
+        var options = new ZeroMcpOptions { NamingConvention = ToolNamingConvention.ControllerPrefix };
+
+        var result = ToolNameGenerator.GenerateName(method, typeof(SdkUsersController), options);
+
+        result.Should().Be("UserGetById", "an explicit Name on the SDK attribute always wins over the convention");
+    }
+
+    [Theory]
+    [InlineData(ToolNamingConvention.MethodOnly, "get_all")]
+    [InlineData(ToolNamingConvention.ControllerPrefix, "sdk_users_get_all")]
+    public void Should_UseConvention_WhenSdkAttributeNameIsNull(ToolNamingConvention convention, string expected)
+    {
+        var method = typeof(SdkUsersController).GetMethod(nameof(SdkUsersController.GetAll))!;
+        var options = new ZeroMcpOptions { NamingConvention = convention };
+
+        var result = ToolNameGenerator.GenerateName(method, typeof(SdkUsersController), options);
+
+        result.Should().Be(expected);
+    }
+
+    // Fixture decorated with the official SDK attributes (ModelContextProtocol.Server).
+    [McpServerToolType]
+    private class SdkUsersController
+    {
+        [McpServerTool(Name = "UserGetById")]
+        public string GetById(int id) => $"User {id}";
+
+        [McpServerTool]
+        public string GetAll() => "All users";
     }
 }

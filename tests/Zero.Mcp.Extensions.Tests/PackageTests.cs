@@ -29,8 +29,9 @@ public class PackageTests
         // Assert - Core interfaces and attributes
         publicTypes.Should().Contain(t => t.Name == "IAuthForMcpSupplier");
         publicTypes.Should().Contain(t => t.Name == "McpServerBuilderExtensions");
-        publicTypes.Should().Contain(t => t.Name == "McpServerToolTypeAttribute");
-        publicTypes.Should().Contain(t => t.Name == "McpServerToolAttribute");
+        // Attributes come from the SDK (ModelContextProtocol.Server) since 3.0.0 — no own copies shipped
+        publicTypes.Should().NotContain(t => t.Name == "McpServerToolTypeAttribute");
+        publicTypes.Should().NotContain(t => t.Name == "McpServerToolAttribute");
 
         // Assert - Configuration and endpoint mapping
         publicTypes.Should().Contain(t => t.Name == "ZeroMcpOptions");

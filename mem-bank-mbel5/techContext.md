@@ -4,7 +4,7 @@
 [STACK]{current:2026-09-14}
 @runtime::.NET§10.0.100{sdk-installed:10.0.401:global.json-pinned}
 @framework::AspNetCore§10.0.12✅
-@protocol::MCP§0.6.0-preview.1{→2.2.0:phase8}!
+@protocol::MCP§2.2.0{ModelContextProtocol+Core+AspNetCore:since-phase8-block-03:stateless-default}✅
 @auth::Keycloak§25.0.2{docker-image}{OAuth2+OIDC}
 @logging::Serilog§10.0.0
 @testing::xUnit.v3§4.0.1+AwesomeAssertions§9.6.0+NSubstitute§6.2.0+Test.Sdk§18.10.0✅

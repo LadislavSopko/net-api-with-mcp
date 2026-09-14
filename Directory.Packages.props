@@ -2,9 +2,9 @@
 <Project>
   <ItemGroup>
     <!-- API packages -->
-    <PackageVersion Include="ModelContextProtocol" Version="0.6.0-preview.1" />           <!-- moves to 2.2.0 in block 03 -->
-    <PackageVersion Include="ModelContextProtocol.Core" Version="0.6.0-preview.1" />
-    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="0.6.0-preview.1" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageVersion Include="ModelContextProtocol.Core" Version="2.2.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.17.3" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />

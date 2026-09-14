@@ -50,8 +50,8 @@ public static class McpServerBuilderExtensions
     }
 
     /// <summary>
-    /// Scans the assembly for controllers with [McpServerToolType] and registers methods
-    /// with [McpServerTool] as MCP tools, unwrapping ActionResult&lt;T&gt; responses and
+    /// Scans the assembly for controllers with the SDK [McpServerToolType] attribute and registers methods
+    /// with the SDK [McpServerTool] attribute (ModelContextProtocol.Server) as MCP tools, unwrapping ActionResult&lt;T&gt; responses and
     /// performing pre-filter authorization checks.
     /// </summary>
     private static IMcpServerBuilder WithToolsFromAssemblyUnwrappingActionResult(
@@ -129,41 +129,31 @@ public static class McpServerBuilderExtensions
             }
         }
 
-        // Add tools/list filter if enabled
+        // Add tools/list filter if enabled (SDK 2.x: filters are registered through WithRequestFilters)
         if (options.FilterToolsByPermissions)
         {
-            builder.AddListToolsFilter(next => async (request, cancellationToken) =>
+            builder.WithRequestFilters(filters => filters.AddListToolsFilter(next => async (context, cancellationToken) =>
             {
-                var result = await next(request, cancellationToken);
+                var result = await next(context, cancellationToken).ConfigureAwait(false);
 
                 // store must be registered if filtering is enabled
-                var store = request.Services?.GetRequiredService<IToolAuthorizationStore>();
+                var store = context.Services?.GetRequiredService<IToolAuthorizationStore>();
                 // IUserRoleResolver is optional but if not present it will not filter based on claims
-                var roleResolver = request.Services?.GetService<IUserRoleResolver>();
+                var roleResolver = context.Services?.GetService<IUserRoleResolver>();
 
                 // Try IUserRoleResolver first (application-provided), fall back to claim-based
-                int? userRole;
-                if (roleResolver != null && request.User != null)
-                {
-                    userRole = await roleResolver.GetUserRoleAsync(request.User);
-                }
-                else
-                {
-                    userRole = ToolListFilter.GetUserRole(request.User);
-                }
+                int? userRole = roleResolver is not null && context.User is not null
+                    ? await roleResolver.GetUserRoleAsync(context.User).ConfigureAwait(false)
+                    : ToolListFilter.GetUserRole(context.User);
 
                 var authorizedToolNames = ToolListFilter.FilterByRole(
                     result.Tools.Select(t => t.Name),
                     userRole,
-                    store).ToHashSet();
+                    store).ToHashSet(StringComparer.Ordinal);
 
-                return new ListToolsResult
-                {
-                    Tools = result.Tools
-                        .Where(t => authorizedToolNames.Contains(t.Name))
-                        .ToList()
-                };
-            });
+                result.Tools = result.Tools.Where(t => authorizedToolNames.Contains(t.Name)).ToList();
+                return result;
+            }));
         }
 
         return builder;
@@ -219,26 +209,6 @@ public static class McpServerBuilderExtensions
         return ActivatorUtilities.CreateInstance(services, controllerType);
     }
 
-}
-
-/// <summary>
-/// Marks a controller class as containing MCP server tools.
-/// </summary>
-[AttributeUsage(AttributeTargets.Class)]
-public class McpServerToolTypeAttribute : Attribute
-{
-}
-
-/// <summary>
-/// Marks a controller method as an MCP server tool.
-/// </summary>
-[AttributeUsage(AttributeTargets.Method)]
-public class McpServerToolAttribute : Attribute
-{
-    /// <summary>
-    /// Optional explicit name for the tool. If set, overrides the naming convention.
-    /// </summary>
-    public string? Name { get; set; }
 }
 
 /// <summary>

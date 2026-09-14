@@ -4,6 +4,7 @@ using McpPoc.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Zero.Mcp.Extensions;
+using ModelContextProtocol.Server;
 using System.ComponentModel;
 using Microsoft.Extensions.Primitives;
 

@@ -18,7 +18,7 @@ public static class ToolNameGenerator
     public static string GenerateName(MethodInfo method, Type controllerType, ZeroMcpOptions options)
     {
         // Check for explicit name in attribute first - always wins
-        var attribute = method.GetCustomAttribute<McpServerToolAttribute>();
+        var attribute = method.GetCustomAttribute<ModelContextProtocol.Server.McpServerToolAttribute>();
         if (!string.IsNullOrEmpty(attribute?.Name))
         {
             return attribute.Name;

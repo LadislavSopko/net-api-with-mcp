@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using ModelContextProtocol.Server;
 using NSubstitute;
 using System.Reflection;
@@ -180,6 +181,65 @@ public class McpServerBuilderExtensionsTests
         descriptor!.Lifetime.Should().Be(ServiceLifetime.Scoped);
     }
 
+    [Fact]
+    public void Should_RegisterOneMcpServerToolPerAttributedMethod_WhenScanningSdkAttributes()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Substitute.For<IAuthForMcpSupplier>());
+
+        services.AddZeroMcpExtensions(options => options.ToolAssembly = typeof(SdkScanFixture).Assembly);
+        var provider = services.BuildServiceProvider();
+
+        var names = provider.GetServices<McpServerTool>().Select(t => t.ProtocolTool.Name).ToList();
+        names.Should().Contain(["sdk_tool_one", "sdk_tool_two", "sdk_tool_three"],
+            "every method carrying the SDK [McpServerTool] attribute inside an SDK [McpServerToolType] class is registered");
+    }
+
+    [Fact]
+    public void Should_IgnoreMethods_WhenSdkToolAttributeIsMissing()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Substitute.For<IAuthForMcpSupplier>());
+
+        services.AddZeroMcpExtensions(options => options.ToolAssembly = typeof(SdkScanFixture).Assembly);
+        var provider = services.BuildServiceProvider();
+
+        var names = provider.GetServices<McpServerTool>().Select(t => t.ProtocolTool.Name).ToList();
+        names.Should().NotContain("not_a_tool");
+    }
+
+    [Theory]
+    [InlineData(true, 2)]
+    [InlineData(false, 1)]
+    public void Should_RegisterListToolsFilter_WhenFilterToolsByPermissionsIsTrue(bool filterToolsByPermissions, int expectedFilterCount)
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Substitute.For<IAuthForMcpSupplier>());
+
+        services.AddZeroMcpExtensions(options =>
+        {
+            options.ToolAssembly = typeof(SdkScanFixture).Assembly;
+            options.FilterToolsByPermissions = filterToolsByPermissions;
+        });
+        var provider = services.BuildServiceProvider();
+
+        // SDK 2.2.0: WithHttpTransport always installs one list-guard filter; ours is the second one.
+        var mcpOptions = provider.GetRequiredService<IOptions<McpServerOptions>>().Value;
+        mcpOptions.Filters.Request.ListToolsFilters.Should().HaveCount(expectedFilterCount);
+    }
+
+    [Fact]
+    public void Should_NotShipOwnAttributeTypes_WhenUsingSdkAttributes()
+    {
+        var assembly = typeof(ZeroMcpOptions).Assembly;
+
+        assembly.GetType("Zero.Mcp.Extensions.McpServerToolAttribute").Should().BeNull();
+        assembly.GetType("Zero.Mcp.Extensions.McpServerToolTypeAttribute").Should().BeNull();
+    }
+
     private static MethodInfo CreateMockMethod(string name)
     {
         // Return a method from AsyncMethodTestController if it exists, otherwise use reflection
@@ -238,4 +298,20 @@ internal class ExplicitNameTestController
     {
         return "Tool with explicit name";
     }
+}
+
+// Fixture decorated with the official SDK attributes (ModelContextProtocol.Server) for scanning tests.
+[McpServerToolType]
+internal class SdkScanFixture
+{
+    [McpServerTool]
+    public static string SdkToolOne() => "1";
+
+    [McpServerTool]
+    public static string SdkToolTwo() => "2";
+
+    [McpServerTool]
+    public static string SdkToolThree() => "3";
+
+    public static string NotATool() => "x";
 }

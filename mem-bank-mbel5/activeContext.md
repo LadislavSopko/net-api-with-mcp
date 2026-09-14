@@ -11,7 +11,7 @@
 @version::2.1.0{released}→?3.0.0{target}
 @status::Phase8-Upgrade{PLAN-approved:DEVELOP-not-started}
 
-⚡phase8::UpgradeToSdk2.2.0{DEVELOP:2/9-blocks:run-20260914-1620}
+⚡phase8::UpgradeToSdk2.2.0{DEVELOP:3/9-blocks:run-20260914-1620}
 ✅block01::migrate-test-stack-and-deps{COMPLETE:xunit.v3+AwesomeAssertions+NSubstitute}✅
 ✅phase7::ToolNaming+McpContext{COMPLETE:9-blocks:131-tests}✅
 ✅upgrade::.NET10{9.0→10.0:complete}✅
@@ -46,8 +46,8 @@
 [PHASE8_BLOCKS]
 ✅01::migrate-test-stack-and-deps{COMPLETE}✅
 ✅02::tool-metadata-builder{COMPLETE:ToolMetadataBuilder.cs:internal-static:Build(MethodInfo,includeAuthorization)→[MethodInfo,class-attrs,method-attrs]:strips-IAuthorizeData/IAllowAnonymous-when-false:7-tests}✅
-⚡03::upgrade-sdk-and-adopt-sdk-attributes{NEXT}
-?04::tool-create-options-factory
+✅03::upgrade-sdk-and-adopt-sdk-attributes{COMPLETE:ModelContextProtocol*→2.2.0:own-McpServerToolType/McpServerTool-attributes-DELETED:scanner+ToolNameGenerator-read-ModelContextProtocol.Server.*:tools/list-filter-via-WithRequestFilters(f=>f.AddListToolsFilter):custom-auth-STILL-present-until-block-05:8-tests}✅
+⚡04::tool-create-options-factory{NEXT}
 ?05::replace-custom-auth-with-sdk-filters
 ?06::tools-list-cache-hints
 ?07::stateless-and-output-schema-e2e
@@ -69,7 +69,7 @@
 @nuget::Zero.Mcp.Extensions{2.0.0+2.1.0:743-dl:0-issues:0-PRs}
 
 [NEXT]
-!next::j-cvm-exec-plan{block-03-upgrade-sdk-and-adopt-sdk-attributes:MCP-SDK→2.2.0:7-tests:docker-keycloak-up}
+!next::j-cvm-exec-plan{block-04-tool-create-options-factory:includeAuthorization:false-until-block-05:13-tests:docker-keycloak-up}
 ?then::j-close{merge-direct→main:publish-nuget.sh}
 ?later::git-crypt.key{delete-from-root-after-saving}
 ?later::ast-grep{install-for-lint-layer-2}
@@ -102,7 +102,7 @@
 
 [PHASE7_TDDAB_RESULTS]
 @blocks::9/9✅
-@tests::140-total{84-unit+56-E2E}✅
+@tests::148-total{92-unit+56-E2E}✅
 @loc::~350
 @version::2.1.0✅
 
