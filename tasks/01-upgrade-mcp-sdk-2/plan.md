@@ -91,12 +91,12 @@ await supplier.Received(1).CheckPolicyAsync(Arg.Any<AuthorizeAttribute>());   //
 If the SDK bump of the vendored folder makes `dotnet build` of the whole .slnx fail on 3rdp projects only, that is pre-existing and out of the gate: the gate builds `src/` and `tests/` projects (`dotnet build src/Zero.Mcp.Extensions src/McpPoc.Api tests/Zero.Mcp.Extensions.Tests tests/McpPoc.Api.Tests`).
 
 <success>
-- [ ] No reference to `Moq`, `FluentAssertions`, or `xunit` v2 packages remains in csproj/props, and no `using FluentAssertions;` remains in tests
-- [ ] `TestStackSmokeTests` both green
-- [ ] Every pre-existing test green after the tool-name expectation fixes, E2E included with Keycloak running (`docker compose -f docker/docker-compose.yml up -d`)
-- [ ] `dotnet list package --vulnerable` reports no high-severity package for src/ and tests/ except the MCP SDK line (handled in block 03)
-- [ ] `3rdp/csharp-sdk` is at tag v2.2.0
-- [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
+- [x] No reference to `Moq`, `FluentAssertions`, or `xunit` v2 packages remains in csproj/props, and no `using FluentAssertions;` remains in tests
+- [x] `TestStackSmokeTests` both green
+- [x] Every pre-existing test green after the tool-name expectation fixes, E2E included with Keycloak running (`docker compose -f docker/docker-compose.yml up -d`)
+- [x] `dotnet list package --vulnerable` reports no high-severity package for src/ and tests/ except the MCP SDK line (handled in block 03)
+- [x] `3rdp/csharp-sdk` is at tag v2.2.0
+- [x] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
 
@@ -140,9 +140,9 @@ internal static class ToolMetadataBuilder
 Test fixtures: a `[Authorize] class SampleController { [Authorize(Policy="RequireMember")][Description("d")] public void Create(){} [AllowAnonymous] public void Info(){} }` and `class Bare { public void Plain(){} }` inside the test file. Assert with `result[0].Should().BeSameAs(method)`, `result.OfType<AuthorizeAttribute>().Select(a => a.Policy).Should().ContainInOrder(null, "RequireMember")`.
 
 <success>
-- [ ] All 7 tests green
-- [ ] `ToolMetadataBuilder` is `internal static`, exposed to tests through the existing `InternalsVisibleTo` (add `<InternalsVisibleTo Include="Zero.Mcp.Extensions.Tests" />` to the library csproj if absent)
-- [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
+- [x] All 7 tests green
+- [x] `ToolMetadataBuilder` is `internal static`, exposed to tests through the existing `InternalsVisibleTo` (add `<InternalsVisibleTo Include="Zero.Mcp.Extensions.Tests" />` to the library csproj if absent)
+- [x] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
 
@@ -193,11 +193,11 @@ Delete the `McpServerToolTypeAttribute` and `McpServerToolAttribute` classes fro
 Compile guard: `CallToolResult`/`ListToolsResult` construction uses `Tools = [...]` list; `Tool.Name` is `required` in 2.2.0 — only relevant if tests construct `Tool` objects (`new Tool { Name = "x" }`).
 
 <success>
-- [ ] `dotnet build` of src/ and tests/ succeeds against ModelContextProtocol 2.2.0
-- [ ] Own attribute classes gone; demo compiles with SDK attributes
-- [ ] Unit + E2E suites green (Keycloak up)
-- [ ] `dotnet list package --vulnerable` clean for src/ and tests/
-- [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
+- [x] `dotnet build` of src/ and tests/ succeeds against ModelContextProtocol 2.2.0
+- [x] Own attribute classes gone; demo compiles with SDK attributes
+- [x] Unit + E2E suites green (Keycloak up)
+- [x] `dotnet list package --vulnerable` clean for src/ and tests/
+- [x] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
 
@@ -263,10 +263,10 @@ internal static class ToolCreateOptionsFactory
 `McpServerBuilderExtensions`: both registration lambdas become `McpServerTool.Create(aiFunction, ToolCreateOptionsFactory.Create(method, services, serializerOptions, includeAuthorization: false))` — the literal `false` is intentional in this block (see intro); block 05 replaces it with `options.UseAuthorization`. `AIJsonUtilities` is in `Microsoft.Extensions.AI` (already transitively referenced). Assert schema with `options.OutputSchema!.Value.GetProperty("properties").TryGetProperty("id", out _).Should().BeTrue()`.
 
 <success>
-- [ ] All 13 tests green
-- [ ] No registered `McpServerTool.Metadata` contains `IAuthorizeData` after this block (SDK guard filters must not fire)
-- [ ] E2E `McpToolDiscoveryTests`, `McpToolInvocationTests`, `PolicyAuthorizationTests` still green (Keycloak up) and tool descriptions unchanged
-- [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
+- [x] All 13 tests green
+- [x] No registered `McpServerTool.Metadata` contains `IAuthorizeData` after this block (SDK guard filters must not fire)
+- [x] E2E `McpToolDiscoveryTests`, `McpToolInvocationTests`, `PolicyAuthorizationTests` still green (Keycloak up) and tool descriptions unchanged
+- [x] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
 
@@ -315,10 +315,10 @@ await act.Should().ThrowAsync<McpProtocolException>().WithMessage("*Access forbi
 The allowed cases keep `result.IsError.Should().NotBe(true)`.
 
 <success>
-- [ ] The four library files and two demo files are deleted; library public surface reduced accordingly
-- [ ] Unit tests green; E2E PolicyAuthorizationTests + ToolVisibilityTests green with Keycloak
-- [ ] `Auth:Enabled=false` run of the demo lists and invokes every tool without a token (manual check: `dotnet run --project src/McpPoc.Api` with `Auth__Enabled=false`, `tools/list` returns all 9 tools)
-- [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
+- [x] The four library files and two demo files are deleted; library public surface reduced accordingly
+- [x] Unit tests green; E2E PolicyAuthorizationTests + ToolVisibilityTests green with Keycloak
+- [x] `Auth:Enabled=false` run of the demo lists and invokes every tool without a token (manual check: `dotnet run --project src/McpPoc.Api` with `Auth__Enabled=false`, `tools/list` returns all 9 tools)
+- [x] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
 
@@ -363,9 +363,9 @@ if (options.ToolsListTimeToLive is not null)
 The pure part is extracted as `internal static void Stamp(ListToolsResult result, TimeSpan? ttl, bool useAuthorization)` and `Apply` calls it after `next`. Unit tests target `Stamp` with `new ListToolsResult { Tools = [new Tool { Name = "a" }] }`; the "calls next exactly once" test targets `Apply` with a counting `next` lambda and a context obtained from a real `McpServer` created over an in-memory `Pipe` transport: `var server = McpServer.Create(new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()), new McpServerOptions());` then `new RequestContext<ListToolsRequestParams>(server, new JsonRpcRequest { Method = "tools/list" })` — note `serverOptions` is a required parameter of `McpServer.Create` in 2.2.0 (`Create(ITransport transport, McpServerOptions serverOptions, ILoggerFactory? = null, IServiceProvider? = null)`). `Apply` is also covered end-to-end. Demo `Program.cs`: `options.ToolsListTimeToLive = TimeSpan.FromMinutes(5);`.
 
 <success>
-- [ ] Unit tests on `Stamp` green; E2E TTL test green
-- [ ] Hint is absent from `tools/list` JSON when the option is null (existing discovery tests unchanged)
-- [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
+- [x] Unit tests on `Stamp` green; E2E TTL test green
+- [x] Hint is absent from `tools/list` JSON when the option is null (existing discovery tests unchanged)
+- [x] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
 
@@ -390,9 +390,9 @@ Files: `src/Zero.Mcp.Extensions/ZeroMcpOptions.cs`, `McpServerBuilderExtensions.
 `ZeroMcpOptions.SessionMode { get; set; } = HttpServerSessionMode.Stateless;` and `WithHttpTransport(o => o.SessionMode = options.SessionMode)`. Controller: `[McpServerTool(Name = "UserGetById", OutputSchemaType = typeof(User))]`. `McpClientHelper` already speaks the SDK client; for the stateful test use `ModelContextProtocol.Client.McpClient.CreateAsync` with `HttpClientTransport` against the factory's `HttpClient` and assert the session id is present through the transport (or read the raw initialize response with `HttpClient` and assert header `Mcp-Session-Id`).
 
 <success>
-- [ ] All new E2E tests green with Keycloak
-- [ ] Demo still works via Claude Code `.mcp.json` `poc` server after `dotnet run` (manual: `tools/list` returns 9 tools)
-- [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
+- [x] All new E2E tests green with Keycloak
+- [x] Demo still works via Claude Code `.mcp.json` `poc` server after `dotnet run` (manual: `tools/list` returns 9 tools)
+- [x] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
 
@@ -414,9 +414,9 @@ Files: `Directory.Build.props`, `.editorconfig`, `src/Zero.Mcp.Extensions/*.cs`,
 Every `await x` in library code → `.ConfigureAwait(false)`; `EndsWith(...)` → `EndsWith(..., StringComparison.Ordinal)`; `.Any()` on collections → `.Count > 0`; `loggerFactory.CreateLogger(typeof(T))` → `CreateLogger<T>()`. `Directory.Build.props`: `TreatWarningsAsErrors=true`, delete the `WarningsNotAsErrors` line and both TODO comments. `.editorconfig`: delete the trailing TODO block. Test projects: if xunit.v3 analyzers raise warnings, fix them rather than suppress.
 
 <success>
-- [ ] `dotnet build` of src/ and tests/ with zero warnings under the strict gate
-- [ ] No `TODO(lint-debt)` text remains in the repo (grep)
-- [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
+- [x] `dotnet build` of src/ and tests/ with zero warnings under the strict gate
+- [x] No `TODO(lint-debt)` text remains in the repo (grep)
+- [x] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
 
@@ -438,10 +438,10 @@ Files: `Version.props`, `README.md`, new `CHANGELOG.md`, `tests/Zero.Mcp.Extensi
 `Version.props`: `<MainVersion>3.0.0</MainVersion>`. `CHANGELOG.md` top entry `## 3.0.0 - 2026-09-14` with sections Breaking / Added / Changed / Dependencies. README: update Features (SDK-native authorization, OutputSchemaType, cache hints, stateless), Quick Start (steps 1-3), remove "Role-based tool filtering" custom section, add "Migration from 2.x". Memory Bank: `@version::3.0.0`, `@state::TEST` → set by j-close later; record SDK 2.2.0 patterns in `systemPatterns.md` and dependency table in `techContext.md`.
 
 <success>
-- [ ] `dotnet pack src/Zero.Mcp.Extensions -c Release` produces `Zero.Mcp.Extensions.3.0.0.nupkg`
-- [ ] PackageTests green; README grep test green
-- [ ] Memory Bank files updated and consistent with the code
-- [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
+- [x] `dotnet pack src/Zero.Mcp.Extensions -c Release` produces `Zero.Mcp.Extensions.3.0.0.nupkg`
+- [x] PackageTests green; README grep test green
+- [x] Memory Bank files updated and consistent with the code
+- [x] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
 

@@ -68,8 +68,8 @@ Tests: E2E (PolicyAuthorizationTests, ToolVisibilityTests, McpToolInvocationTest
 - [x] Solution proposed
 - [x] Plan created (tasks/01-upgrade-mcp-sdk-2/plan.md, 9 blocks)
 - [x] Plan reviewed twice (2026-09-14). Second review (vs-mcp + SDK v2.2.0 source cross-check) fixed: block 04 must wire `includeAuthorization: false` because SDK `WithHttpTransport` installs authorization guard filters that throw when `[Authorize]` metadata is present without `AddAuthorizationFilters()`; block 06 `McpServer.Create` needs the required `McpServerOptions` argument; block 05 forbidden-call E2E asserts a thrown `McpProtocolException` (SDK filter → JSON-RPC error), not `IsError`; filter-count RED tests use exact counts (SDK list guard is always present); real tool names are `UserGetById` + 8 snake_case incl. `echo_headers` (9 tools). Measured baseline: E2E 45/56 (11 stale-expectation failures fixed in block 01). Constraint from user: MCP authorization must follow the BE endpoint rules exactly — satisfied by SDK AddAuthorizationFilters evaluating the controller's own [Authorize]/[AllowAnonymous]/policies through the host IAuthorizationService.
-- [ ] Development done
-- [ ] Tested
+- [x] Development done (9/9 TDDAB blocks via CVM run-20260914-1620, commits 3ff616f..70488a1)
+- [x] Tested (2026-09-17 pre-merge gate: build 0 warnings x4 projects, unit 99/99, E2E 59/59 with Keycloak, dotnet format exit 0, ast-grep absent = skip)
 - [ ] Deployed
 
 ## TDDAB Rules Applied (read from tddab-planner.md + csharp-tddab-overlay.md on 2026-09-14)
