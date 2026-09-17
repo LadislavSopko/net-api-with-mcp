@@ -2,31 +2,13 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [STATUS]
-✅phase8::UpgradeToSdk2.2.0{COMPLETE:9/9-blocks:TEST:feature/laco/upgrade}✅
-✅post-phase8::ReleaseDocumentation{COMPLETE:9/14/2026:docs-3-files-rewritten:MCP-Integration-3570-lines:MCP-Authorization-SDK-native:Users-Permissions-9-tools:PAT-Design}✅
-✅post-phase8::MCP-POC-Setup{COMPLETE:.mcp.json-config:cvm+4-role-based-servers:admin/bob/alice/viewer:demo-service-detached:role-verification-9/8/7/6-tools}✅
-✅post-phase8::Async-Analysis{COMPLETE:MarshalResult-dead-code-found:ValueTask-pattern-documented:cleanup-optional}✅
-✅upgrade::.NET10{9.0→10.0.100:complete+verified}✅!
-✅phase5::COMPLETE{library-extraction:Zero.Mcp.Extensions-v2.0.0}✅
-✅phase7::COMPLETE{ToolNaming+McpContext:v2.1.0}✅!
+✅shipped::Zero.Mcp.Extensions§3.0.0{nuget.org:2026-09-17:MCP-SDK-2.2.0:SDK-native-authorization}✅
+✅phase8::UpgradeToSdk2.2.0{COMPLETE:9/9-blocks:merged→main:4c7f09e:details→history.md}✅
+✅phase5::LibraryExtraction{v2.0.0}✅ | ✅phase7::ToolNaming+McpContext{v2.1.0}✅ | ✅upgrade::.NET10✅
 ✗phase6::RoleBasedToolFiltering{SUPERSEDED←SDK-AddAuthorizationFilters}
 @tests::158/158{100%}✅{99-unit+59-E2E}
-@version::3.0.0✅
-@lint-gate::STRICT{TreatWarningsAsErrors:true:0-warnings:closed-phase8-block-08}✅
-@security-audit::NU1903{Microsoft.OpenApi-2.0.0-high+SourceLink-10.0.102-moderate}→fixed-in-phase8-block-01
-@infra::.ai-agent-submodule+git-crypt(.00-secrets/)+j-settings.md✅
-
-[PHASE8_PLAN]{2026-09-14:8/9-blocks}
-@plan::tasks/01-upgrade-mcp-sdk-2/plan.md{9-blocks:57-tests:reviewed✓}
-✅block01::test-stack+deps{xunit.v3§4.0.1+AwesomeAssertions§9.6.0+NSubstitute§6.2.0+deps:unit77+E2E56}✅
-✅block02::ToolMetadataBuilder{7-tests:unit84+E2E56}✅
-✅block03::SDK-2.2.0+SDK-attributes+WithRequestFilters{8-tests:unit92+E2E56}✅
-✅block04::ToolCreateOptionsFactory{13-tests:unit105+E2E56:includeAuthorization:false-until-block-05}✅
-✅block05::AddAuthorizationFilters{SDK-filters:delete-IAuthForMcpSupplier/PreFilter/ToolListFilter/IUserRoleResolver:tools/list-filtered:tools/call→McpProtocolException:unit90+E2E53}✅
-✅block06::ToolsListTimeToLive{ttlMs+cacheScope:Private|Public:6-tests:unit95+E2E54}✅
-✅block07::Stateless+OutputSchemaType-E2E{6-tests:unit96+E2E59:IsMcpCall-true-under-stateless}✅
-✅block08::lint-debt+TreatWarningsAsErrors:true{unit96+E2E59:0-warnings-4-projects}✅
-✅block09::release-3-0-0{Version-3-0-0:README-rewrite:CHANGELOG-added:PackageTests-updated:unit99+E2E59}✅
+@lint-gate::STRICT{TreatWarningsAsErrors:true:0-warnings-4-projects:ast-grep-absent}✅
+@infra::.ai-agent-submodule+git-crypt(.00-secrets/)+j-settings.md+cvm-mcp+4-role-poc-servers✅
 
 [METRICS]
 @tests::158/158{100%:ALL-PASSING}✅!
@@ -35,8 +17,8 @@
   59×McpPoc.Api.Tests✓
 }
 @library::Zero.Mcp.Extensions{v3.0.0:.NET10}✅
+@openapi::Scalar§2.17.3{modern-UI}✅
 @framework::.NET§10.0.100{LTS:3-years}✅
-@openapi::Scalar§2.12.11{modern-UI}✅
 
 [POC_VERDICT]
 ✅hypothesis::PROVEN{controllers-can-be-mcp-tools}
@@ -52,24 +34,8 @@
 ⚠️requirement::CustomMarshaller{ActionResult:needs-unwrapping:SDK-still-missing}
 ✅solution::WithToolsFromAssemblyUnwrappingActionResult{exists}
 
-[PHASE7_COMPLETE]
-✅status::COMPLETE{TDDAB:9-blocks:131-tests}✅!
-@problem1::GenericControllers{duplicate-tool-names}→SOLVED✅
-@problem2::HeaderAccess{need-mcp-call-detection}→SOLVED✅
-@solution1::ToolNamingConvention{ControllerPrefix:works}✅
-@solution2::IMcpRequestContext{+path-based-fallback}✅
-
-@block1::Options{enum+defaults:4-tests}✅
-@block2::ToolNameGenerator{core-logic:7-tests}✅
-@block3::BuilderIntegration{7-tests}✅
-@block4::IMcpRequestContext{interface+impl:7-tests}✅
-@block5::Middleware{x-mcp-call:3-tests}✅
-@block6::Registration{2-tests}✅
-@block7::E2E-ToolNaming{4-tests}✅
-@block8::E2E-McpContext{4-tests}✅
-@block9::VersionBump{2.1.0+pack}✅
-
 [CRITICAL_DISCOVERIES]
+!sdk-httpcontext::FLOWS-into-tools{SDK-2.2.0-stateless:RequestServices+request-ExecutionContext:IsMcpCall=true:verified-E2E:supersedes-the-old-NotFlowed-claim}✅
 !marshallerBug::new-ValueTask{loses-value}→ValueTask.FromResult{preserves}
 !audienceValidation::Keycloak{azp¬aud}→ValidateAudience:false
 !dnsPerformance::localhost{slow:NSPLookup}→127.0.0.1{fast:39ms}
@@ -85,26 +51,13 @@
 !swashbuckle10::Microsoft.OpenApi.Models{removed}→use-Scalar
 !genericControllers::DuplicateToolNames→SOLVED{ControllerPrefix}✅
 !headerAccess::Need-IMcpRequestContext→SOLVED{+path-fallback}✅
-!sdk-httpcontext::NotFlowed-to-tool-scopes{use:path-based-detection}!
 
 [READY_FOR]
 ✓efCore::AddDbContext{confidence:100%:scoping-proven}
-✅phase5::COMPLETE{library+viewer+tests}✅
-✅.NET10::COMPLETE{upgraded+verified}✅
-✅phase7::COMPLETE{ToolNaming+McpContext:v2.1.0}✅!
-⏸phase6::ToolFiltering{ready-to-resume}
+✗phase6::ToolFiltering{SUPERSEDED:SDK-AddAuthorizationFilters-ships-in-3.0.0}
 ?phase8::AdvancedAuth{custom-requirements+conditional-policies}
 ?production::Deploy{security:verified+scoping:verified}
 
 [TASK_FILES]
-@phase6::tasks/tddab-tool-filtering-by-permissions.md{paused}
-@phase7::tasks/tddab-tool-naming-and-mcp-context.md{COMPLETE}✅
-
-[V2.1.0_RELEASE_NOTES]
-@features::{
-  ToolNamingConvention::ControllerPrefix{generic-controllers}
-  IMcpRequestContext::header-access+mcp-detection
-  UseZeroMcpMarking::middleware{x-mcp-call-injection}
-  McpServerTool.Name::explicit-tool-naming
-}
-@package::Zero.Mcp.Extensions.2.1.0.nupkg✅
+@phase8::tasks/01-upgrade-mcp-sdk-2/{plan.md+notes.md:COMPLETE:all-checkboxes-ticked}✅
+@phase6::tasks/old/tddab-tool-filtering-by-permissions.md{superseded-by-SDK-filters}

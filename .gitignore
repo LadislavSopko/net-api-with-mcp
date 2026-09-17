@@ -288,3 +288,6 @@ git-crypt.key
 
 # CVM runtime state
 .cvm/
+
+# NuGet publish output
+nupkg/
