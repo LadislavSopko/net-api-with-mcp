@@ -2,11 +2,13 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [FOCUS]
-@state::IDLE{no-active-feature}
-@branch::main{feature/laco/upgrade:merged+kept-on-remote}
-@version::3.0.0{published:nuget.org:2026-09-17}✅
+@state::PLAN
+@bug::02-inherited-tool-authorize{github-issue-1:authorization-bypass}
+@branch::bugfix/02-inherited-tool-authorize
+@bug-notes::tasks/02-inherited-tool-authorize/bug-notes.md
+@bug-plan::tasks/02-inherited-tool-authorize/plan.md{4-blocks:awaiting-approval}
+@version::3.0.0{published:nuget.org:2026-09-17:AFFECTED}⚠
 @last-closed::01-upgrade-mcp-sdk-2{SDK-2.2.0-upgrade:9/9-blocks:details→history.md}
-@next::j-new-feature
 
 [SDK_2.2.0_FACTS]{verified-on-source}
 @filters::WithRequestFilters(f=>f.AddListToolsFilter|AddCallToolFilter){AddXxxFilter-on-builder:REMOVED}
