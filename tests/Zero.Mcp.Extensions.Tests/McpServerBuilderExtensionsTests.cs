@@ -316,6 +316,52 @@ public class McpServerBuilderExtensionsTests
         return services.BuildServiceProvider();
     }
 
+    [Fact]
+    public void Should_AttachDerivedControllerPolicy_WhenToolMethodIsInherited()
+    {
+        var provider = BuildProviderWithPrefixNaming(useAuthorization: true);
+
+        var tool = provider.GetServices<McpServerTool>()
+            .Single(t => t.ProtocolTool.Name == "admin_scan_fixture_run");
+
+        tool.Metadata.OfType<AuthorizeAttribute>().Select(a => a.Policy)
+            .Should().Contain("AdminOnly", "the scanned controller's policy must reach an inherited tool method");
+    }
+
+    [Fact]
+    public void Should_GiveEachControllerItsOwnPolicy_WhenTwoTypesShareABaseMethod()
+    {
+        var provider = BuildProviderWithPrefixNaming(useAuthorization: true);
+        var tools = provider.GetServices<McpServerTool>().ToList();
+
+        var adminPolicies = tools.Single(t => t.ProtocolTool.Name == "admin_scan_fixture_run")
+            .Metadata.OfType<AuthorizeAttribute>().Select(a => a.Policy).ToList();
+        var managerPolicies = tools.Single(t => t.ProtocolTool.Name == "manager_scan_fixture_run")
+            .Metadata.OfType<AuthorizeAttribute>().Select(a => a.Policy).ToList();
+
+        adminPolicies.Should().Contain("AdminOnly").And.NotContain("ManagerOnly");
+        managerPolicies.Should().Contain("ManagerOnly").And.NotContain("AdminOnly");
+        adminPolicies.Should().Contain("ReaderOrAbove", "the base policy still applies to both");
+        managerPolicies.Should().Contain("ReaderOrAbove");
+    }
+
+    // ControllerPrefix is load-bearing here: both fixtures inherit the SAME method, so under the default
+    // MethodOnly convention both tools would be named "run" and the SDK's McpServerOptionsSetup would
+    // silently drop the second one via TryAdd.
+    private static ServiceProvider BuildProviderWithPrefixNaming(bool useAuthorization)
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddAuthorization();
+        services.AddZeroMcpExtensions(options =>
+        {
+            options.ToolAssembly = typeof(SdkScanFixture).Assembly;
+            options.UseAuthorization = useAuthorization;
+            options.NamingConvention = ToolNamingConvention.ControllerPrefix;
+        });
+        return services.BuildServiceProvider();
+    }
+
     private static MethodInfo CreateMockMethod(string name)
     {
         // Return a method from AsyncMethodTestController if it exists, otherwise use reflection
@@ -409,4 +455,25 @@ internal sealed class DiScanFixture(IGreeter greeter)
     [McpServerTool(Name = "member_only"), Description("member only")]
     [Authorize(Policy = "RequireMember")]
     public string MemberOnly() => "m";
+}
+
+// Inherited-tool fixtures for GitHub issue #1: the tool method lives on the base, the policies differ
+// per derived controller, and neither derived type overrides the method.
+[Authorize(Policy = "ReaderOrAbove")]
+public abstract class InheritedToolBase
+{
+    [McpServerTool, Description("d")]
+    public virtual string Run() => "x";
+}
+
+[Authorize(Policy = "AdminOnly")]
+[McpServerToolType]
+internal sealed class AdminScanFixture : InheritedToolBase
+{
+}
+
+[Authorize(Policy = "ManagerOnly")]
+[McpServerToolType]
+internal sealed class ManagerScanFixture : InheritedToolBase
+{
 }

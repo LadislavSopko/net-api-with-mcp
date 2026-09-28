@@ -104,7 +104,7 @@ public static class McpServerBuilderExtensions
                                 SerializerOptions = serializerOptions
                             });
                         return McpServerTool.Create(aiFunction,
-                            ToolCreateOptionsFactory.Create(method, services, serializerOptions, options.UseAuthorization));
+                            ToolCreateOptionsFactory.Create(method, toolType, services, serializerOptions, options.UseAuthorization));
                     });
                 }
                 else
@@ -126,7 +126,7 @@ public static class McpServerBuilderExtensions
                             });
 
                         return McpServerTool.Create(aiFunction,
-                            ToolCreateOptionsFactory.Create(methodCopy, services, serializerOptions, options.UseAuthorization));
+                            ToolCreateOptionsFactory.Create(methodCopy, toolType, services, serializerOptions, options.UseAuthorization));
                     });
                 }
             }

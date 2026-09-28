@@ -22,7 +22,7 @@ public class ToolCreateOptionsFactoryTests
     private static MethodInfo Method(string name) => typeof(SampleController).GetMethod(name)!;
 
     private static McpServerToolCreateOptions Create(string method, bool includeAuthorization = true) =>
-        ToolCreateOptionsFactory.Create(Method(method), Services, SnakeCase, includeAuthorization);
+        ToolCreateOptionsFactory.Create(Method(method), typeof(SampleController), Services, SnakeCase, includeAuthorization);
 
     [Fact]
     public void Should_SetTitle_WhenAttributeHasTitle()
@@ -145,5 +145,38 @@ public class ToolCreateOptionsFactoryTests
 
         [McpServerTool(IconSource = "https://x/icon.png")]
         public ActionResult<string> WithIcon() => "x";
+    }
+
+    [Fact]
+    public void Should_UseScannedTypeForClassMetadata_WhenMethodIsInherited()
+    {
+        // Query is declared on InheritedBase; the scanned type is the derived controller.
+        var inherited = typeof(InheritedDerived).GetMethod(nameof(InheritedBase.Query))!;
+
+        var options = ToolCreateOptionsFactory.Create(inherited, typeof(InheritedDerived), Services, SnakeCase, includeAuthorization: true);
+
+        options.Metadata!.OfType<AuthorizeAttribute>().Select(x => x.Policy)
+            .Should().Contain("AdminOnly", "the factory must pass the scanned type down to the metadata builder");
+    }
+
+    [Fact]
+    public void Should_ThrowArgumentNull_WhenToolTypeIsNull()
+    {
+        var act = () => ToolCreateOptionsFactory.Create(Method(nameof(SampleController.Plain)), null!, Services, SnakeCase, includeAuthorization: true);
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("toolType");
+    }
+
+    [Authorize(Policy = "ReaderOrAbove")]
+    private abstract class InheritedBase
+    {
+        [McpServerTool, Description("q")]
+        public virtual ActionResult<string> Query() => "x";
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    private sealed class InheritedDerived : InheritedBase
+    {
+        // Query inherited, deliberately not overridden.
     }
 }

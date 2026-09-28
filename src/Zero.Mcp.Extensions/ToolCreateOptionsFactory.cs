@@ -22,22 +22,36 @@ internal static class ToolCreateOptionsFactory
     private const bool OpenWorldDefault = true;
     private const bool ReadOnlyDefault = false;
 
+    /// <summary>
+    /// Builds the tool creation options for one controller action.
+    /// </summary>
+    /// <param name="method">The controller action exposed as an MCP tool.</param>
+    /// <param name="toolType">
+    /// The controller type being scanned. Passed to <see cref="ToolMetadataBuilder.Build"/> so that a tool
+    /// method inherited from a base controller carries the class-level attributes of the controller that is
+    /// actually registered, not only those of the type that declares the method.
+    /// </param>
+    /// <param name="services">The service provider handed to the SDK for tool activation.</param>
+    /// <param name="serializerOptions">Serializer options used for arguments, results and the output schema.</param>
+    /// <param name="includeAuthorization">
+    /// When <see langword="false"/>, authorization metadata is stripped so the SDK authorization filters
+    /// see no policy on the tool.
+    /// </param>
     public static McpServerToolCreateOptions Create(
         MethodInfo method,
+        Type toolType,
         IServiceProvider services,
         JsonSerializerOptions serializerOptions,
         bool includeAuthorization)
     {
         ArgumentNullException.ThrowIfNull(method);
+        ArgumentNullException.ThrowIfNull(toolType);
 
         var options = new McpServerToolCreateOptions
         {
             Services = services,
             SerializerOptions = serializerOptions,
-            // ReflectedType is the type the MethodInfo was obtained from, i.e. the scanned controller
-            // even when the method itself is inherited. Block 02 replaces this with an explicit
-            // toolType parameter so the caller states the scanned type instead of inferring it.
-            Metadata = ToolMetadataBuilder.Build(method, method.ReflectedType ?? typeof(object), includeAuthorization),
+            Metadata = ToolMetadataBuilder.Build(method, toolType, includeAuthorization),
             Description = method.GetCustomAttribute<DescriptionAttribute>()?.Description,
         };
 
