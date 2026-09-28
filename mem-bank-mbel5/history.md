@@ -201,3 +201,43 @@
 
 @nuget::Zero.Mcp.Extensions{2.0.0+2.1.0:743-dl:0-issues:0-PRs}
 ⏸phase6::ToolFiltering{ready-to-resume}
+
+## 2026-09-28 — 02-inherited-tool-authorize (GitHub issue #1, authorization bypass)
+
+@closed::j-close{merged→main:361f651:pushed:nuget.org-3.0.1-published}
+@commits::9879460..361f651{8-commits:4-TDDAB-blocks-via-CVM-run-20260928-bug02}
+@gate::2026-09-28{build:0-warnings-4-projects:unit-114/114:E2E-63/63:dotnet-format-exit-0:ast-grep-absent-skip}
+@fix::class-attrs←scanned-toolType{¬method.DeclaringType}:Build(MethodInfo,Type,bool)+Create(method,toolType,...)
+
+### from activeContext.md
+
+[FOCUS]
+@state::TEST{cvm:run-20260928-bug02:4/4-blocks-COMPLETE:next-j-close}
+@bug::02-inherited-tool-authorize{github-issue-1:authorization-bypass}
+@branch::bugfix/02-inherited-tool-authorize
+@bug-notes::tasks/02-inherited-tool-authorize/bug-notes.md
+@bug-plan::tasks/02-inherited-tool-authorize/plan.md{4-blocks:reviewed✓:cvm-valid-28/28-red}
+[BUG02_BLOCKS]
+✅01::metadata-builder-uses-tooltype{COMPLETE:Build(MethodInfo,Type,bool):class-attrs←toolType¬DeclaringType:16-tests(7-existing+9-new):unit108+E2E59}✅
+✅02::thread-tooltype-through-registration{COMPLETE:Create(method,toolType,services,serializerOptions,includeAuth):both-paths-pass-toolType:ReflectedType-bridge-REMOVED:4-new-tests:unit112+E2E59}✅
+✅03::e2e-inherited-authorization{COMPLETE:ReportsControllerBase(abstract+[Authorize]+declares-tool)+AdminReportsController([Authorize(RequireAdmin)]+[McpServerToolType]+NO-override):admin_reports_summary:demo-9→10-tools:4-E2E+docs-4-places:unit112+E2E63}✅
+✅04::release-3-0-1{COMPLETE:MainVersion-3.0.1:CHANGELOG-3.0.1-entry+who-must-upgrade:auth-guide-"Inherited-Tool-Methods":package-README-section:csproj-ReleaseNotes:3-PackageTests:pack→3.0.1.nupkg}✅
+!rootcause::ToolMetadataBuilder{class-attrs←method.DeclaringType}→inherited-method:DeclaringType=BASE→derived-[Authorize]-LOST{GetCustomAttributes(inherit:true)-walks-UP-only}
+!probe::DeclaringType→[ReaderOrAbove] | toolType→[AdminOnly,ReaderOrAbove]{runtime-verified}
+!reflectedtype::MethodInfo.ReflectedType==scanned-type{even-for-inherited:probe-D2/B2}→used-as-block-01-bridge:block-02-replaces-with-explicit-param
+@version::3.0.0{published:nuget.org:2026-09-17:AFFECTED}⚠
+
+### from progress.md
+
+⚡pending-release::3.0.1{security-fix-issue-1:built+packed:awaiting-j-close→nuget}
+[BUG02_INHERITED_AUTHORIZE]{github-issue-1:2026-09-28}
+✅status::TEST{4/4-blocks-COMPLETE:cvm-run-20260928-bug02:branch-bugfix/02-inherited-tool-authorize}
+✅block01::ToolMetadataBuilder-uses-toolType{16-tests:unit108+E2E59:0-warnings}✅
+✅block02::thread-toolType-through-registration{4-new-tests:unit112+E2E59}✅
+✅block03::E2E-inherited-authorization{4-E2E+docs-updated}✅ | ✅block04::release-3.0.1{version+CHANGELOG+docs+3-PackageTests:pack-OK}✅
+@severity::authorization-bypass{inherited+non-overridden-tool-methods:derived-policy-ignored}
+@affects::3.0.0-on-nuget.org
+
+### superseded in place on 2026-09-28 (moved here verbatim)
+
+@last-closed::01-upgrade-mcp-sdk-2{SDK-2.2.0-upgrade:9/9-blocks:details→history.md}

@@ -92,4 +92,4 @@ Final: unit 114/114, E2E 63/63, 0 warnings on 4 projects, dotnet format clean.
 - [x] Bug reproduced (reflection probe + code isolation; regression test to be added in RED)
 - [x] Fix applied (blocks 01-02: metadata from the scanned type)
 - [x] Tested working (block 03 E2E with Keycloak roles: viewer and manager neither list nor call the inherited admin tool; admin does)
-- [ ] Deployed
+- [x] Deployed (2026-09-28: nuget.org 3.0.1 + snupkg published; main merged and pushed)
