@@ -135,12 +135,23 @@ The builder tests need an assembly-level fixture pair, because the scanner reads
 with `[McpServerTool(Name = "inherited_tool"), Description("d")] public virtual string Run() => "x";`,
 plus `[Authorize(Policy = "AdminOnly")] [McpServerToolType] internal sealed class AdminScanFixture :
 InheritedToolBase` and `[Authorize(Policy = "ManagerOnly")] [McpServerToolType] internal sealed class
-ManagerScanFixture : InheritedToolBase`. Both fixtures inherit the SAME method, so with the default `MethodOnly`
-convention they would both be named `run`; set
-`options.NamingConvention = ToolNamingConvention.ControllerPrefix` in these two tests so the tools are
-registered as `admin_scan_fixture_run` and `manager_scan_fixture_run` and stay distinguishable.
-(The name collision under `MethodOnly` is a separate, non-security defect — see the note at the end
-of this plan.)
+ManagerScanFixture : InheritedToolBase`.
+
+LOAD-BEARING DETAIL, do not simplify: both fixtures inherit the SAME method, so under the default
+`MethodOnly` convention both tools are named `run`. The SDK's `McpServerOptionsSetup` fills the tool
+collection with `toolCollection.TryAdd(tool)` (verified in the vendored SDK v2.2.0,
+`3rdp/csharp-sdk/src/ModelContextProtocol/McpServerOptionsSetup.cs:32`), so a duplicate name is
+SILENTLY DROPPED — no exception, the second fixture simply disappears and the two-policies test would
+fail for a reason that looks unrelated. Therefore these two tests MUST set
+`options.NamingConvention = ToolNamingConvention.ControllerPrefix`, which registers them as
+`admin_scan_fixture_run` and `manager_scan_fixture_run`. (The collision itself is a separate,
+non-security defect — see "Out of scope" at the end of this plan.)
+
+Second consequence of putting fixtures in the shared test assembly: every existing test that scans
+`typeof(SdkScanFixture).Assembly` will now also register these two tools. That is safe — the existing
+assertions use `Contain`, `NotContain`, `Single(name)` and `OnlyContain`, never an exact tool count
+(verified in `McpServerBuilderExtensionsTests.cs` lines 96, 116, 136, 181, 195, 265, 273) — but any
+NEW assertion added later must stay count-agnostic for the same reason.
 </intro>
 
 <red>
@@ -204,7 +215,16 @@ Files: new `src/McpPoc.Api/Controllers/ReportsControllerBase.cs`, new
 `tests/McpPoc.Api.Tests/InheritedToolAuthorizationTests.cs`,
 `tests/McpPoc.Api.Tests/ToolVisibilityTests.cs`, `tests/McpPoc.Api.Tests/McpToolDiscoveryTests.cs`.
 The demo tool inventory goes from 9 to 10 with `admin_reports_summary`, visible to admin only, so only
-the admin expectation changes: viewer 6, member 7, manager 8, admin 10. The base class is abstract and
+the admin expectation changes: viewer 6, member 7, manager 8, admin 10.
+
+The inventory is also stated in prose in four places that MUST be updated in this block, or the docs
+rewritten days ago go out of sync immediately (exact locations verified 2026-09-28):
+`README.md:98` ("| Admin | All 9, including `promote_to_manager` |"),
+`USERS-AND-PERMISSIONS.md` (the "MCP Tools and Required Roles" table plus the per-role sentence),
+`docs/MCP-AUTHORIZATION-COMPLETE-GUIDE.md:820` ("**Demo tool inventory (9 tools):** ...") and its
+per-role visibility table, and the stale comment `tests/McpPoc.Api.Tests/ToolVisibilityTests.cs:98`
+("Admin (role 3) should see all 9 tools"). The new tool is admin-only, so viewer/member/manager rows
+stay at 6/7/8 everywhere. The base class is abstract and
 has no `[McpServerToolType]`, so it is not scanned on its own. Demo logging must use the
 `LoggerMessage` source-generated methods in `src/McpPoc.Api/Infrastructure/Log.cs` if any log call is
 added, and library/demo code must keep `ConfigureAwait(false)` where awaits exist, to satisfy the
@@ -219,6 +239,7 @@ strict analyzer gate.
 - test: ToolVisibilityTests.Admin_Should_See_AllTools — expected list updated to the 10 tools including admin_reports_summary
 - test: ToolVisibilityTests viewer/member/manager expectations unchanged at 6/7/8 and must not contain admin_reports_summary
 - test: McpToolDiscoveryTests.Should_DiscoverToolsFilteredByRole_WhenListingTools — member count stays 7 and the list does not contain admin_reports_summary
+- test: no document still claims the demo exposes 9 tools — grep over README.md, USERS-AND-PERMISSIONS.md, docs/MCP-AUTHORIZATION-COMPLETE-GUIDE.md and tests/McpPoc.Api.Tests/ToolVisibilityTests.cs finds no "All 9", "9 tools" or "all 9 tools" claim, and each lists admin_reports_summary as admin-only
 </red>
 
 ### Implementation
@@ -271,7 +292,7 @@ Files: `Version.props`, `CHANGELOG.md`, `docs/MCP-AUTHORIZATION-COMPLETE-GUIDE.m
 
 <red>
 - test: PackageTests.Should_HaveVersion301_WhenPacked — typeof(ZeroMcpOptions).Assembly.GetName().Version has Major 3, Minor 0, Build 1
-- test: PackageTests.Should_DocumentInheritedAuthorization_WhenReadingReadme — the package README contains a statement that the class-level attributes of the scanned controller apply to inherited tool methods
+- test: PackageTests.Should_DocumentInheritedAuthorization_WhenReadingPackageReadme — reads the PACKAGE readme `src/Zero.Mcp.Extensions/README.md` (NOT the root one) and finds a statement that the class-level attributes of the scanned controller apply to inherited tool methods
 - test: PackageTests.Should_DependOnSdk2_WhenPacked — unchanged, still green
 - test: dotnet pack -c Release produces Zero.Mcp.Extensions.3.0.1.nupkg listing ModelContextProtocol 2.2.0
 </red>
@@ -286,6 +307,17 @@ upgrade, and notes there is no API change.
 the scanned type supplies the class-level attributes, that overriding the method is not required, and
 that the base policy still applies through `inherit: true`.
 `src/Zero.Mcp.Extensions/README.md`: one line in the authorization section with the same statement.
+
+Which README the test reads — the existing helper resolves the FIRST ancestor directory of
+`AppContext.BaseDirectory` that contains the given relative path, so bare `FindRepoFile("README.md")`
+returns the ROOT readme. The package readme must be addressed by its repo-relative path:
+
+```csharp
+var packageReadme = File.ReadAllText(FindRepoFile(Path.Combine("src", "Zero.Mcp.Extensions", "README.md")));
+packageReadme.Should().Contain("inherited", "the package README must document inherited tool methods");
+```
+The pre-existing `Should_DocumentSdkNativeAuthorization_WhenReadingReadme` keeps reading the root
+README and stays unchanged.
 
 <success>
 - [ ] PackageTests green and `dotnet pack -c Release` yields Zero.Mcp.Extensions.3.0.1.nupkg
