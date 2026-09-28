@@ -6,14 +6,22 @@
 ✅phase8::UpgradeToSdk2.2.0{COMPLETE:9/9-blocks:merged→main:4c7f09e:details→history.md}✅
 ✅phase5::LibraryExtraction{v2.0.0}✅ | ✅phase7::ToolNaming+McpContext{v2.1.0}✅ | ✅upgrade::.NET10✅
 ✗phase6::RoleBasedToolFiltering{SUPERSEDED←SDK-AddAuthorizationFilters}
-@tests::158/158{100%}✅{99-unit+59-E2E}
+@tests::167/167{100%}✅{108-unit+59-E2E}
 @lint-gate::STRICT{TreatWarningsAsErrors:true:0-warnings-4-projects:ast-grep-absent}✅
 @infra::.ai-agent-submodule+git-crypt(.00-secrets/)+j-settings.md+cvm-mcp+4-role-poc-servers✅
+
+[BUG02_INHERITED_AUTHORIZE]{github-issue-1:2026-09-28}
+⚡status::DEVELOP{1/4-blocks:cvm-run-20260928-bug02:branch-bugfix/02-inherited-tool-authorize}
+✅block01::ToolMetadataBuilder-uses-toolType{16-tests:unit108+E2E59:0-warnings}✅
+⚡block02::thread-toolType-through-registration{NEXT}
+?block03::E2E-inherited-authorization | ?block04::release-3.0.1
+@severity::authorization-bypass{inherited+non-overridden-tool-methods:derived-policy-ignored}
+@affects::3.0.0-on-nuget.org
 
 [METRICS]
 @tests::158/158{100%:ALL-PASSING}✅!
 @coverage::{
-  99×Zero.Mcp.Extensions.Tests✓
+  108×Zero.Mcp.Extensions.Tests✓
   59×McpPoc.Api.Tests✓
 }
 @library::Zero.Mcp.Extensions{v3.0.0:.NET10}✅

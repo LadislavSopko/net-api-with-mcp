@@ -34,7 +34,10 @@ internal static class ToolCreateOptionsFactory
         {
             Services = services,
             SerializerOptions = serializerOptions,
-            Metadata = ToolMetadataBuilder.Build(method, includeAuthorization),
+            // ReflectedType is the type the MethodInfo was obtained from, i.e. the scanned controller
+            // even when the method itself is inherited. Block 02 replaces this with an explicit
+            // toolType parameter so the caller states the scanned type instead of inferring it.
+            Metadata = ToolMetadataBuilder.Build(method, method.ReflectedType ?? typeof(object), includeAuthorization),
             Description = method.GetCustomAttribute<DescriptionAttribute>()?.Description,
         };
 

@@ -2,11 +2,25 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [FOCUS]
-@state::PLAN
+@state::DEVELOP{cvm:run-20260928-bug02:1/4-blocks}
 @bug::02-inherited-tool-authorize{github-issue-1:authorization-bypass}
 @branch::bugfix/02-inherited-tool-authorize
 @bug-notes::tasks/02-inherited-tool-authorize/bug-notes.md
-@bug-plan::tasks/02-inherited-tool-authorize/plan.md{4-blocks:awaiting-approval}
+@bug-plan::tasks/02-inherited-tool-authorize/plan.md{4-blocks:reviewed✓:cvm-valid-28/28-red}
+
+[BUG02_BLOCKS]
+✅01::metadata-builder-uses-tooltype{COMPLETE:Build(MethodInfo,Type,bool):class-attrs←toolType¬DeclaringType:16-tests(7-existing+9-new):unit108+E2E59}✅
+⚡02::thread-tooltype-through-registration{NEXT:factory-signature+both-registration-paths}
+?03::e2e-inherited-authorization{demo-base+AdminReportsController:9→10-tools:admin-only}
+?04::release-3-0-1{Version.props+CHANGELOG+docs+PackageTests}
+
+[BUG02_FACTS]
+!rootcause::ToolMetadataBuilder{class-attrs←method.DeclaringType}→inherited-method:DeclaringType=BASE→derived-[Authorize]-LOST{GetCustomAttributes(inherit:true)-walks-UP-only}
+!probe::DeclaringType→[ReaderOrAbove] | toolType→[AdminOnly,ReaderOrAbove]{runtime-verified}
+!reflectedtype::MethodInfo.ReflectedType==scanned-type{even-for-inherited:probe-D2/B2}→used-as-block-01-bridge:block-02-replaces-with-explicit-param
+!sdk-combine::AuthorizationFilterSetup{AuthorizationPolicy.CombineAsync(all-IAuthorizeData)}=MVC-semantics{derived+base-both-enforced}:vendored-3rdp/csharp-sdk@v2.2.0
+!sdk-tryadd::McpServerOptionsSetup{toolCollection.TryAdd}→duplicate-tool-name-SILENTLY-DROPPED{¬exception}:MethodOnly+same-inherited-method=collision→use-ControllerPrefix-in-scan-fixtures
+@affected::3.0.0{published-nuget:authorization-bypass-on-inherited-non-overridden-tools}⚠
 @version::3.0.0{published:nuget.org:2026-09-17:AFFECTED}⚠
 @last-closed::01-upgrade-mcp-sdk-2{SDK-2.2.0-upgrade:9/9-blocks:details→history.md}
 
