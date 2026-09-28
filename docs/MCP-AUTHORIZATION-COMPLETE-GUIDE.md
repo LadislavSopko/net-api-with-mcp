@@ -817,7 +817,9 @@ public record UpdateUserRequest(string Name, string Email);
 - `[AllowAnonymous]` on a method → the SDK skips authorization for that tool entirely (it checks for `IAllowAnonymous` anywhere in the metadata)
 - `[Description("...")]` → Shows in MCP tool listing
 
-**Demo tool inventory (9 tools):** `UserGetById`, `get_all`, `create`, `update`, `promote_to_manager`, `get_scope_id`, `get_public_info`, `get_mcp_context`, `echo_headers` (the demo controller has a few extra diagnostic tools not shown above).
+**Demo tool inventory (10 tools):** `UserGetById`, `get_all`, `create`, `update`, `promote_to_manager`, `get_scope_id`, `get_public_info`, `get_mcp_context`, `echo_headers`, `admin_reports_summary`.
+
+`admin_reports_summary` is the inherited-tool regression case: it is declared on the abstract `ReportsControllerBase` (class policy: plain `[Authorize]`) and inherited WITHOUT being overridden by `AdminReportsController`, whose class policy is `RequireAdmin`. The metadata builder reads class-level attributes from the SCANNED controller, so both policies reach the tool and the SDK combines them — a Manager therefore neither lists nor calls it.
 
 ---
 
@@ -845,7 +847,7 @@ public record UpdateUserRequest(string Name, string Email);
 }
 ```
 
-With `Auth:Enabled=false` the demo sets both `RequireAuthentication` and `UseAuthorization` to `false`: no authorization metadata is attached, no SDK filters are registered, and all 9 tools are listed and callable without a token.
+With `Auth:Enabled=false` the demo sets both `RequireAuthentication` and `UseAuthorization` to `false`: no authorization metadata is attached, no SDK filters are registered, and all 10 tools are listed and callable without a token.
 
 ---
 

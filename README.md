@@ -95,7 +95,9 @@ There is nothing MCP-specific to configure. The library attaches each controller
 | Viewer | `UserGetById`, `get_all`, `get_scope_id`, `get_public_info`, `get_mcp_context`, `echo_headers` |
 | Member | Above + `create` |
 | Manager | Above + `update` |
-| Admin | All 9, including `promote_to_manager` |
+| Admin | All 10, including `promote_to_manager` and `admin_reports_summary` |
+
+`admin_reports_summary` is declared on an abstract base controller and inherited without being overridden by `AdminReportsController`, which carries the stricter `RequireAdmin` policy: the class-level attributes of the SCANNED controller govern an inherited tool method, exactly as MVC governs the REST endpoint.
 
 A `tools/call` on a hidden tool returns a JSON-RPC error (`Access forbidden: This tool requires authorization.`). Set `UseAuthorization = false` to expose every tool without checks (the demo does this when `Auth:Enabled=false`).
 

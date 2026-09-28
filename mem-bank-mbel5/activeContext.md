@@ -2,7 +2,7 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [FOCUS]
-@state::DEVELOP{cvm:run-20260928-bug02:2/4-blocks}
+@state::DEVELOP{cvm:run-20260928-bug02:3/4-blocks}
 @bug::02-inherited-tool-authorize{github-issue-1:authorization-bypass}
 @branch::bugfix/02-inherited-tool-authorize
 @bug-notes::tasks/02-inherited-tool-authorize/bug-notes.md
@@ -11,8 +11,8 @@
 [BUG02_BLOCKS]
 ✅01::metadata-builder-uses-tooltype{COMPLETE:Build(MethodInfo,Type,bool):class-attrs←toolType¬DeclaringType:16-tests(7-existing+9-new):unit108+E2E59}✅
 ✅02::thread-tooltype-through-registration{COMPLETE:Create(method,toolType,services,serializerOptions,includeAuth):both-paths-pass-toolType:ReflectedType-bridge-REMOVED:4-new-tests:unit112+E2E59}✅
-⚡03::e2e-inherited-authorization{NEXT:demo-base+AdminReportsController:9→10-tools:admin-only}
-?04::release-3-0-1{Version.props+CHANGELOG+docs+PackageTests}
+✅03::e2e-inherited-authorization{COMPLETE:ReportsControllerBase(abstract+[Authorize]+declares-tool)+AdminReportsController([Authorize(RequireAdmin)]+[McpServerToolType]+NO-override):admin_reports_summary:demo-9→10-tools:4-E2E+docs-4-places:unit112+E2E63}✅
+⚡04::release-3-0-1{NEXT:Version.props+CHANGELOG+docs+PackageTests}
 
 [BUG02_FACTS]
 !rootcause::ToolMetadataBuilder{class-attrs←method.DeclaringType}→inherited-method:DeclaringType=BASE→derived-[Authorize]-LOST{GetCustomAttributes(inherit:true)-walks-UP-only}
@@ -21,6 +21,7 @@
 !sdk-combine::AuthorizationFilterSetup{AuthorizationPolicy.CombineAsync(all-IAuthorizeData)}=MVC-semantics{derived+base-both-enforced}:vendored-3rdp/csharp-sdk@v2.2.0
 !sdk-tryadd::McpServerOptionsSetup{toolCollection.TryAdd}→duplicate-tool-name-SILENTLY-DROPPED{¬exception}:MethodOnly+same-inherited-method=collision→use-ControllerPrefix-in-scan-fixtures
 @affected::3.0.0{published-nuget:authorization-bypass-on-inherited-non-overridden-tools}⚠
+@demo-tools::10{+admin_reports_summary:admin-only:inherited-from-ReportsControllerBase}:viewer6/member7/manager8/admin10
 @version::3.0.0{published:nuget.org:2026-09-17:AFFECTED}⚠
 @last-closed::01-upgrade-mcp-sdk-2{SDK-2.2.0-upgrade:9/9-blocks:details→history.md}
 

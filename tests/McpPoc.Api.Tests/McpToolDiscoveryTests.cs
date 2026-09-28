@@ -46,6 +46,7 @@ public sealed class McpToolDiscoveryTests : IAsyncLifetime
         // Member should NOT see higher-role tools
         toolNames.Should().NotContain("update", "Member cannot see Manager-level tools");
         toolNames.Should().NotContain("promote_to_manager", "Member cannot see Admin-level tools");
+        toolNames.Should().NotContain("admin_reports_summary", "Member cannot see the Admin-only inherited tool");
     }
 
     [Fact]

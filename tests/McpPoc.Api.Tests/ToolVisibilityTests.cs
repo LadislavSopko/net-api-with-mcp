@@ -60,6 +60,7 @@ public sealed class ToolVisibilityTests : IAsyncLifetime
         // Assert - Viewer (role 0) should only see tools with no minimum role requirement
         toolNames.Should().BeEquivalentTo(BaseTools,
             "Viewer should only see base tools without role requirements");
+        toolNames.Should().NotContain("admin_reports_summary", "the inherited tool requires Admin");
     }
 
     [Fact]
@@ -73,6 +74,7 @@ public sealed class ToolVisibilityTests : IAsyncLifetime
         string[] expected = [.. BaseTools, "create"];
         toolNames.Should().BeEquivalentTo(expected,
             "Member should see base tools and create");
+        toolNames.Should().NotContain("admin_reports_summary", "the inherited tool requires Admin");
     }
 
     [Fact]
@@ -86,6 +88,8 @@ public sealed class ToolVisibilityTests : IAsyncLifetime
         string[] expected = [.. BaseTools, "create", "update"];
         toolNames.Should().BeEquivalentTo(expected,
             "Manager should see base tools, create, and update");
+        toolNames.Should().NotContain("admin_reports_summary",
+            "a Manager satisfies the base [Authorize] but not the derived RequireAdmin policy");
     }
 
     [Fact]
@@ -95,8 +99,9 @@ public sealed class ToolVisibilityTests : IAsyncLifetime
         var tools = await _adminClient.ListToolsAsync();
         var toolNames = tools.Select(t => t.Name).ToArray();
 
-        // Assert - Admin (role 3) should see all 9 tools
-        string[] expected = [.. BaseTools, "create", "update", "promote_to_manager"];
+        // Assert - Admin (role 3) should see all 10 tools, including admin_reports_summary, which is
+        // inherited from ReportsControllerBase but governed by AdminReportsController's RequireAdmin policy
+        string[] expected = [.. BaseTools, "create", "update", "promote_to_manager", "admin_reports_summary"];
         toolNames.Should().BeEquivalentTo(expected,
             "Admin should see all tools");
     }

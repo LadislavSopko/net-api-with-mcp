@@ -45,8 +45,9 @@ Viewer (0)   → Can Read only (no write operations)
 | `create` | POST | Member+ | admin, user, alice, bob, carol (NOT viewer) |
 | `update` | PUT | Manager+ | admin, bob, carol (NOT viewer, user, alice) |
 | `promote_to_manager` | POST | Admin | admin, carol (NOT viewer, user, alice, bob) |
+| `admin_reports_summary` | GET | Admin | admin, carol — declared on a base controller, inherited by `AdminReportsController` whose class policy is `RequireAdmin` |
 
-The same rules drive both the HTTP endpoints and the MCP tools: `tools/list` only shows the tools the caller may invoke (viewer 6, member 7, manager 8, admin 9) and a `tools/call` on a hidden tool fails with `Access forbidden: This tool requires authorization.`
+The same rules drive both the HTTP endpoints and the MCP tools: `tools/list` only shows the tools the caller may invoke (viewer 6, member 7, manager 8, admin 10) and a `tools/call` on a hidden tool fails with `Access forbidden: This tool requires authorization.`
 
 ## Quick Reference
 
