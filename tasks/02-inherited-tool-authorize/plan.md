@@ -111,9 +111,9 @@ Assertions use `result.OfType<AuthorizeAttribute>().Select(a => a.Policy)` and
 `.Should().Equal(...)` on the projected policy list, as in the existing tests.
 
 <success>
-- [ ] All new tests green and the 7 pre-existing ToolMetadataBuilder tests still green
-- [ ] `grep -rn "DeclaringType" src/` returns 0 hits in the library
-- [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
+- [x] All new tests green and the 7 pre-existing ToolMetadataBuilder tests still green
+- [x] `grep -rn "DeclaringType" src/` returns 0 hits in the library
+- [x] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
 
@@ -195,9 +195,9 @@ ToolCreateOptionsFactory.Create(methodCopy, toolType, services, serializerOption
 closure copy is needed beyond the `methodCopy`/`toolNameCopy` ones already present.
 
 <success>
-- [ ] All new tests green; the 12 ToolCreateOptionsFactory tests and the whole McpServerBuilderExtensions suite still green
-- [ ] vs-mcp FindSymbolUsages on `ToolCreateOptionsFactory.Create` shows no caller left on the old 4-argument signature
-- [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
+- [x] All new tests green; the 12 ToolCreateOptionsFactory tests and the whole McpServerBuilderExtensions suite still green
+- [x] vs-mcp FindSymbolUsages on `ToolCreateOptionsFactory.Create` shows no caller left on the old 4-argument signature
+- [x] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
 
@@ -272,10 +272,10 @@ The E2E test class follows the existing pattern: `[Collection("McpApi")]`, `IAsy
 Before the fix these tests fail (manager and viewer both see and can call the tool); after it they pass.
 
 <success>
-- [ ] The 4 new E2E tests green with Keycloak running
-- [ ] ToolVisibilityTests at 6/7/8/10 and McpToolDiscoveryTests green
-- [ ] Full suites green, no pre-existing test disabled, skipped or weakened
-- [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
+- [x] The 4 new E2E tests green with Keycloak running
+- [x] ToolVisibilityTests at 6/7/8/10 and McpToolDiscoveryTests green
+- [x] Full suites green, no pre-existing test disabled, skipped or weakened
+- [x] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
 
@@ -320,9 +320,9 @@ The pre-existing `Should_DocumentSdkNativeAuthorization_WhenReadingReadme` keeps
 README and stays unchanged.
 
 <success>
-- [ ] PackageTests green and `dotnet pack -c Release` yields Zero.Mcp.Extensions.3.0.1.nupkg
-- [ ] CHANGELOG and authorization guide describe the fix and who must upgrade
-- [ ] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
+- [x] PackageTests green and `dotnet pack -c Release` yields Zero.Mcp.Extensions.3.0.1.nupkg
+- [x] CHANGELOG and authorization guide describe the fix and who must upgrade
+- [x] Green-gate BTLT passes — build + tests + lint + typecheck (configured commands, skip n/a)
 </success>
 </block>
 
