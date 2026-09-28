@@ -291,3 +291,4 @@ git-crypt.key
 
 # NuGet publish output
 nupkg/
+.cvm
