@@ -974,6 +974,45 @@ flowchart TD
 
 Authorization attributes are collected with `inherit: true`, so attributes on a base controller class also apply.
 
+### Inherited Tool Methods
+
+The class-level attributes come from the **scanned** controller — the one carrying `[McpServerToolType]` —
+and NOT from the type that declares the method. This matters when a tool method lives on a base
+controller and the derived controller does not override it:
+
+```csharp
+[Authorize]                                   // weak policy, on the base
+public abstract class ReportsControllerBase : ControllerBase
+{
+    [McpServerTool(Name = "admin_reports_summary"), Description("Returns a report summary")]
+    public virtual ActionResult<ReportSummary> Summary() => Ok(...);
+}
+
+[Authorize(Policy = PolicyNames.RequireAdmin)] // stricter policy, on the scanned controller
+[McpServerToolType]
+public sealed class AdminReportsController : ReportsControllerBase
+{
+    // Summary is inherited and NOT overridden.
+}
+```
+
+`ToolMetadataBuilder.Build(method, toolType, includeAuthorization)` reads the class attributes from
+`toolType`, so the metadata carries `RequireAdmin` (from the derived controller) and the base
+`[Authorize]`; `AuthorizationPolicy.CombineAsync` then requires both, exactly as MVC does for
+`GET /api/admin-reports/summary`. Declaring the stricter policy on the derived class is enough —
+overriding the method is not required.
+
+| Scanned controller | Declaring type | Effective requirement |
+|--------------------|----------------|-----------------------|
+| `[Authorize(RequireAdmin)]` derived | `[Authorize]` base | Authenticated **and** `RequireAdmin` |
+| derived with no attribute | `[Authorize(RequireMember)]` base | `RequireMember` (inherited) |
+| `[AllowAnonymous]` derived | `[Authorize]` base | None — `[AllowAnonymous]` anywhere short-circuits |
+
+> **Before 3.0.1** the attributes were read from `method.DeclaringType`. Since
+> `GetCustomAttributes(inherit: true)` only walks UP the hierarchy, the derived controller's policy was
+> dropped for inherited methods and the weaker base policy was enforced — an authorization bypass over
+> `/mcp` for endpoints that REST correctly rejected (GitHub issue #1).
+
 ### Role Hierarchy
 
 ```mermaid

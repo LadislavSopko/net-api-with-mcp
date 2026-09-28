@@ -2,6 +2,24 @@
 
 All notable changes to Zero.Mcp.Extensions are documented here.
 
+## 3.0.1 - 2026-09-28
+
+Security fix. No API change: upgrade is a drop-in replacement for 3.0.0.
+
+### Fixed
+
+- **Authorization bypass on inherited tool methods** (GitHub issue #1). Class-level attributes were
+  collected from the type that DECLARES the tool method instead of the controller being scanned. For a
+  method inherited from a base controller and not overridden, the derived controller's `[Authorize]`
+  was silently dropped, so the MCP authorization filters enforced only the weaker base policy: a tool
+  that REST answers with 403 was listed in `tools/list` and callable over `/mcp` by a less-privileged
+  user. The metadata now comes from the scanned controller, and `inherit: true` still contributes the
+  base policy, so the SDK combines both exactly as MVC does.
+
+**Who must upgrade:** any project whose MCP controllers inherit tool methods from a base controller
+and declare per-controller policies. If every tool method is declared directly on the controller that
+carries `[McpServerToolType]`, 3.0.0 was already behaving correctly.
+
 ## 3.0.0 - 2026-09-14
 
 Built on the official MCP C# SDK **2.2.0**. Breaking release.

@@ -9,6 +9,7 @@ Built on the official [MCP C# SDK](https://github.com/modelcontextprotocol/cshar
 - Turn attributed controllers into MCP tools automatically using the SDK's own `[McpServerToolType]` / `[McpServerTool]` (`ModelContextProtocol.Server`)
 - `ActionResult<T>` unwrapping (including `Ok(null)` for nullable types) - the SDK's `WithToolsFromAssembly` does not do this
 - SDK-native authorization: `[Authorize]`, policies and `[AllowAnonymous]` on your controllers are enforced by the SDK `AddAuthorizationFilters()` through your `IAuthorizationService`
+- Inherited tool methods follow the SCANNED controller: a tool declared on a base controller and inherited without being overridden carries the class-level attributes of the derived controller that is registered, so a stricter `[Authorize]` there is enforced (fixed in 3.0.1)
 - Per-user `tools/list` filtering and JSON-RPC error on forbidden `tools/call`
 - Full passthrough of the SDK tool attribute: `Name`, `Title`, `ReadOnly` / `Destructive` / `Idempotent` / `OpenWorld` hints, `IconSource`, `UseStructuredContent`, `OutputSchemaType`
 - Structured content and output schema for tools that opt in
@@ -105,6 +106,33 @@ app.MapZeroMcp();
 ```
 
 That's it. Your API now speaks MCP at `/mcp`.
+
+## Inherited Tool Methods
+
+A tool method declared on a base controller and inherited by a derived controller — without being
+overridden — is governed by the class-level attributes of the SCANNED controller, exactly as ASP.NET
+MVC governs the corresponding REST endpoint. Declaring a stricter policy on the derived class is
+enough; you do not need to override the method.
+
+```csharp
+[Authorize]                                  // weak policy on the base
+public abstract class ReportsControllerBase : ControllerBase
+{
+    [McpServerTool(Name = "admin_reports_summary"), Description("Returns a report summary")]
+    public virtual ActionResult<ReportSummary> Summary() => Ok(...);
+}
+
+[Authorize(Policy = "RequireAdmin")]         // stricter policy on the scanned controller
+[McpServerToolType]
+public sealed class AdminReportsController : ReportsControllerBase
+{
+    // Summary is inherited, not overridden — RequireAdmin still applies to the tool.
+}
+```
+
+Both policies reach the tool metadata (`inherit: true` keeps the base one) and the SDK combines them
+like MVC does, so the caller must satisfy both. Before 3.0.1 the derived policy was dropped for
+inherited methods, which let less-privileged users list and call such tools over `/mcp`.
 
 ## Configuration Options
 

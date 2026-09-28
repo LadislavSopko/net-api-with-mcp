@@ -11,7 +11,7 @@
     <PackageTags>mcp;model-context-protocol;aspnetcore;api;authorization;authentication;ai;llm;tools</PackageTags>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v3.0.0 (breaking): built on ModelContextProtocol 2.2.0; SDK attributes replace the library's own; custom auth supplier/role resolver removed in favour of SDK AddAuthorizationFilters(); FilterToolsByPermissions removed; new ToolsListTimeToLive cache hints, SessionMode (stateless default), Title/hints/IconSource/UseStructuredContent/OutputSchemaType passthrough. See CHANGELOG.md for migration steps.</PackageReleaseNotes>
+    <PackageReleaseNotes>v3.0.1 (security fix, drop-in for 3.0.0): a tool method inherited from a base controller now carries the class-level [Authorize] of the SCANNED controller, closing an authorization bypass where the derived policy was dropped and tools/list + tools/call enforced only the weaker base policy (GitHub issue #1). No API change. See CHANGELOG.md.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

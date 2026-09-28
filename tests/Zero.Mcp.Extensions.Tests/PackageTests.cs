@@ -70,6 +70,26 @@ public class PackageTests
     }
 
     [Fact]
+    public void Should_HaveVersion301_WhenPacked()
+    {
+        var version = typeof(ZeroMcpOptions).Assembly.GetName().Version!;
+
+        version.Major.Should().Be(3);
+        version.Minor.Should().Be(0);
+        version.Build.Should().Be(1, "3.0.1 is the patch that closes the inherited-authorization bypass");
+    }
+
+    [Fact]
+    public void Should_DocumentInheritedAuthorization_WhenReadingPackageReadme()
+    {
+        // The PACKAGE readme, not the root one: FindRepoFile walks up until the relative path exists.
+        var packageReadme = File.ReadAllText(FindRepoFile(Path.Combine("src", "Zero.Mcp.Extensions", "README.md")));
+
+        packageReadme.Should().Contain("inherited",
+            "the package README must state that inherited tool methods take the scanned controller's class-level attributes");
+    }
+
+    [Fact]
     public void Should_DependOnSdk2_WhenPacked()
     {
         var sdkCore = typeof(ModelContextProtocol.Server.McpServerTool).Assembly.GetName();

@@ -2,7 +2,7 @@
 @purpose::AIMemoryEncoding{compression%75,fidelity%100}
 
 [FOCUS]
-@state::DEVELOP{cvm:run-20260928-bug02:3/4-blocks}
+@state::TEST{cvm:run-20260928-bug02:4/4-blocks-COMPLETE:next-j-close}
 @bug::02-inherited-tool-authorize{github-issue-1:authorization-bypass}
 @branch::bugfix/02-inherited-tool-authorize
 @bug-notes::tasks/02-inherited-tool-authorize/bug-notes.md
@@ -12,7 +12,7 @@
 ✅01::metadata-builder-uses-tooltype{COMPLETE:Build(MethodInfo,Type,bool):class-attrs←toolType¬DeclaringType:16-tests(7-existing+9-new):unit108+E2E59}✅
 ✅02::thread-tooltype-through-registration{COMPLETE:Create(method,toolType,services,serializerOptions,includeAuth):both-paths-pass-toolType:ReflectedType-bridge-REMOVED:4-new-tests:unit112+E2E59}✅
 ✅03::e2e-inherited-authorization{COMPLETE:ReportsControllerBase(abstract+[Authorize]+declares-tool)+AdminReportsController([Authorize(RequireAdmin)]+[McpServerToolType]+NO-override):admin_reports_summary:demo-9→10-tools:4-E2E+docs-4-places:unit112+E2E63}✅
-⚡04::release-3-0-1{NEXT:Version.props+CHANGELOG+docs+PackageTests}
+✅04::release-3-0-1{COMPLETE:MainVersion-3.0.1:CHANGELOG-3.0.1-entry+who-must-upgrade:auth-guide-"Inherited-Tool-Methods":package-README-section:csproj-ReleaseNotes:3-PackageTests:pack→3.0.1.nupkg}✅
 
 [BUG02_FACTS]
 !rootcause::ToolMetadataBuilder{class-attrs←method.DeclaringType}→inherited-method:DeclaringType=BASE→derived-[Authorize]-LOST{GetCustomAttributes(inherit:true)-walks-UP-only}
