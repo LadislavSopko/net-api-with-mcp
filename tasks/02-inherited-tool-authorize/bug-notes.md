@@ -77,10 +77,19 @@ Plan: `tasks/02-inherited-tool-authorize/plan.md` — TDDAB, 4 blocks, awaiting 
 01 ToolMetadataBuilder takes the scanned toolType · 02 thread it through the factory and both
 registration paths · 03 E2E proof with an inherited admin-only tool in the demo · 04 release 3.0.1.
 
-<!-- implementation notes filled during DEVELOP -->
+Implemented 2026-09-28 via CVM run-20260928-bug02, 4/4 blocks, commits 78ea589..65b8ef4.
+- `ToolMetadataBuilder.Build(MethodInfo, Type toolType, bool)` reads class attributes from the scanned
+  type; `inherit: true` still contributes the base policy and the SDK combines both like MVC.
+- `ToolCreateOptionsFactory.Create` takes the scanned type and both registration paths pass the
+  `toolType` already used for the tool name, so name and authorization now come from one type.
+- Demo gained `ReportsControllerBase` (abstract, weak `[Authorize]`, declares the tool) and
+  `AdminReportsController` (`RequireAdmin`, `[McpServerToolType]`, inherits without overriding):
+  `admin_reports_summary`, admin-only. Demo inventory 9 to 10 tools.
+- Released as 3.0.1 (patch: both touched types are internal, no API change).
+Final: unit 114/114, E2E 63/63, 0 warnings on 4 projects, dotnet format clean.
 
 ## Verification
 - [x] Bug reproduced (reflection probe + code isolation; regression test to be added in RED)
-- [ ] Fix applied
-- [ ] Tested working
+- [x] Fix applied (blocks 01-02: metadata from the scanned type)
+- [x] Tested working (block 03 E2E with Keycloak roles: viewer and manager neither list nor call the inherited admin tool; admin does)
 - [ ] Deployed
